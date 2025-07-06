@@ -212,26 +212,26 @@ Tab:CreateInput({
 })
 
 Tab:CreateButton({
-    Name = "Teleport Up (+50)",
+    Name = "Teleport Up",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local pos = char.HumanoidRootPart.Position
-                char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 50, 0))
+                char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 350, 0))
             end
         end)
     end
 })
 
 Tab:CreateButton({
-    Name = "Teleport Down (-50)",
+    Name = "Teleport Down",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local pos = char.HumanoidRootPart.Position
-                char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
+                char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 350, 0))
             end
         end)
     end
