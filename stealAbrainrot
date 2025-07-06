@@ -50,12 +50,14 @@ until LocalPlayer or timeout > 5
 local basePosition = Vector3.new(0, 10, 0)
 local originalSpeed = 16
 local isTweening = false
+local isNoClipping = false
 
 -- Anti-cheat bypass functions
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
+local Heartbeat = game:GetService("RunService").Heartbeat
 
--- Anti-kick system
+-- Advanced anti-kick system
 local function antiKick()
     local mt = getrawmetatable(game)
     local old = mt.__namecall
@@ -70,8 +72,16 @@ local function antiKick()
     setreadonly(mt, true)
 end
 
--- Anti-detection for teleport
-local function safeTeleport(targetPosition)
+-- Network ownership bypass
+local function bypassNetworkOwnership(part)
+    if part and part.Parent then
+        part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    end
+end
+
+-- Advanced teleport with position spoofing
+local function advancedTeleport(targetPosition)
     if isTweening then return end
     isTweening = true
     
@@ -82,26 +92,70 @@ local function safeTeleport(targetPosition)
     end
     
     local hrp = char.HumanoidRootPart
-    local distance = (hrp.Position - targetPosition).Magnitude
+    local humanoid = char.Humanoid
+    local startPos = hrp.Position
     
-    -- Calculate safe tween time based on distance
-    local tweenTime = math.max(distance / 50, 0.5) -- Minimum 0.5 seconds
+    -- Disable collision during teleport
+    local originalCanCollide = {}
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            originalCanCollide[part] = part.CanCollide
+            part.CanCollide = false
+        end
+    end
     
-    local tweenInfo = TweenInfo.new(
-        tweenTime,
-        Enum.EasingStyle.Linear,
-        Enum.EasingDirection.InOut,
-        0,
-        false,
-        0
-    )
+    -- Create smooth path with multiple waypoints
+    local distance = (startPos - targetPosition).Magnitude
+    local waypoints = math.ceil(distance / 50) -- Waypoint every 50 studs
+    local currentWaypoint = 1
     
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPosition)})
-    tween:Play()
+    local function moveToNextWaypoint()
+        if currentWaypoint > waypoints then
+            -- Restore collision
+            for part, canCollide in pairs(originalCanCollide) do
+                if part.Parent then
+                    part.CanCollide = canCollide
+                end
+            end
+            isTweening = false
+            return
+        end
+        
+        local progress = currentWaypoint / waypoints
+        local waypoint = startPos:lerp(targetPosition, progress)
+        
+        -- Add small random offset to simulate natural movement
+        waypoint = waypoint + Vector3.new(
+            math.random(-2, 2),
+            math.random(-1, 1),
+            math.random(-2, 2)
+        )
+        
+        local tweenInfo = TweenInfo.new(
+            0.3, -- Short segments
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.InOut
+        )
+        
+        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(waypoint)})
+        
+        -- Bypass network ownership during tween
+        local connection
+        connection = Heartbeat:Connect(function()
+            bypassNetworkOwnership(hrp)
+        end)
+        
+        tween:Play()
+        tween.Completed:Connect(function()
+            connection:Disconnect()
+            currentWaypoint = currentWaypoint + 1
+            wait(0.05) -- Small delay between waypoints
+            moveToNextWaypoint()
+        end)
+    end
     
-    tween.Completed:Connect(function()
-        isTweening = false
-    end)
+    -- Start the waypoint sequence
+    moveToNextWaypoint()
 end
 
 -- Initialize anti-kick
@@ -220,13 +274,13 @@ Tab:CreateInput({
 })
 
 Tab:CreateButton({
-    Name = "Safe Teleport to Base",
+    Name = "Advanced Safe Teleport",
     Callback = function()
         pcall(function()
-            safeTeleport(basePosition)
+            advancedTeleport(basePosition)
             Rayfield:Notify({
-                Title = "Safe Teleport",
-                Content = "Walking to base safely...",
+                Title = "Advanced Teleport",
+                Content = "Moving naturally to base...",
                 Duration = 2,
                 Image = 4483362458
             })
