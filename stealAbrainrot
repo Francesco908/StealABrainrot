@@ -1,253 +1,69 @@
--- Main Bypass Rayfield UI Script
 -- Script for Steal A Brainrot
 -- by ZNFPRO
+-- Using Neverlose UI by Mana42138
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
-local player = game.Players.LocalPlayer
+local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
 local defaultSpeed = humanoid.WalkSpeed
 local savedPosition = nil
 
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+-- Load Neverlose UI from GitHub repo
+local Neverlose_Main = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mana42138/Neverlose-UI/main/Source.lua"))()
+local window = Neverlose_Main:Main("Steal A Brainrot - by ZNFPRO", Color3.fromRGB(0,120,255)) -- blue theme
 
-local Window = Rayfield:CreateWindow({
-    Name = "Main Bypass",
-    LoadingTitle = "Loading Script for Steal A Brainrot...",
-    LoadingSubtitle = "by ZNFPRO",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "MainBypass",
-        FileName = "Config"
-    },
-    Discord = {
-        Enabled = false,
-    },
-    KeySystem = false,
-})
+local mainPage = window:Page("Main")
 
-local Tab = Window:CreateTab("Main Features", 4483362458)
-local NoClipTab = Window:CreateTab("No Clip", 4483362458)
-
--- Speed Boost 45%
+-- Speed Boost Toggle
 local speedBoostEnabled = false
-local function setSpeedBoost(state)
+mainPage:Switch("Speed Boost +45%", false, function(state)
     speedBoostEnabled = state
-    if state then
+    if speedBoostEnabled then
         humanoid.WalkSpeed = defaultSpeed * 1.45
-        Rayfield:Notify({
-            Title = "Script for Steal A Brainrot",
-            Content = "Speed Boost +45% enabled!",
-            Duration = 3,
-        })
+        Neverlose_Main:Notification("Speed Boost Enabled!")
     else
         humanoid.WalkSpeed = defaultSpeed
-        Rayfield:Notify({
-            Title = "Script for Steal A Brainrot",
-            Content = "Speed Boost disabled!",
-            Duration = 3,
-        })
+        Neverlose_Main:Notification("Speed Boost Disabled!")
     end
-end
+end)
 
-Tab:CreateToggle({
-    Name = "Speed Boost +45%",
-    CurrentValue = false,
-    Callback = function(Value)
-        setSpeedBoost(Value)
-    end,
-})
-
--- Keep speed boost even if holding tools
+-- Maintain speed boost even when holding tools
 RunService.Stepped:Connect(function()
     if speedBoostEnabled and humanoid.WalkSpeed ~= defaultSpeed * 1.45 then
         humanoid.WalkSpeed = defaultSpeed * 1.45
     end
 end)
 
--- Set Teleport Point
-Tab:CreateButton({
-    Name = "📍 Set Teleport Point",
-    Callback = function()
+-- Set Teleport Point Button
+mainPage:Button("Set Teleport Point", function()
+    character = player.Character or player.CharacterAdded:Wait()
+    hrp = character:WaitForChild("HumanoidRootPart")
+    savedPosition = hrp.CFrame
+    Neverlose_Main:Notification("Teleport Point Saved!")
+end)
+
+-- Teleport To Point Button (walking speed)
+mainPage:Button("Teleport To Point (Walking Speed)", function()
+    if savedPosition then
         character = player.Character or player.CharacterAdded:Wait()
         hrp = character:WaitForChild("HumanoidRootPart")
-        savedPosition = hrp.CFrame
-        Rayfield:Notify({
-            Title = "Script for Steal A Brainrot",
-            Content = "Teleport point saved!",
-            Duration = 3,
-        })
-    end,
-})
 
--- Teleport to saved point with super speed (speed 200)
-Tab:CreateButton({
-    Name = "🚀 Teleport To Point (Speed 200 Bypass)",
-    Callback = function()
-        if savedPosition then
-            character = player.Character or player.CharacterAdded:Wait()
-            hrp = character:WaitForChild("HumanoidRootPart")
+        local distance = (hrp.Position - savedPosition.p).Magnitude
+        local walkSpeed = 16 -- walk speed
+        local duration = distance / walkSpeed
+        local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = savedPosition})
 
-            local duration = (hrp.Position - savedPosition.p).Magnitude / 200 -- time to move at speed 200
-            local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-            local tween = TweenService:Create(hrp, tweenInfo, {CFrame = savedPosition})
+        tween:Play()
+        tween.Completed:Wait()
 
-            -- Enable NoClip while teleporting
-            local noClipConnection
-            noClipConnection = RunService.Stepped:Connect(function()
-                for _, part in pairs(character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end)
-
-            tween:Play()
-            tween.Completed:Wait()
-
-            noClipConnection:Disconnect()
-
-            -- Restore collisions after teleport
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
-            end
-
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "Teleported with speed 200 bypass!",
-                Duration = 3,
-            })
-        else
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "No teleport point saved!",
-                Duration = 3,
-            })
-        end
-    end,
-})
-
--- NoClip v1 (optimized)
-local noClipEnabled = false
-local noClipConnection
-NoClipTab:CreateToggle({
-    Name = "NoClip v1 (Optimized)",
-    CurrentValue = false,
-    Callback = function(value)
-        noClipEnabled = value
-        if value then
-            noClipConnection = RunService.Stepped:Connect(function()
-                if character and character.Parent then
-                    for _, part in pairs(character:GetChildren()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                        end
-                    end
-                    -- Prevent Humanoid from falling or reacting badly
-                    humanoid.PlatformStand = true
-                    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-                else
-                    noClipConnection:Disconnect()
-                end
-            end)
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "NoClip v1 enabled!",
-                Duration = 3,
-            })
-        else
-            if noClipConnection then
-                noClipConnection:Disconnect()
-                noClipConnection = nil
-            end
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
-            end
-            humanoid.PlatformStand = false
-            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "NoClip v1 disabled!",
-                Duration = 3,
-            })
-        end
-    end,
-})
-
--- Invisible Player (bypass)
-local invisibleEnabled = false
-InvisibleFunc = nil
-NoClipTab:CreateToggle({
-    Name = "Invisible Player",
-    CurrentValue = false,
-    Callback = function(value)
-        invisibleEnabled = value
-        if value then
-            -- Make character parts transparent and disable collisions (bypass)
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.Transparency = 1
-                    part.CanCollide = false
-                elseif part:IsA("Decal") or part:IsA("Texture") then
-                    part.Transparency = 1
-                elseif part:IsA("Accessory") then
-                    if part:FindFirstChildWhichIsA("BasePart") then
-                        part:FindFirstChildWhichIsA("BasePart").Transparency = 1
-                    end
-                elseif part:IsA("BillboardGui") or part:IsA("SurfaceGui") then
-                    part.Enabled = false
-                end
-            end
-
-            -- Disable character's face and body colors if possible
-            if character:FindFirstChild("Head") then
-                local head = character.Head
-                for _, child in pairs(head:GetChildren()) do
-                    if child:IsA("Decal") then
-                        child.Transparency = 1
-                    end
-                end
-            end
-
-            humanoid.PlatformStand = true
-            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "Invisible Player enabled!",
-                Duration = 3,
-            })
-        else
-            -- Restore transparency and collisions
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.Transparency = 0
-                    part.CanCollide = true
-                elseif part:IsA("Decal") or part:IsA("Texture") then
-                    part.Transparency = 0
-                elseif part:IsA("Accessory") then
-                    if part:FindFirstChildWhichIsA("BasePart") then
-                        part:FindFirstChildWhichIsA("BasePart").Transparency = 0
-                    end
-                elseif part:IsA("BillboardGui") or part:IsA("SurfaceGui") then
-                    part.Enabled = true
-                end
-            end
-            humanoid.PlatformStand = false
-            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "Invisible Player disabled!",
-                Duration = 3,
-            })
-        end
-    end,
-})
+        Neverlose_Main:Notification("Teleported at walking speed!")
+    else
+        Neverlose_Main:Notification("No teleport point saved!")
+    end
+end)
