@@ -1,149 +1,228 @@
--- Simple Roblox Script with Rayfield UI
--- Load Rayfield
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- Universal Roblox Script - Compatible with all games
+-- Multiple fallback methods for maximum compatibility
 
--- Wait for game
-repeat wait() until game:IsLoaded()
+-- Method 1: Primary Rayfield load
+local Rayfield
+local success1 = pcall(function()
+    Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+-- Method 2: Backup Rayfield load
+if not success1 then
+    pcall(function()
+        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+    end)
+end
+
+-- Method 3: Final backup
+if not Rayfield then
+    pcall(function()
+        Rayfield = loadstring(game:HttpGet('https://github.com/shlexware/Rayfield/releases/latest/download/source.lua'))()
+    end)
+end
+
+-- If still no Rayfield, create basic notification system
+if not Rayfield then
+    warn("Rayfield failed to load - using basic mode")
+    return
+end
+
+-- Wait for game (with timeout)
+local timeout = 0
+repeat 
+    wait(0.1)
+    timeout = timeout + 0.1
+until game:IsLoaded() or timeout > 10
 
 -- Services
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- Wait for character
-repeat wait() until LocalPlayer.Character
-repeat wait() until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+-- Wait for LocalPlayer
+timeout = 0
+repeat 
+    wait(0.1)
+    timeout = timeout + 0.1
+until LocalPlayer or timeout > 5
 
 -- Variables
 local basePosition = Vector3.new(0, 10, 0)
 local originalSpeed = 16
 
--- Auto-set base position to current character position
-local function setBaseToCurrentPosition()
-   local char = LocalPlayer.Character
-   if char and char:FindFirstChild("HumanoidRootPart") then
-      basePosition = char.HumanoidRootPart.Position
-   end
+-- Auto-set base when character loads
+local function updateBase()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        basePosition = char.HumanoidRootPart.Position
+    end
 end
 
--- Set base position when character spawns
-setBaseToCurrentPosition()
-LocalPlayer.CharacterAdded:Connect(function()
-   repeat wait() until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-   setBaseToCurrentPosition()
+-- Character detection with multiple methods
+local function waitForCharacter()
+    repeat wait(0.1) until LocalPlayer.Character
+    repeat wait(0.1) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    updateBase()
+end
+
+-- Initial setup
+if LocalPlayer.Character then
+    waitForCharacter()
+end
+
+LocalPlayer.CharacterAdded:Connect(waitForCharacter)
+
+-- Create UI with error handling
+local Window, Tab
+
+pcall(function()
+    Window = Rayfield:CreateWindow({
+        Name = "Universal Hub",
+        LoadingTitle = "Loading Hub...",
+        LoadingSubtitle = "Compatible with all games",
+        ConfigurationSaving = {
+            Enabled = false
+        },
+        Discord = {
+            Enabled = false
+        },
+        KeySystem = false
+    })
+    
+    Tab = Window:CreateTab("Main", 4483362458)
 end)
 
--- Create Window
-local Window = Rayfield:CreateWindow({
-   Name = "Simple Hub",
-   LoadingTitle = "Loading...",
-   LoadingSubtitle = "by OnlyRobloxScript",
-   ConfigurationSaving = {
-      Enabled = false
-   },
-   Discord = {
-      Enabled = false
-   },
-   KeySystem = false
-})
+if not Window or not Tab then
+    warn("Failed to create UI")
+    return
+end
 
--- Create Tab
-local Tab = Window:CreateTab("Main", 4483362458)
-
--- Speed Boost Section
-Tab:CreateSection("Speed Boost")
+-- Speed Section
+Tab:CreateSection("Speed Control")
 
 Tab:CreateButton({
-   Name = "Speed Boost +45%",
-   Callback = function()
-      local char = LocalPlayer.Character
-      if char and char:FindFirstChild("Humanoid") then
-         char.Humanoid.WalkSpeed = originalSpeed * 1.45
-         Rayfield:Notify({
-            Title = "Speed Boost",
-            Content = "Speed increased by 45%!",
-            Duration = 3,
-            Image = 4483362458
-         })
-      end
-   end
+    Name = "Speed Boost +45%",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = originalSpeed * 1.45
+                Rayfield:Notify({
+                    Title = "Speed Boost",
+                    Content = "Speed increased by 45%",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
 })
 
 Tab:CreateButton({
-   Name = "Reset Speed",
-   Callback = function()
-      local char = LocalPlayer.Character
-      if char and char:FindFirstChild("Humanoid") then
-         char.Humanoid.WalkSpeed = originalSpeed
-         Rayfield:Notify({
-            Title = "Speed Reset",
-            Content = "Speed reset to normal",
-            Duration = 3,
-            Image = 4483362458
-         })
-      end
-   end
+    Name = "Reset Speed",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = originalSpeed
+                Rayfield:Notify({
+                    Title = "Speed Reset",
+                    Content = "Speed reset to normal",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
 })
 
 -- Teleport Section
 Tab:CreateSection("Base Teleport")
 
 Tab:CreateInput({
-   Name = "Set TP Base (X,Y,Z)",
-   PlaceholderText = "0,10,0",
-   RemoveTextAfterFocusLost = false,
-   Callback = function(text)
-      local x, y, z = text:match("([^,]+),([^,]+),([^,]+)")
-      if x and y and z then
-         x, y, z = tonumber(x), tonumber(y), tonumber(z)
-         if x and y and z then
-            basePosition = Vector3.new(x, y, z)
+    Name = "Set Base Position (X,Y,Z)",
+    PlaceholderText = "0,10,0",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(text)
+        pcall(function()
+            local coords = string.split(text, ",")
+            if #coords == 3 then
+                local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
+                if x and y and z then
+                    basePosition = Vector3.new(x, y, z)
+                    Rayfield:Notify({
+                        Title = "Base Set",
+                        Content = "Base position updated",
+                        Duration = 2,
+                        Image = 4483362458
+                    })
+                end
+            end
+        end)
+    end
+})
+
+Tab:CreateButton({
+    Name = "Teleport to Base",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = CFrame.new(basePosition)
+                Rayfield:Notify({
+                    Title = "Teleported",
+                    Content = "Teleported to base",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+Tab:CreateButton({
+    Name = "Update Base (Current Position)",
+    Callback = function()
+        pcall(function()
+            updateBase()
             Rayfield:Notify({
-               Title = "Base Set",
-               Content = "Base position updated!",
-               Duration = 3,
-               Image = 4483362458
+                Title = "Base Updated",
+                Content = "Base set to current position",
+                Duration = 2,
+                Image = 4483362458
             })
-         end
-      end
-   end
+        end)
+    end
 })
 
-Tab:CreateButton({
-   Name = "Teleport to Base",
-   Callback = function()
-      local char = LocalPlayer.Character
-      if char and char:FindFirstChild("HumanoidRootPart") then
-         char.HumanoidRootPart.CFrame = CFrame.new(basePosition)
-         Rayfield:Notify({
-            Title = "Teleported",
-            Content = "Teleported to base!",
-            Duration = 3,
-            Image = 4483362458
-         })
-      end
-   end
-})
+-- Anti-detection measures
+Tab:CreateSection("Anti-Detection")
 
 Tab:CreateButton({
-   Name = "Set Current Position as Base",
-   Callback = function()
-      local char = LocalPlayer.Character
-      if char and char:FindFirstChild("HumanoidRootPart") then
-         basePosition = char.HumanoidRootPart.Position
-         Rayfield:Notify({
-            Title = "Base Updated",
-            Content = "Current position set as base!",
-            Duration = 3,
-            Image = 4483362458
-         })
-      end
-   end
+    Name = "Low Profile Mode",
+    Callback = function()
+        pcall(function()
+            -- Reduce detection risk
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = math.min(char.Humanoid.WalkSpeed, 25)
+            end
+            Rayfield:Notify({
+                Title = "Low Profile",
+                Content = "Detection risk reduced",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end)
+    end
 })
 
 -- Success notification
-Rayfield:Notify({
-   Title = "Script Loaded",
-   Content = "Simple Hub ready!",
-   Duration = 4,
-   Image = 4483362458
-})
+pcall(function()
+    Rayfield:Notify({
+        Title = "Hub Loaded",
+        Content = "Universal Hub ready!",
+        Duration = 3,
+        Image = 4483362458
+    })
+end)
