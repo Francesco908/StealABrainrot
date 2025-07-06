@@ -1,75 +1,151 @@
-local SolarisLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/sol"))()
+-- Carichiamo Rayfield UI
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
-local win = SolarisLib:New({
-  Name = "My Script UI",
-  FolderToSave = "MyScriptUIStuff"
+local Window = Rayfield:CreateWindow({
+    Name = "Script Base",
+    LoadingTitle = "Caricamento...",
+    LoadingSubtitle = "By SKIBIDI",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil, -- Se vuoi un folder specifico
+        FileName = "Config"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "",
+        RememberJoins = true
+    },
+    KeySystem = false
 })
 
-local tab = win:Tab("Main")
+-- TAB principale
+local MainTab = Window:CreateTab("Main")
 
-local sec = tab:Section("Player Controls")
+-- SEZIONE teleport e boost
+local TPSection = MainTab:CreateSection("Teleport & Boost")
 
--- Bottone che stampa in output e mostra notifica
-sec:Button("Test Button", function()
-  print("Button clicked!")
-  SolarisLib:Notification("Button", "You clicked the button!")
-end)
+-- Teleport to player dropdown
+local players = game:GetService("Players")
 
--- Toggle che abilita/disabilita una funzione, es: cammina più veloce
-local speedToggle = sec:Toggle("Speed Boost", false, "SpeedBoostToggle", function(state)
-  if state then
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 32
-    SolarisLib:Notification("Speed Boost", "Speed boost enabled!")
-  else
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
-    SolarisLib:Notification("Speed Boost", "Speed boost disabled!")
-  end
-end)
+local playerDropdown = MainTab:CreateDropdown({
+    Name = "Seleziona Player",
+    Options = {},
+    Flag = "PlayerDropdown",
+    Callback = function(selected)
+        print("Player scelto:", selected)
+    end
+})
 
--- Slider per modificare la velocità in modo preciso
-local speedSlider = sec:Slider("Walk Speed", 16, 100, 16, 1, "WalkSpeedSlider", function(value)
-  game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
-  print("WalkSpeed set to:", value)
-end)
+-- Funzione per aggiornare la lista dei giocatori nel dropdown
+local function updatePlayers()
+    local plrs = {}
+    for _,plr in pairs(players:GetPlayers()) do
+        if plr ~= players.LocalPlayer then
+            table.insert(plrs, plr.Name)
+        end
+    end
+    playerDropdown:UpdateOptions(plrs)
+end
 
--- Dropdown per selezionare modalità di gioco o opzioni
-local dropdown = sec:Dropdown("Select Mode", {"Normal", "Stealth", "Aggressive"}, "Normal", "GameModeDropdown", function(option)
-  print("Selected mode:", option)
-  SolarisLib:Notification("Mode Changed", "You selected: "..option)
-end)
+updatePlayers()
+players.PlayerAdded:Connect(updatePlayers)
+players.PlayerRemoving:Connect(updatePlayers)
 
--- ColorPicker per cambiare colore di qualche cosa (es. UI o effetti)
-sec:Colorpicker("UI Color", Color3.fromRGB(0, 255, 255), "UIColor", function(color)
-  print("Color picked:", color)
-  -- Qui potresti cambiare il tema UI o qualche effetto in gioco
-end)
+-- Bottone per teleport to player
+MainTab:CreateButton({
+    Name = "Teleport to Player",
+    Callback = function()
+        local selectedName = Rayfield.Flags["PlayerDropdown"].Value
+        local targetPlayer = players:FindFirstChild(selectedName)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+                Rayfield:Notify({
+                    Title = "Teleport",
+                    Content = "Teletrasportato a "..selectedName,
+                    Duration = 3.5,
+                    Image = 4483362458,
+                    Actions = {Ignore = true}
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Errore",
+                Content = "Player non trovato o senza personaggio.",
+                Duration = 3.5,
+                Image = 4483362458,
+                Actions = {Ignore = true}
+            })
+        end
+    end
+})
 
--- Textbox per inserire testo o comandi
-sec:Textbox("Enter Command", true, function(text)
-  print("Command entered:", text)
-  SolarisLib:Notification("Command", "You typed: "..text)
-end)
+-- Slider per boost velocità
+local speedSlider = MainTab:CreateSlider({
+    Name = "Boost Velocità",
+    Range = {16, 100}, -- velocità min e max
+    Increment = 1,
+    Suffix = "Speed",
+    CurrentValue = 16,
+    Flag = "SpeedSlider",
+    Callback = function(value)
+        local character = players.LocalPlayer.Character
+        if character and character:FindFirstChild("Humanoid") then
+            character.Humanoid.WalkSpeed = value
+        end
+    end
+})
 
--- Keybind che stampa messaggi quando premuto
-sec:Bind("Toggle UI Bind (F)", Enum.KeyCode.F, false, "ToggleUIBind", function()
-  print("Toggle UI pressed")
-  win:Toggle()  -- toggla la UI
-end)
+-- Textbox per Set TP
+local tpPosTextbox = MainTab:CreateTextbox({
+    Name = "Set Teleport (x,y,z)",
+    PlaceholderText = "Esempio: 0,10,0",
+    Flag = "SetTP",
+    Callback = function(text)
+        local x,y,z = text:match("([^,]+),([^,]+),([^,]+)")
+        if x and y and z then
+            x,y,z = tonumber(x), tonumber(y), tonumber(z)
+            if x and y and z then
+                Rayfield.Flags["SetTP"].Value = Vector3.new(x,y,z)
+            else
+                Rayfield:Notify({
+                    Title = "Errore",
+                    Content = "Coordinate non valide",
+                    Duration = 3.5,
+                    Image = 4483362458,
+                    Actions = {Ignore = true}
+                })
+            end
+        end
+    end
+})
 
--- Label dinamica per mostrare info o stato
-local label = sec:Label("Status: Ready")
-
--- Un esempio di aggiornamento label ogni 5 secondi (loop in background)
-spawn(function()
-  while true do
-    wait(5)
-    label:Set("Status: Active at "..os.date("%X"))
-  end
-end)
-
--- Puoi aggiungere altre tab e sezioni qui
-local tab2 = win:Tab("Extras")
-local extraSec = tab2:Section("Extra Features")
-extraSec:Button("Extra Button", function()
-  SolarisLib:Notification("Extra", "You pressed the extra button!")
-end)
+-- Bottone per teleportare alla posizione impostata
+MainTab:CreateButton({
+    Name = "Teleport to Position",
+    Callback = function()
+        local pos = Rayfield.Flags["SetTP"].Value
+        if typeof(pos) == "Vector3" then
+            local hrp = players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = CFrame.new(pos)
+                Rayfield:Notify({
+                    Title = "Teleport",
+                    Content = "Teletrasportato a posizione impostata.",
+                    Duration = 3.5,
+                    Image = 4483362458,
+                    Actions = {Ignore = true}
+                })
+            end
+        else
+            Rayfield:Notify({
+                Title = "Errore",
+                Content = "Devi prima inserire una posizione valida",
+                Duration = 3.5,
+                Image = 4483362458,
+                Actions = {Ignore = true}
+            })
+        end
+    end
+})
