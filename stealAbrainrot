@@ -1,102 +1,67 @@
--- Script Steal A Brainrot by ZNFPRO (Mobile friendly)
--- Using Neverlose UI by Mana42138
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/kav"))()
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+-- Tema personalizzato blu
+local colors = {
+    SchemeColor = Color3.fromRGB(0, 170, 255),
+    Background = Color3.fromRGB(10, 10, 30),
+    Header = Color3.fromRGB(0, 50, 100),
+    TextColor = Color3.fromRGB(255, 255, 255),
+    ElementColor = Color3.fromRGB(20, 20, 40)
+}
 
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local hrp = character:WaitForChild("HumanoidRootPart")
-local defaultSpeed = humanoid.WalkSpeed
-local savedPosition = nil
+local Window = Library.CreateLib("Steal A Brainrot - by ZNFPRO", colors)
+local Tab = Window:NewTab("Main")
+local Section = Tab:NewSection("Main Section")
 
--- Load Neverlose UI
-local Neverlose_Main = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mana42138/Neverlose-UI/main/Source.lua"))()
+-- Button
+Section:NewButton("Click me!", "Prints clicked", function()
+    print("Button clicked!")
+end)
 
--- Create Window (no keybind, UI always visible)
-local Win = Neverlose_Main:Window({
-    Title = "Steal A Brainrot",
-    CFG = "ZNFPRO",
-    Key = nil,  -- niente keybind, sempre aperto
-    External = {
-        KeySystem = false,
-    }
-})
+-- Toggle con variabile globale
+getgenv().Toggled = false
+local toggle = Section:NewToggle("Toggle Speed", "Toggle WalkSpeed", function(state)
+    getgenv().Toggled = state
+end)
 
--- Create Tabs & Sections
-local TabSection1 = Win:TSection("Misc")
-local Main = TabSection1:Tab("Main")
-local MainSection = Main:Section("Main Section")
-
--- Speed Boost Toggle
-local speedBoostEnabled = false
-local SPEED_MULTIPLIER = 1.45
-
-MainSection:Toggle("Speed Boost +45%", false, function(state)
-    speedBoostEnabled = state
-    if speedBoostEnabled then
-        humanoid.WalkSpeed = defaultSpeed * SPEED_MULTIPLIER
-        Neverlose_Main:Notify({
-            Title = "Speed Boost",
-            Text = "Enabled +45%",
-            Time = 2
-        })
+-- Aggiorna il testo del toggle ogni frame
+game:GetService("RunService").RenderStepped:Connect(function()
+    if getgenv().Toggled then
+        toggle:UpdateToggle("WalkSpeed ON")
     else
-        humanoid.WalkSpeed = defaultSpeed
-        Neverlose_Main:Notify({
-            Title = "Speed Boost",
-            Text = "Disabled",
-            Time = 2
-        })
+        toggle:UpdateToggle("WalkSpeed OFF")
     end
 end)
 
--- Keep speed boost active even when holding tools
-RunService.Stepped:Connect(function()
-    if speedBoostEnabled and humanoid.WalkSpeed ~= defaultSpeed * SPEED_MULTIPLIER then
-        humanoid.WalkSpeed = defaultSpeed * SPEED_MULTIPLIER
+-- Slider per WalkSpeed
+Section:NewSlider("WalkSpeed", "Set WalkSpeed (0-500)", 500, 16, function(value)
+    local plr = game.Players.LocalPlayer
+    if plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") then
+        plr.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = value
     end
 end)
 
--- Set Teleport Point Button
-MainSection:Button("Set Teleport Point", function()
-    character = player.Character or player.CharacterAdded:Wait()
-    hrp = character:WaitForChild("HumanoidRootPart")
-    savedPosition = hrp.CFrame
-    Neverlose_Main:Notify({
-        Title = "Teleport Point",
-        Text = "Saved!",
-        Time = 2
-    })
+-- TextBox
+Section:NewTextBox("Say something", "Prints your text", function(text)
+    print("You wrote: "..text)
 end)
 
--- Teleport To Point Button (walking speed tween)
-MainSection:Button("Teleport To Point (Walking Speed)", function()
-    if savedPosition then
-        character = player.Character or player.CharacterAdded:Wait()
-        hrp = character:WaitForChild("HumanoidRootPart")
+-- Keybind per togglare UI
+Section:NewKeybind("Toggle UI", "Toggle UI visibility", Enum.KeyCode.P, function()
+    Library:ToggleUI()
+end)
 
-        local distance = (hrp.Position - savedPosition.p).Magnitude
-        local walkSpeed = 16 -- normal walking speed
-        local duration = distance / walkSpeed
-        local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = savedPosition})
+-- Dropdown
+local dropdown = Section:NewDropdown("Choose option", "Select one", {"Option 1", "Option 2", "Option 3"}, function(option)
+    print("Selected: "..option)
+end)
 
-        tween:Play()
-        tween.Completed:Wait()
+-- Refresh dropdown example
+Section:NewButton("Refresh Dropdown", "Refresh dropdown options", function()
+    dropdown:Refresh({"New Option 1", "New Option 2"})
+end)
 
-        Neverlose_Main:Notify({
-            Title = "Teleport",
-            Text = "Arrived at saved point",
-            Time = 2
-        })
-    else
-        Neverlose_Main:Notify({
-            Title = "Teleport",
-            Text = "No teleport point saved!",
-            Time = 2
-        })
-    end
+-- Color picker
+Section:NewColorPicker("Change Scheme Color", "Change UI theme color", colors.SchemeColor, function(color)
+    Library:ChangeColor("SchemeColor", color)
 end)
