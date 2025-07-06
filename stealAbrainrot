@@ -139,8 +139,8 @@ pcall(antiKick)
 -- Create UI
 local Window = Rayfield:CreateWindow({
     Name = "Brainrot Hub",
-    LoadingTitle = "Brainrot Loading...",
-    LoadingSubtitle = "Sigma Grindset Active",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "Steal a Brainrot script",
     ConfigurationSaving = {Enabled = false},
     Discord = {Enabled = false},
     KeySystem = false
@@ -231,7 +231,7 @@ Tab:CreateButton({
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local pos = char.HumanoidRootPart.Position
-                char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 350, 0))
+                char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
             end
         end)
     end
