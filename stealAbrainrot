@@ -1,5 +1,5 @@
--- Brainrot Universal Script - Full Bypass Edition
--- Advanced Anti-Detection System
+-- Brainrot Universal Script with Advanced Features
+-- Multiple Rayfield loading methods
 local Rayfield
 pcall(function()
     Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -21,8 +21,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variables
@@ -31,228 +29,88 @@ local originalSpeed = 16
 local godMode = false
 local antiRagdoll = false
 local autoWalk = false
-local bypassActive = false
 
--- Advanced Anti-Detection System
-local function advancedAntiKick()
-    -- Hook all kick methods
+-- Anti-kick system
+local function antiKick()
     local mt = getrawmetatable(game)
     local old = mt.__namecall
     setreadonly(mt, false)
-    
     mt.__namecall = newcclosure(function(self, ...)
         local method = getnamecallmethod()
-        local args = {...}
-        
-        -- Block kick methods
-        if method == "Kick" or method == "kick" or method == "Destroy" then
+        if method == "Kick" then
             return
         end
-        
-        -- Block teleport detection
-        if method == "FireServer" or method == "InvokeServer" then
-            if tostring(self):find("Anti") or tostring(self):find("Kick") or tostring(self):find("Ban") then
-                return
-            end
-        end
-        
         return old(self, ...)
     end)
-    
     setreadonly(mt, true)
 end
 
--- Advanced Speed Bypass
-local function advancedSpeedBypass(speed)
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid then return end
-    
-    -- Multiple speed methods for bypass
-    humanoid.WalkSpeed = speed
-    
-    -- BodyVelocity method
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        local bodyVelocity = hrp:FindFirstChild("BypassVelocity")
-        if not bodyVelocity then
-            bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.Name = "BypassVelocity"
-            bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
-            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-            bodyVelocity.Parent = hrp
-        end
-    end
-    
-    -- Network bypass
-    spawn(function()
-        while char.Parent do
-            if humanoid.WalkSpeed ~= speed then
-                humanoid.WalkSpeed = speed
-            end
-            wait(0.1)
-        end
-    end)
-end
-
--- Invisible Teleport (Undetectable)
-local function invisibleTeleport(targetPosition)
+-- Natural walk teleport (80% speed)
+local function naturalWalk(targetPosition)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = char.HumanoidRootPart
     local humanoid = char.Humanoid
+    local startPos = hrp.Position
+    local distance = (startPos - targetPosition).Magnitude
     
-    -- Store original values
-    local originalTransparency = {}
-    local originalCanCollide = {}
+    -- Calculate time for 80% normal walk speed
+    local walkTime = distance / (originalSpeed * 0.8)
     
-    -- Make invisible
-    for _, part in pairs(char:GetChildren()) do
-        if part:IsA("BasePart") then
-            originalTransparency[part] = part.Transparency
-            originalCanCollide[part] = part.CanCollide
-            part.Transparency = 1
-            part.CanCollide = false
-        end
-    end
+    -- Create smooth tween
+    local tweenInfo = TweenInfo.new(
+        walkTime,
+        Enum.EasingStyle.Linear,
+        Enum.EasingDirection.InOut
+    )
     
-    -- Teleport
-    hrp.CFrame = CFrame.new(targetPosition)
-    
-    -- Restore after delay
-    wait(0.5)
-    for part, transparency in pairs(originalTransparency) do
-        if part.Parent then
-            part.Transparency = transparency
-            part.CanCollide = originalCanCollide[part]
-        end
-    end
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPosition)})
+    tween:Play()
 end
 
--- Advanced God Mode (Undetectable)
-local function advancedGodMode()
+-- God mode function
+local function toggleGodMode()
     godMode = not godMode
     local char = LocalPlayer.Character
     if not char then return end
     
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid then return end
-    
     if godMode then
-        -- Multiple god mode methods
-        humanoid.MaxHealth = math.huge
-        humanoid.Health = math.huge
-        
-        -- Force field method
-        local ff = Instance.new("ForceField")
-        ff.Visible = false
-        ff.Name = "BypassFF"
-        ff.Parent = char
-        
-        -- Damage prevention
-        local connection
-        connection = humanoid.HealthChanged:Connect(function()
-            if humanoid.Health < humanoid.MaxHealth then
-                humanoid.Health = humanoid.MaxHealth
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
-        end)
-        
-        -- Store connection for cleanup
-        char:SetAttribute("GodConnection", connection)
-        
+        end
+        if char:FindFirstChild("Humanoid") then
+            char.Humanoid.MaxHealth = math.huge
+            char.Humanoid.Health = math.huge
+        end
     else
-        -- Remove god mode
-        humanoid.MaxHealth = 100
-        humanoid.Health = 100
-        
-        local ff = char:FindFirstChild("BypassFF")
-        if ff then ff:Destroy() end
-        
-        local connection = char:GetAttribute("GodConnection")
-        if connection then connection:Disconnect() end
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+            end
+        end
+        if char:FindFirstChild("Humanoid") then
+            char.Humanoid.MaxHealth = 100
+            char.Humanoid.Health = 100
+        end
     end
 end
 
--- Anti-Ragdoll Plus
-local function advancedAntiRagdoll()
+-- Anti-ragdoll function
+local function toggleAntiRagdoll()
     antiRagdoll = not antiRagdoll
     local char = LocalPlayer.Character
     if not char then return end
     
     if antiRagdoll then
-        -- Multiple anti-ragdoll methods
         for _, part in pairs(char:GetChildren()) do
             if part:IsA("BasePart") then
                 part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-                part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-            end
-        end
-        
-        -- Continuous protection
-        spawn(function()
-            while antiRagdoll and char.Parent do
-                for _, part in pairs(char:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                        part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-                    end
-                end
-                wait(0.1)
-            end
-        end)
-    end
-end
-
--- Mass Item Steal (Advanced)
-local function massItemSteal()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    
-    local hrp = char.HumanoidRootPart
-    local collected = 0
-    
-    -- Search all possible locations
-    local function searchLocation(parent)
-        for _, obj in pairs(parent:GetChildren()) do
-            if obj:IsA("Tool") or obj:IsA("Accessory") or obj:IsA("Hat") then
-                local success = pcall(function()
-                    obj.Parent = LocalPlayer.Backpack
-                    collected = collected + 1
-                end)
-            end
-            
-            if obj:IsA("Model") and obj.Name:lower():find("item") then
-                pcall(function()
-                    obj.Parent = LocalPlayer.Backpack
-                    collected = collected + 1
-                end)
-            end
-            
-            -- Recursive search
-            if obj:IsA("Folder") or obj:IsA("Model") then
-                searchLocation(obj)
             end
         end
     end
-    
-    -- Search workspace
-    searchLocation(workspace)
-    
-    -- Search other players
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            searchLocation(player.Backpack)
-            if player.Character then
-                searchLocation(player.Character)
-            end
-        end
-    end
-    
-    return collected
 end
 
 -- Auto-set base position
@@ -276,53 +134,50 @@ end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
 -- Initialize anti-kick
-pcall(advancedAntiKick)
+pcall(antiKick)
 
 -- Create UI
 local Window = Rayfield:CreateWindow({
-    Name = "Brainrot Hub - BYPASS EDITION",
-    LoadingTitle = "Loading Bypass Systems...",
-    LoadingSubtitle = "Sigma Grindset + Bypass Mode",
+    Name = "Brainrot Hub",
+    LoadingTitle = "Brainrot Loading...",
+    LoadingSubtitle = "Sigma Grindset Active",
     ConfigurationSaving = {Enabled = false},
     Discord = {Enabled = false},
     KeySystem = false
 })
 
 local Tab = Window:CreateTab("Main", 4483362458)
-local BypassTab = Window:CreateTab("Bypass Features", 4483362458)
 local StealTab = Window:CreateTab("Steal/Combat", 4483362458)
 
 -- Speed Section
 Tab:CreateSection("Speed & Movement")
 
-Tab:CreateSlider({
-    Name = "Speed Multiplier",
-    Range = {16, 500},
-    Increment = 1,
-    Suffix = "Speed",
-    CurrentValue = 16,
-    Flag = "SpeedSlider",
-    Callback = function(value)
+Tab:CreateButton({
+    Name = "Speed Boost +45%",
+    Callback = function()
         pcall(function()
-            advancedSpeedBypass(value)
-            Rayfield:Notify({
-                Title = "Speed Set",
-                Content = "Speed set to " .. value,
-                Duration = 2,
-                Image = 4483362458
-            })
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = originalSpeed * 1.45
+                Rayfield:Notify({
+                    Title = "Speed Boost",
+                    Content = "Sigma speed activated",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
         end)
     end
 })
 
 Tab:CreateButton({
-    Name = "Ultra Speed (200)",
+    Name = "Natural Walk to Base",
     Callback = function()
         pcall(function()
-            advancedSpeedBypass(200)
+            naturalWalk(basePosition)
             Rayfield:Notify({
-                Title = "Ultra Speed",
-                Content = "Maximum speed activated",
+                Title = "Natural Walk",
+                Content = "Walking to base naturally...",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -357,39 +212,42 @@ Tab:CreateInput({
 })
 
 Tab:CreateButton({
-    Name = "Teleport Up (+350)",
+    Name = "Teleport Up (+50)",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local pos = char.HumanoidRootPart.Position
-                invisibleTeleport(pos + Vector3.new(0, 350, 0))
+                char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 50, 0))
             end
         end)
     end
 })
 
 Tab:CreateButton({
-    Name = "Teleport Down (-350)",
+    Name = "Teleport Down (-50)",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local pos = char.HumanoidRootPart.Position
-                invisibleTeleport(pos - Vector3.new(0, 350, 0))
+                char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
             end
         end)
     end
 })
 
-Tab:CreateButton({
-    Name = "Invisible Teleport to Base",
+-- Steal/Combat Features
+StealTab:CreateSection("Combat & Steal")
+
+StealTab:CreateButton({
+    Name = "Toggle God Mode",
     Callback = function()
         pcall(function()
-            invisibleTeleport(basePosition)
+            toggleGodMode()
             Rayfield:Notify({
-                Title = "Invisible Teleport",
-                Content = "Teleported to base invisibly",
+                Title = "God Mode",
+                Content = godMode and "God Mode ON" or "God Mode OFF",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -397,28 +255,14 @@ Tab:CreateButton({
     end
 })
 
--- Bypass Features Tab
-BypassTab:CreateSection("Anti-Detection")
-
-BypassTab:CreateToggle({
-    Name = "Advanced Anti-Kick",
-    CurrentValue = true,
-    Flag = "AntiKick",
-    Callback = function(value)
-        if value then
-            pcall(advancedAntiKick)
-        end
-    end
-})
-
-BypassTab:CreateButton({
-    Name = "Refresh Anti-Detection",
+StealTab:CreateButton({
+    Name = "Toggle Anti-Ragdoll",
     Callback = function()
         pcall(function()
-            advancedAntiKick()
+            toggleAntiRagdoll()
             Rayfield:Notify({
-                Title = "Anti-Detection",
-                Content = "Anti-detection systems refreshed",
+                Title = "Anti-Ragdoll",
+                Content = antiRagdoll and "Anti-Ragdoll ON" or "Anti-Ragdoll OFF",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -426,44 +270,50 @@ BypassTab:CreateButton({
     end
 })
 
-BypassTab:CreateToggle({
-    Name = "Bypass Mode",
-    CurrentValue = false,
-    Flag = "BypassMode",
-    Callback = function(value)
-        bypassActive = value
-        if bypassActive then
-            -- Activate all bypass systems
-            pcall(advancedAntiKick)
-            Rayfield:Notify({
-                Title = "Bypass Mode",
-                Content = "All bypass systems activated",
-                Duration = 3,
-                Image = 4483362458
-            })
-        end
-    end
-})
-
-BypassTab:CreateSection("Advanced Features")
-
-BypassTab:CreateButton({
-    Name = "Ghost Mode (Full Invisible)",
+StealTab:CreateButton({
+    Name = "Invisibility Toggle",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
             if char then
                 for _, part in pairs(char:GetChildren()) do
                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.Transparency = 1
-                        part.CanCollide = false
+                        part.Transparency = part.Transparency == 0 and 1 or 0
                     end
                 end
-                -- Hide name
-                if char:FindFirstChild("Head") then
-                    for _, gui in pairs(char.Head:GetChildren()) do
-                        if gui:IsA("BillboardGui") then
-                            gui.Enabled = false
+            end
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "No Clip Toggle",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = not part.CanCollide
+                    end
+                end
+            end
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "Steal All Items (Radius)",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if obj:IsA("Tool") or obj:IsA("Model") then
+                        local distance = (obj.Position - hrp.Position).Magnitude
+                        if distance < 100 then
+                            obj.Parent = LocalPlayer.Backpack
                         end
                     end
                 end
@@ -472,24 +322,59 @@ BypassTab:CreateButton({
     end
 })
 
-BypassTab:CreateButton({
-    Name = "Phase Mode (No Collision)",
+StealTab:CreateButton({
+    Name = "Infinite Jump",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
-            if char then
-                for _, part in pairs(char:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.JumpPower = 100
+                UserInputService.JumpRequest:Connect(function()
+                    if char and char:FindFirstChild("Humanoid") then
+                        char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                     end
-                end
+                end)
+            end
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "Fly Mode",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                bodyVelocity.Parent = hrp
                 
-                -- Continuous no collision
+                local flying = true
+                UserInputService.InputBegan:Connect(function(input)
+                    if input.KeyCode == Enum.KeyCode.Space then
+                        bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+                    end
+                end)
+            end
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "Speed Steal Mode",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = 100
+                -- Auto collect items while moving
                 spawn(function()
                     while char.Parent do
-                        for _, part in pairs(char:GetChildren()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = false
+                        for _, obj in pairs(workspace:GetChildren()) do
+                            if obj:IsA("Tool") then
+                                obj.Parent = LocalPlayer.Backpack
                             end
                         end
                         wait(0.1)
@@ -500,160 +385,17 @@ BypassTab:CreateButton({
     end
 })
 
--- Steal/Combat Features
-StealTab:CreateSection("Combat & Steal")
-
 StealTab:CreateButton({
-    Name = "Advanced God Mode",
+    Name = "Teleport to All Players",
     Callback = function()
         pcall(function()
-            advancedGodMode()
-            Rayfield:Notify({
-                Title = "Advanced God Mode",
-                Content = godMode and "God Mode ON (Undetectable)" or "God Mode OFF",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end)
-    end
-})
-
-StealTab:CreateButton({
-    Name = "Advanced Anti-Ragdoll",
-    Callback = function()
-        pcall(function()
-            advancedAntiRagdoll()
-            Rayfield:Notify({
-                Title = "Advanced Anti-Ragdoll",
-                Content = antiRagdoll and "Anti-Ragdoll ON (Plus)" or "Anti-Ragdoll OFF",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end)
-    end
-})
-
-StealTab:CreateButton({
-    Name = "Mass Item Steal",
-    Callback = function()
-        pcall(function()
-            local collected = massItemSteal()
-            Rayfield:Notify({
-                Title = "Mass Steal",
-                Content = "Collected " .. collected .. " items",
-                Duration = 3,
-                Image = 4483362458
-            })
-        end)
-    end
-})
-
-StealTab:CreateButton({
-    Name = "Super Fly Mode",
-    Callback = function()
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local hrp = char.HumanoidRootPart
-                local humanoid = char.Humanoid
-                
-                -- Remove existing body movers
-                for _, v in pairs(hrp:GetChildren()) do
-                    if v:IsA("BodyVelocity") or v:IsA("BodyPosition") or v:IsA("BodyAngularVelocity") then
-                        v:Destroy()
-                    end
-                end
-                
-                local bodyVelocity = Instance.new("BodyVelocity")
-                bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                bodyVelocity.Parent = hrp
-                
-                local bodyPosition = Instance.new("BodyPosition")
-                bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-                bodyPosition.Position = hrp.Position
-                bodyPosition.Parent = hrp
-                
-                -- Flying controls
-                local flying = true
-                local speed = 50
-                
-                local connection
-                connection = RunService.Heartbeat:Connect(function()
-                    if not flying then
-                        connection:Disconnect()
-                        bodyVelocity:Destroy()
-                        bodyPosition:Destroy()
-                        return
-                    end
-                    
-                    local camera = workspace.CurrentCamera
-                    local moveVector = humanoid.MoveDirection
-                    
-                    if moveVector.Magnitude > 0 then
-                        local direction = camera.CFrame.LookVector * moveVector.Z + camera.CFrame.RightVector * moveVector.X
-                        bodyVelocity.Velocity = direction * speed
-                    else
-                        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                    end
-                    
-                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                        bodyVelocity.Velocity = bodyVelocity.Velocity + Vector3.new(0, speed, 0)
-                    elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                        bodyVelocity.Velocity = bodyVelocity.Velocity + Vector3.new(0, -speed, 0)
-                    end
-                end)
-            end
-        end)
-    end
-})
-
-StealTab:CreateButton({
-    Name = "Infinite Jump Pro",
-    Callback = function()
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                local humanoid = char.Humanoid
-                humanoid.JumpPower = 200
-                humanoid.JumpHeight = 200
-                
-                -- Infinite jump
-                local connection
-                connection = UserInputService.JumpRequest:Connect(function()
-                    if char.Parent and char:FindFirstChild("Humanoid") then
-                        char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    else
-                        connection:Disconnect()
-                    end
-                end)
-            end
-        end)
-    end
-})
-
-StealTab:CreateButton({
-    Name = "Player Teleport Menu",
-    Callback = function()
-        pcall(function()
-            local playerList = {}
             for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    table.insert(playerList, player.Name)
-                end
-            end
-            
-            if #playerList > 0 then
-                -- Create a simple selection (teleport to first player as example)
-                local targetPlayer = Players:FindFirstChild(playerList[1])
-                if targetPlayer and targetPlayer.Character then
-                    invisibleTeleport(targetPlayer.Character.HumanoidRootPart.Position)
-                    Rayfield:Notify({
-                        Title = "Player Teleport",
-                        Content = "Teleported to " .. targetPlayer.Name,
-                        Duration = 2,
-                        Image = 4483362458
-                    })
+                if player ~= LocalPlayer and player.Character then
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+                        wait(0.5)
+                    end
                 end
             end
         end)
@@ -661,22 +403,21 @@ StealTab:CreateButton({
 })
 
 StealTab:CreateButton({
-    Name = "Kill Aura (Advanced)",
+    Name = "Anti-Kill Aura",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local hrp = char.HumanoidRootPart
+            if char then
+                local shield = Instance.new("ForceField")
+                shield.Parent = char
                 
                 spawn(function()
                     while char.Parent do
                         for _, player in pairs(Players:GetPlayers()) do
-                            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                local distance = (player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                                if distance < 50 then
-                                    -- Push away instead of kill for bypass
-                                    player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 100, 0)
-                                    wait(0.1)
+                            if player ~= LocalPlayer and player.Character then
+                                local distance = (player.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
+                                if distance < 20 then
+                                    player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 50, 0)
                                 end
                             end
                         end
@@ -690,8 +431,8 @@ StealTab:CreateButton({
 
 -- Success notification
 Rayfield:Notify({
-    Title = "Brainrot Hub BYPASS Loaded",
-    Content = "All bypass systems active! Sigma grindset maximum!",
-    Duration = 5,
+    Title = "Brainrot Hub Loaded",
+    Content = "Sigma grindset activated!",
+    Duration = 3,
     Image = 4483362458
 })
