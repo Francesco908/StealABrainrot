@@ -1,5 +1,6 @@
--- OnlyRobloxScript Rayfield UI Script
--- by OnlyRobloxScript
+-- Main Bypass Rayfield UI Script
+-- Script for Steal A Brainrot
+-- by ZNFPRO
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -11,15 +12,16 @@ local defaultSpeed = humanoid.WalkSpeed
 local savedPosition = nil
 
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local Window = Rayfield:CreateWindow({
-    Name = "OnlyRobloxScript HUB",
-    LoadingTitle = "Loading OnlyRobloxScript...",
-    LoadingSubtitle = "by OnlyRobloxScript",
+    Name = "Main Bypass",
+    LoadingTitle = "Loading Script for Steal A Brainrot...",
+    LoadingSubtitle = "by ZNFPRO",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "OnlyRobloxScript",
-        FileName = "OnlyRobloxScriptConfig"
+        FolderName = "MainBypass",
+        FileName = "Config"
     },
     Discord = {
         Enabled = false,
@@ -27,7 +29,8 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
-local Tab = Window:CreateTab("OnlyRobloxScript Features", 4483362458)
+local Tab = Window:CreateTab("Main Features", 4483362458) -- icona blu (esempio)
+local NoClipTab = Window:CreateTab("No Clip", 4483362458) -- stessa icona per coerenza
 
 -- Speed Boost +30%
 Tab:CreateToggle({
@@ -37,14 +40,14 @@ Tab:CreateToggle({
         if Value then
             humanoid.WalkSpeed = defaultSpeed * 1.3
             Rayfield:Notify({
-                Title = "OnlyRobloxScript",
+                Title = "Script for Steal A Brainrot",
                 Content = "Speed Boost activated!",
                 Duration = 3,
             })
         else
             humanoid.WalkSpeed = defaultSpeed
             Rayfield:Notify({
-                Title = "OnlyRobloxScript",
+                Title = "Script for Steal A Brainrot",
                 Content = "Speed Boost deactivated!",
                 Duration = 3,
             })
@@ -60,37 +63,181 @@ Tab:CreateButton({
         hrp = character:WaitForChild("HumanoidRootPart")
         savedPosition = hrp.CFrame
         Rayfield:Notify({
-            Title = "OnlyRobloxScript",
+            Title = "Script for Steal A Brainrot",
             Content = "Teleport point saved!",
             Duration = 3,
         })
     end,
 })
 
--- Teleport to Saved Point with TweenService (basic bypass)
+-- NoClip helper functions
+local function enableNoClip()
+    local canClip = true
+    local connection
+    connection = RunService.Stepped:Connect(function()
+        if canClip and character and character:FindFirstChild("HumanoidRootPart") then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        else
+            connection:Disconnect()
+        end
+    end)
+    return function() canClip = false end
+end
+
+-- TP with NoClip
 Tab:CreateButton({
-    Name = "🚀 Teleport To Point (OnlyRobloxScript Bypass)",
+    Name = "🚀 Teleport To Point (NoClip Bypass)",
     Callback = function()
         if savedPosition then
             character = player.Character or player.CharacterAdded:Wait()
             hrp = character:WaitForChild("HumanoidRootPart")
-            local tweenInfo = TweenInfo.new(
-                2, -- duration 2 seconds
-                Enum.EasingStyle.Linear
-            )
+            -- Activate NoClip before teleport
+            local disableNoClip = enableNoClip()
+            local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Linear)
             local tween = TweenService:Create(hrp, tweenInfo, {CFrame = savedPosition})
             tween:Play()
+            tween.Completed:Wait()
+            -- Disable NoClip after teleport
+            disableNoClip()
             Rayfield:Notify({
-                Title = "OnlyRobloxScript",
-                Content = "Teleporting...",
+                Title = "Script for Steal A Brainrot",
+                Content = "Teleported with NoClip bypass!",
                 Duration = 3,
             })
         else
             Rayfield:Notify({
-                Title = "OnlyRobloxScript",
+                Title = "Script for Steal A Brainrot",
                 Content = "No teleport point saved!",
                 Duration = 3,
             })
         end
     end,
 })
+
+-- NoClip Versions
+
+-- NoClip v1: Basic, disables collisions every frame
+local noClipConnectionV1
+NoClipTab:CreateToggle({
+    Name = "NoClip v1 (Basic)",
+    CurrentValue = false,
+    Callback = function(value)
+        if value then
+            noClipConnectionV1 = RunService.Stepped:Connect(function()
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end)
+            Rayfield:Notify({
+                Title = "Script for Steal A Brainrot",
+                Content = "NoClip v1 enabled!",
+                Duration = 3,
+            })
+        else
+            if noClipConnectionV1 then
+                noClipConnectionV1:Disconnect()
+                noClipConnectionV1 = nil
+                -- Restore collisions
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+                Rayfield:Notify({
+                    Title = "Script for Steal A Brainrot",
+                    Content = "NoClip v1 disabled!",
+                    Duration = 3,
+                })
+            end
+        end
+    end,
+})
+
+-- NoClip v2: Basic + Humanoid PlatformStand to prevent physics knockback
+local noClipConnectionV2
+NoClipTab:CreateToggle({
+    Name = "NoClip v2 (PlatformStand)",
+    CurrentValue = false,
+    Callback = function(value)
+        if value then
+            humanoid.PlatformStand = true
+            noClipConnectionV2 = RunService.Stepped:Connect(function()
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end)
+            Rayfield:Notify({
+                Title = "Script for Steal A Brainrot",
+                Content = "NoClip v2 enabled!",
+                Duration = 3,
+            })
+        else
+            humanoid.PlatformStand = false
+            if noClipConnectionV2 then
+                noClipConnectionV2:Disconnect()
+                noClipConnectionV2 = nil
+            end
+            -- Restore collisions
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+            Rayfield:Notify({
+                Title = "Script for Steal A Brainrot",
+                Content = "NoClip v2 disabled!",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+-- NoClip v3: Sets Humanoid state to 'Flying' + disables collisions
+local noClipConnectionV3
+NoClipTab:CreateToggle({
+    Name = "NoClip v3 (Flying State)",
+    CurrentValue = false,
+    Callback = function(value)
+        if value then
+            humanoid:ChangeState(Enum.HumanoidStateType.Flying)
+            noClipConnectionV3 = RunService.Stepped:Connect(function()
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end)
+            Rayfield:Notify({
+                Title = "Script for Steal A Brainrot",
+                Content = "NoClip v3 enabled!",
+                Duration = 3,
+            })
+        else
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) -- revert to normal
+            if noClipConnectionV3 then
+                noClipConnectionV3:Disconnect()
+                noClipConnectionV3 = nil
+            end
+            -- Restore collisions
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+            Rayfield:Notify({
+                Title = "Script for Steal A Brainrot",
+                Content = "NoClip v3 disabled!",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
