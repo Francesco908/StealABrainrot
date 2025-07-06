@@ -1,67 +1,75 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/kav"))()
+local SolarisLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/sol"))()
 
--- Tema personalizzato blu
-local colors = {
-    SchemeColor = Color3.fromRGB(0, 170, 255),
-    Background = Color3.fromRGB(10, 10, 30),
-    Header = Color3.fromRGB(0, 50, 100),
-    TextColor = Color3.fromRGB(255, 255, 255),
-    ElementColor = Color3.fromRGB(20, 20, 40)
-}
+local win = SolarisLib:New({
+  Name = "My Script UI",
+  FolderToSave = "MyScriptUIStuff"
+})
 
-local Window = Library.CreateLib("Steal A Brainrot - by ZNFPRO", colors)
-local Tab = Window:NewTab("Main")
-local Section = Tab:NewSection("Main Section")
+local tab = win:Tab("Main")
 
--- Button
-Section:NewButton("Click me!", "Prints clicked", function()
-    print("Button clicked!")
+local sec = tab:Section("Player Controls")
+
+-- Bottone che stampa in output e mostra notifica
+sec:Button("Test Button", function()
+  print("Button clicked!")
+  SolarisLib:Notification("Button", "You clicked the button!")
 end)
 
--- Toggle con variabile globale
-getgenv().Toggled = false
-local toggle = Section:NewToggle("Toggle Speed", "Toggle WalkSpeed", function(state)
-    getgenv().Toggled = state
+-- Toggle che abilita/disabilita una funzione, es: cammina più veloce
+local speedToggle = sec:Toggle("Speed Boost", false, "SpeedBoostToggle", function(state)
+  if state then
+    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 32
+    SolarisLib:Notification("Speed Boost", "Speed boost enabled!")
+  else
+    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+    SolarisLib:Notification("Speed Boost", "Speed boost disabled!")
+  end
 end)
 
--- Aggiorna il testo del toggle ogni frame
-game:GetService("RunService").RenderStepped:Connect(function()
-    if getgenv().Toggled then
-        toggle:UpdateToggle("WalkSpeed ON")
-    else
-        toggle:UpdateToggle("WalkSpeed OFF")
-    end
+-- Slider per modificare la velocità in modo preciso
+local speedSlider = sec:Slider("Walk Speed", 16, 100, 16, 1, "WalkSpeedSlider", function(value)
+  game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+  print("WalkSpeed set to:", value)
 end)
 
--- Slider per WalkSpeed
-Section:NewSlider("WalkSpeed", "Set WalkSpeed (0-500)", 500, 16, function(value)
-    local plr = game.Players.LocalPlayer
-    if plr and plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") then
-        plr.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = value
-    end
+-- Dropdown per selezionare modalità di gioco o opzioni
+local dropdown = sec:Dropdown("Select Mode", {"Normal", "Stealth", "Aggressive"}, "Normal", "GameModeDropdown", function(option)
+  print("Selected mode:", option)
+  SolarisLib:Notification("Mode Changed", "You selected: "..option)
 end)
 
--- TextBox
-Section:NewTextBox("Say something", "Prints your text", function(text)
-    print("You wrote: "..text)
+-- ColorPicker per cambiare colore di qualche cosa (es. UI o effetti)
+sec:Colorpicker("UI Color", Color3.fromRGB(0, 255, 255), "UIColor", function(color)
+  print("Color picked:", color)
+  -- Qui potresti cambiare il tema UI o qualche effetto in gioco
 end)
 
--- Keybind per togglare UI
-Section:NewKeybind("Toggle UI", "Toggle UI visibility", Enum.KeyCode.P, function()
-    Library:ToggleUI()
+-- Textbox per inserire testo o comandi
+sec:Textbox("Enter Command", true, function(text)
+  print("Command entered:", text)
+  SolarisLib:Notification("Command", "You typed: "..text)
 end)
 
--- Dropdown
-local dropdown = Section:NewDropdown("Choose option", "Select one", {"Option 1", "Option 2", "Option 3"}, function(option)
-    print("Selected: "..option)
+-- Keybind che stampa messaggi quando premuto
+sec:Bind("Toggle UI Bind (F)", Enum.KeyCode.F, false, "ToggleUIBind", function()
+  print("Toggle UI pressed")
+  win:Toggle()  -- toggla la UI
 end)
 
--- Refresh dropdown example
-Section:NewButton("Refresh Dropdown", "Refresh dropdown options", function()
-    dropdown:Refresh({"New Option 1", "New Option 2"})
+-- Label dinamica per mostrare info o stato
+local label = sec:Label("Status: Ready")
+
+-- Un esempio di aggiornamento label ogni 5 secondi (loop in background)
+spawn(function()
+  while true do
+    wait(5)
+    label:Set("Status: Active at "..os.date("%X"))
+  end
 end)
 
--- Color picker
-Section:NewColorPicker("Change Scheme Color", "Change UI theme color", colors.SchemeColor, function(color)
-    Library:ChangeColor("SchemeColor", color)
+-- Puoi aggiungere altre tab e sezioni qui
+local tab2 = win:Tab("Extras")
+local extraSec = tab2:Section("Extra Features")
+extraSec:Button("Extra Button", function()
+  SolarisLib:Notification("Extra", "You pressed the extra button!")
 end)
