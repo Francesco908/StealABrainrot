@@ -29,6 +29,8 @@ local originalSpeed = 16
 local godMode = false
 local antiRagdoll = false
 local autoWalk = false
+local skyWidget = nil
+local skyWidgetVisible = false
 
 -- Anti-kick system
 local function antiKick()
@@ -67,6 +69,121 @@ local function naturalWalk(targetPosition)
     
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPosition)})
     tween:Play()
+end
+
+-- Teleport Up function
+local function teleportUp()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 350, 0))
+        end
+    end)
+end
+
+-- Teleport Down function
+local function teleportDown()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
+        end
+    end)
+end
+
+-- Create Sky Widget
+local function createSkyWidget()
+    if skyWidget then
+        skyWidget:Destroy()
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "SkyWidget"
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    skyWidget = screenGui
+    
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 150, 0, 80)
+    mainFrame.Position = UDim2.new(0.5, -75, 0.3, -40)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    
+    -- Corner
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = mainFrame
+    
+    -- Close Button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 20, 0, 20)
+    closeButton.Position = UDim2.new(1, -25, 0, 5)
+    closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeButton.Text = "X"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.TextScaled = true
+    closeButton.BorderSizePixel = 0
+    closeButton.Parent = mainFrame
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 4)
+    closeCorner.Parent = closeButton
+    
+    -- Up Button
+    local upButton = Instance.new("TextButton")
+    upButton.Name = "UpButton"
+    upButton.Size = UDim2.new(0, 60, 0, 25)
+    upButton.Position = UDim2.new(0, 10, 0, 30)
+    upButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    upButton.Text = "UP"
+    upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    upButton.TextScaled = true
+    upButton.BorderSizePixel = 0
+    upButton.Parent = mainFrame
+    
+    local upCorner = Instance.new("UICorner")
+    upCorner.CornerRadius = UDim.new(0, 4)
+    upCorner.Parent = upButton
+    
+    -- Down Button
+    local downButton = Instance.new("TextButton")
+    downButton.Name = "DownButton"
+    downButton.Size = UDim2.new(0, 60, 0, 25)
+    downButton.Position = UDim2.new(0, 80, 0, 30)
+    downButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+    downButton.Text = "DOWN"
+    downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    downButton.TextScaled = true
+    downButton.BorderSizePixel = 0
+    downButton.Parent = mainFrame
+    
+    local downCorner = Instance.new("UICorner")
+    downCorner.CornerRadius = UDim.new(0, 4)
+    downCorner.Parent = downButton
+    
+    -- Button connections
+    closeButton.MouseButton1Click:Connect(function()
+        skyWidget:Destroy()
+        skyWidget = nil
+        skyWidgetVisible = false
+    end)
+    
+    upButton.MouseButton1Click:Connect(function()
+        teleportUp()
+    end)
+    
+    downButton.MouseButton1Click:Connect(function()
+        teleportDown()
+    end)
+    
+    skyWidgetVisible = true
 end
 
 -- God mode function
@@ -212,26 +329,17 @@ Tab:CreateInput({
 })
 
 Tab:CreateButton({
-    Name = "Teleport Up",
+    Name = "Go Sky",
     Callback = function()
         pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local pos = char.HumanoidRootPart.Position
-                char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 350, 0))
-            end
-        end)
-    end
-})
-
-Tab:CreateButton({
-    Name = "Teleport Down",
-    Callback = function()
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local pos = char.HumanoidRootPart.Position
-                char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
+            if not skyWidgetVisible then
+                createSkyWidget()
+                Rayfield:Notify({
+                    Title = "Sky Widget",
+                    Content = "Sky teleport widget opened",
+                    Duration = 2,
+                    Image = 4483362458
+                })
             end
         end)
     end
