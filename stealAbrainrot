@@ -1,5 +1,4 @@
--- Script for Steal A Brainrot
--- by ZNFPRO
+-- Script Steal A Brainrot by ZNFPRO (Mobile friendly)
 -- Using Neverlose UI by Mana42138
 
 local Players = game:GetService("Players")
@@ -13,48 +12,74 @@ local hrp = character:WaitForChild("HumanoidRootPart")
 local defaultSpeed = humanoid.WalkSpeed
 local savedPosition = nil
 
--- Load Neverlose UI from GitHub repo
+-- Load Neverlose UI
 local Neverlose_Main = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mana42138/Neverlose-UI/main/Source.lua"))()
-local window = Neverlose_Main:Main("Steal A Brainrot - by ZNFPRO", Color3.fromRGB(0,120,255)) -- blue theme
 
-local mainPage = window:Page("Main")
+-- Create Window (no keybind, UI always visible)
+local Win = Neverlose_Main:Window({
+    Title = "Steal A Brainrot",
+    CFG = "ZNFPRO",
+    Key = nil,  -- niente keybind, sempre aperto
+    External = {
+        KeySystem = false,
+    }
+})
+
+-- Create Tabs & Sections
+local TabSection1 = Win:TSection("Misc")
+local Main = TabSection1:Tab("Main")
+local MainSection = Main:Section("Main Section")
 
 -- Speed Boost Toggle
 local speedBoostEnabled = false
-mainPage:Switch("Speed Boost +45%", false, function(state)
+local SPEED_MULTIPLIER = 1.45
+
+MainSection:Toggle("Speed Boost +45%", false, function(state)
     speedBoostEnabled = state
     if speedBoostEnabled then
-        humanoid.WalkSpeed = defaultSpeed * 1.45
-        Neverlose_Main:Notification("Speed Boost Enabled!")
+        humanoid.WalkSpeed = defaultSpeed * SPEED_MULTIPLIER
+        Neverlose_Main:Notify({
+            Title = "Speed Boost",
+            Text = "Enabled +45%",
+            Time = 2
+        })
     else
         humanoid.WalkSpeed = defaultSpeed
-        Neverlose_Main:Notification("Speed Boost Disabled!")
+        Neverlose_Main:Notify({
+            Title = "Speed Boost",
+            Text = "Disabled",
+            Time = 2
+        })
     end
 end)
 
--- Maintain speed boost even when holding tools
+-- Keep speed boost active even when holding tools
 RunService.Stepped:Connect(function()
-    if speedBoostEnabled and humanoid.WalkSpeed ~= defaultSpeed * 1.45 then
-        humanoid.WalkSpeed = defaultSpeed * 1.45
+    if speedBoostEnabled and humanoid.WalkSpeed ~= defaultSpeed * SPEED_MULTIPLIER then
+        humanoid.WalkSpeed = defaultSpeed * SPEED_MULTIPLIER
     end
 end)
 
 -- Set Teleport Point Button
-mainPage:Button("Set Teleport Point", function()
+MainSection:Button("Set Teleport Point", function()
     character = player.Character or player.CharacterAdded:Wait()
     hrp = character:WaitForChild("HumanoidRootPart")
     savedPosition = hrp.CFrame
-    Neverlose_Main:Notification("Teleport Point Saved!")
+    Neverlose_Main:Notify({
+        Title = "Teleport Point",
+        Text = "Saved!",
+        Time = 2
+    })
 end)
 
--- Teleport To Point Button (walking speed)
-mainPage:Button("Teleport To Point (Walking Speed)", function()
+-- Teleport To Point Button (walking speed tween)
+MainSection:Button("Teleport To Point (Walking Speed)", function()
     if savedPosition then
         character = player.Character or player.CharacterAdded:Wait()
         hrp = character:WaitForChild("HumanoidRootPart")
 
         local distance = (hrp.Position - savedPosition.p).Magnitude
-        local walkSpeed = 16 -- walk speed
+        local walkSpeed = 16 -- normal walking speed
         local duration = distance / walkSpeed
         local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
         local tween = TweenService:Create(hrp, tweenInfo, {CFrame = savedPosition})
@@ -62,8 +87,16 @@ mainPage:Button("Teleport To Point (Walking Speed)", function()
         tween:Play()
         tween.Completed:Wait()
 
-        Neverlose_Main:Notification("Teleported at walking speed!")
+        Neverlose_Main:Notify({
+            Title = "Teleport",
+            Text = "Arrived at saved point",
+            Time = 2
+        })
     else
-        Neverlose_Main:Notification("No teleport point saved!")
+        Neverlose_Main:Notify({
+            Title = "Teleport",
+            Text = "No teleport point saved!",
+            Time = 2
+        })
     end
 end)
