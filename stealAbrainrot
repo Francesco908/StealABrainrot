@@ -3,8 +3,8 @@ local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shle
 
 local Window = Rayfield:CreateWindow({
     Name = "Script Base",
-    LoadingTitle = "Caricamento...",
-    LoadingSubtitle = "By SKIBIDI",
+    LoadingTitle = "loading...",
+    LoadingSubtitle = "By OnlyRobloxScript",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = nil, -- Se vuoi un folder specifico
