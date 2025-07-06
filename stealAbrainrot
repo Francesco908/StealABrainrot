@@ -29,31 +29,44 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
-local Tab = Window:CreateTab("Main Features", 4483362458) -- icona blu (esempio)
-local NoClipTab = Window:CreateTab("No Clip", 4483362458) -- stessa icona per coerenza
+local Tab = Window:CreateTab("Main Features", 4483362458)
+local NoClipTab = Window:CreateTab("No Clip", 4483362458)
 
--- Speed Boost +30%
+-- Speed Boost 45%
+local speedBoostEnabled = false
+local function setSpeedBoost(state)
+    speedBoostEnabled = state
+    if state then
+        humanoid.WalkSpeed = defaultSpeed * 1.45
+        Rayfield:Notify({
+            Title = "Script for Steal A Brainrot",
+            Content = "Speed Boost +45% enabled!",
+            Duration = 3,
+        })
+    else
+        humanoid.WalkSpeed = defaultSpeed
+        Rayfield:Notify({
+            Title = "Script for Steal A Brainrot",
+            Content = "Speed Boost disabled!",
+            Duration = 3,
+        })
+    end
+end
+
 Tab:CreateToggle({
-    Name = "Speed Boost +30%",
+    Name = "Speed Boost +45%",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then
-            humanoid.WalkSpeed = defaultSpeed * 1.3
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "Speed Boost activated!",
-                Duration = 3,
-            })
-        else
-            humanoid.WalkSpeed = defaultSpeed
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "Speed Boost deactivated!",
-                Duration = 3,
-            })
-        end
+        setSpeedBoost(Value)
     end,
 })
+
+-- Keep speed boost even if holding tools
+RunService.Stepped:Connect(function()
+    if speedBoostEnabled and humanoid.WalkSpeed ~= defaultSpeed * 1.45 then
+        humanoid.WalkSpeed = defaultSpeed * 1.45
+    end
+end)
 
 -- Set Teleport Point
 Tab:CreateButton({
@@ -70,42 +83,43 @@ Tab:CreateButton({
     end,
 })
 
--- NoClip helper functions
-local function enableNoClip()
-    local canClip = true
-    local connection
-    connection = RunService.Stepped:Connect(function()
-        if canClip and character and character:FindFirstChild("HumanoidRootPart") then
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
-            end
-        else
-            connection:Disconnect()
-        end
-    end)
-    return function() canClip = false end
-end
-
--- TP with NoClip
+-- Teleport to saved point with super speed (speed 200)
 Tab:CreateButton({
-    Name = "🚀 Teleport To Point (NoClip Bypass)",
+    Name = "🚀 Teleport To Point (Speed 200 Bypass)",
     Callback = function()
         if savedPosition then
             character = player.Character or player.CharacterAdded:Wait()
             hrp = character:WaitForChild("HumanoidRootPart")
-            -- Activate NoClip before teleport
-            local disableNoClip = enableNoClip()
-            local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Linear)
+
+            local duration = (hrp.Position - savedPosition.p).Magnitude / 200 -- time to move at speed 200
+            local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
             local tween = TweenService:Create(hrp, tweenInfo, {CFrame = savedPosition})
+
+            -- Enable NoClip while teleporting
+            local noClipConnection
+            noClipConnection = RunService.Stepped:Connect(function()
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end)
+
             tween:Play()
             tween.Completed:Wait()
-            -- Disable NoClip after teleport
-            disableNoClip()
+
+            noClipConnection:Disconnect()
+
+            -- Restore collisions after teleport
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+
             Rayfield:Notify({
                 Title = "Script for Steal A Brainrot",
-                Content = "Teleported with NoClip bypass!",
+                Content = "Teleported with speed 200 bypass!",
                 Duration = 3,
             })
         else
@@ -118,20 +132,27 @@ Tab:CreateButton({
     end,
 })
 
--- NoClip Versions
-
--- NoClip v1: Basic, disables collisions every frame
-local noClipConnectionV1
+-- NoClip v1 (optimized)
+local noClipEnabled = false
+local noClipConnection
 NoClipTab:CreateToggle({
-    Name = "NoClip v1 (Basic)",
+    Name = "NoClip v1 (Optimized)",
     CurrentValue = false,
     Callback = function(value)
+        noClipEnabled = value
         if value then
-            noClipConnectionV1 = RunService.Stepped:Connect(function()
-                for _, part in pairs(character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+            noClipConnection = RunService.Stepped:Connect(function()
+                if character and character.Parent then
+                    for _, part in pairs(character:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
                     end
+                    -- Prevent Humanoid from falling or reacting badly
+                    humanoid.PlatformStand = true
+                    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+                else
+                    noClipConnection:Disconnect()
                 end
             end)
             Rayfield:Notify({
@@ -140,104 +161,93 @@ NoClipTab:CreateToggle({
                 Duration = 3,
             })
         else
-            if noClipConnectionV1 then
-                noClipConnectionV1:Disconnect()
-                noClipConnectionV1 = nil
-                -- Restore collisions
-                for _, part in pairs(character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = true
-                    end
-                end
-                Rayfield:Notify({
-                    Title = "Script for Steal A Brainrot",
-                    Content = "NoClip v1 disabled!",
-                    Duration = 3,
-                })
+            if noClipConnection then
+                noClipConnection:Disconnect()
+                noClipConnection = nil
             end
-        end
-    end,
-})
-
--- NoClip v2: Basic + Humanoid PlatformStand to prevent physics knockback
-local noClipConnectionV2
-NoClipTab:CreateToggle({
-    Name = "NoClip v2 (PlatformStand)",
-    CurrentValue = false,
-    Callback = function(value)
-        if value then
-            humanoid.PlatformStand = true
-            noClipConnectionV2 = RunService.Stepped:Connect(function()
-                for _, part in pairs(character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
                 end
-            end)
-            Rayfield:Notify({
-                Title = "Script for Steal A Brainrot",
-                Content = "NoClip v2 enabled!",
-                Duration = 3,
-            })
-        else
+            end
             humanoid.PlatformStand = false
-            if noClipConnectionV2 then
-                noClipConnectionV2:Disconnect()
-                noClipConnectionV2 = nil
-            end
-            -- Restore collisions
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
-            end
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
             Rayfield:Notify({
                 Title = "Script for Steal A Brainrot",
-                Content = "NoClip v2 disabled!",
+                Content = "NoClip v1 disabled!",
                 Duration = 3,
             })
         end
     end,
 })
 
--- NoClip v3: Sets Humanoid state to 'Flying' + disables collisions
-local noClipConnectionV3
+-- Invisible Player (bypass)
+local invisibleEnabled = false
+InvisibleFunc = nil
 NoClipTab:CreateToggle({
-    Name = "NoClip v3 (Flying State)",
+    Name = "Invisible Player",
     CurrentValue = false,
     Callback = function(value)
+        invisibleEnabled = value
         if value then
-            humanoid:ChangeState(Enum.HumanoidStateType.Flying)
-            noClipConnectionV3 = RunService.Stepped:Connect(function()
-                for _, part in pairs(character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+            -- Make character parts transparent and disable collisions (bypass)
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.Transparency = 1
+                    part.CanCollide = false
+                elseif part:IsA("Decal") or part:IsA("Texture") then
+                    part.Transparency = 1
+                elseif part:IsA("Accessory") then
+                    if part:FindFirstChildWhichIsA("BasePart") then
+                        part:FindFirstChildWhichIsA("BasePart").Transparency = 1
+                    end
+                elseif part:IsA("BillboardGui") or part:IsA("SurfaceGui") then
+                    part.Enabled = false
+                end
+            end
+
+            -- Disable character's face and body colors if possible
+            if character:FindFirstChild("Head") then
+                local head = character.Head
+                for _, child in pairs(head:GetChildren()) do
+                    if child:IsA("Decal") then
+                        child.Transparency = 1
                     end
                 end
-            end)
+            end
+
+            humanoid.PlatformStand = true
+            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
             Rayfield:Notify({
                 Title = "Script for Steal A Brainrot",
-                Content = "NoClip v3 enabled!",
+                Content = "Invisible Player enabled!",
                 Duration = 3,
             })
         else
-            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) -- revert to normal
-            if noClipConnectionV3 then
-                noClipConnectionV3:Disconnect()
-                noClipConnectionV3 = nil
-            end
-            -- Restore collisions
+            -- Restore transparency and collisions
             for _, part in pairs(character:GetChildren()) do
                 if part:IsA("BasePart") then
+                    part.Transparency = 0
                     part.CanCollide = true
+                elseif part:IsA("Decal") or part:IsA("Texture") then
+                    part.Transparency = 0
+                elseif part:IsA("Accessory") then
+                    if part:FindFirstChildWhichIsA("BasePart") then
+                        part:FindFirstChildWhichIsA("BasePart").Transparency = 0
+                    end
+                elseif part:IsA("BillboardGui") or part:IsA("SurfaceGui") then
+                    part.Enabled = true
                 end
             end
+            humanoid.PlatformStand = false
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+
             Rayfield:Notify({
                 Title = "Script for Steal A Brainrot",
-                Content = "NoClip v3 disabled!",
+                Content = "Invisible Player disabled!",
                 Duration = 3,
             })
         end
     end,
 })
-
