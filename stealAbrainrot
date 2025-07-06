@@ -1,150 +1,155 @@
--- Carichiamo Rayfield UI
+--[[ UI BY OnlyRobloxScript ]]--
+
+-- Load Rayfield UI Library
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
+-- Create Main Window
 local Window = Rayfield:CreateWindow({
-    Name = "Script Base",
-    LoadingTitle = "loading...",
-    LoadingSubtitle = "By OnlyRobloxScript",
+    Name = "OnlyRobloxScript Hub",
+    LoadingTitle = "OnlyRobloxScript UI",
+    LoadingSubtitle = "BY OnlyRobloxScript",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = nil, -- Se vuoi un folder specifico
-        FileName = "Config"
+        FolderName = nil,
+        FileName = "OnlyRobloxScriptConfig"
     },
     Discord = {
         Enabled = false,
         Invite = "",
-        RememberJoins = true
+        RememberJoins = false
     },
     KeySystem = false
 })
 
--- TAB principale
-local MainTab = Window:CreateTab("Main")
+-- Create Main Tab
+local MainTab = Window:CreateTab("Main", 4483362458)
 
--- SEZIONE teleport e boost
-local TPSection = MainTab:CreateSection("Teleport & Boost")
+-- Section: Teleport & Speed
+MainTab:CreateSection("Teleport & Speed Boost")
 
--- Teleport to player dropdown
-local players = game:GetService("Players")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-local playerDropdown = MainTab:CreateDropdown({
-    Name = "Seleziona Player",
+-- Teleport To Player Dropdown
+local playerDropdown = nil
+local selectedPlayer = nil
+
+playerDropdown = MainTab:CreateDropdown({
+    Name = "Select Player to Teleport",
     Options = {},
+    CurrentOption = "",
     Flag = "PlayerDropdown",
-    Callback = function(selected)
-        print("Player scelto:", selected)
+    Callback = function(option)
+        selectedPlayer = option
     end
 })
 
--- Funzione per aggiornare la lista dei giocatori nel dropdown
-local function updatePlayers()
-    local plrs = {}
-    for _,plr in pairs(players:GetPlayers()) do
-        if plr ~= players.LocalPlayer then
-            table.insert(plrs, plr.Name)
+-- Update Dropdown Options
+local function UpdatePlayerList()
+    local names = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            table.insert(names, player.Name)
         end
     end
-    playerDropdown:UpdateOptions(plrs)
+    if playerDropdown then
+        playerDropdown:UpdateOptions(names)
+    end
 end
 
-updatePlayers()
-players.PlayerAdded:Connect(updatePlayers)
-players.PlayerRemoving:Connect(updatePlayers)
+UpdatePlayerList()
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
 
--- Bottone per teleport to player
+-- Teleport to selected player
 MainTab:CreateButton({
-    Name = "Teleport to Player",
+    Name = "Teleport to Selected Player",
     Callback = function()
-        local selectedName = Rayfield.Flags["PlayerDropdown"].Value
-        local targetPlayer = players:FindFirstChild(selectedName)
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local target = Players:FindFirstChild(selectedPlayer)
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
-                hrp.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+                hrp.CFrame = target.Character.HumanoidRootPart.CFrame
                 Rayfield:Notify({
-                    Title = "Teleport",
-                    Content = "Teletrasportato a "..selectedName,
+                    Title = "Teleport Success",
+                    Content = "You teleported to " .. selectedPlayer,
                     Duration = 3.5,
                     Image = 4483362458,
-                    Actions = {Ignore = true}
+                    Actions = { Ignore = true }
                 })
             end
         else
             Rayfield:Notify({
-                Title = "Errore",
-                Content = "Player non trovato o senza personaggio.",
+                Title = "Teleport Failed",
+                Content = "Invalid target player.",
                 Duration = 3.5,
                 Image = 4483362458,
-                Actions = {Ignore = true}
+                Actions = { Ignore = true }
             })
         end
     end
 })
 
--- Slider per boost velocità
-local speedSlider = MainTab:CreateSlider({
-    Name = "Boost Velocità",
-    Range = {16, 100}, -- velocità min e max
+-- Speed Slider
+MainTab:CreateSlider({
+    Name = "Speed Boost",
+    Range = {16, 100},
     Increment = 1,
     Suffix = "Speed",
     CurrentValue = 16,
     Flag = "SpeedSlider",
     Callback = function(value)
-        local character = players.LocalPlayer.Character
-        if character and character:FindFirstChild("Humanoid") then
-            character.Humanoid.WalkSpeed = value
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = value
         end
     end
 })
 
--- Textbox per Set TP
-local tpPosTextbox = MainTab:CreateTextbox({
-    Name = "Set Teleport (x,y,z)",
-    PlaceholderText = "Esempio: 0,10,0",
-    Flag = "SetTP",
+-- Section: Custom TP
+MainTab:CreateSection("Custom Teleport Location")
+
+local customTP = Vector3.new(0, 0, 0)
+
+-- Set Coordinates
+MainTab:CreateTextbox({
+    Name = "Set TP Coordinates (X,Y,Z)",
+    PlaceholderText = "Example: 0,10,0",
+    Flag = "SetTPBox",
     Callback = function(text)
-        local x,y,z = text:match("([^,]+),([^,]+),([^,]+)")
+        local x, y, z = text:match("([^,]+),([^,]+),([^,]+)")
+        x, y, z = tonumber(x), tonumber(y), tonumber(z)
         if x and y and z then
-            x,y,z = tonumber(x), tonumber(y), tonumber(z)
-            if x and y and z then
-                Rayfield.Flags["SetTP"].Value = Vector3.new(x,y,z)
-            else
-                Rayfield:Notify({
-                    Title = "Errore",
-                    Content = "Coordinate non valide",
-                    Duration = 3.5,
-                    Image = 4483362458,
-                    Actions = {Ignore = true}
-                })
-            end
-        end
-    end
-})
-
--- Bottone per teleportare alla posizione impostata
-MainTab:CreateButton({
-    Name = "Teleport to Position",
-    Callback = function()
-        local pos = Rayfield.Flags["SetTP"].Value
-        if typeof(pos) == "Vector3" then
-            local hrp = players.LocalPlayer.Character and players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.CFrame = CFrame.new(pos)
-                Rayfield:Notify({
-                    Title = "Teleport",
-                    Content = "Teletrasportato a posizione impostata.",
-                    Duration = 3.5,
-                    Image = 4483362458,
-                    Actions = {Ignore = true}
-                })
-            end
+            customTP = Vector3.new(x, y, z)
+            Rayfield:Notify({
+                Title = "Coordinates Set",
+                Content = "Teleport location set to: " .. tostring(customTP),
+                Duration = 3,
+                Image = 4483362458
+            })
         else
             Rayfield:Notify({
-                Title = "Errore",
-                Content = "Devi prima inserire una posizione valida",
-                Duration = 3.5,
-                Image = 4483362458,
-                Actions = {Ignore = true}
+                Title = "Invalid Input",
+                Content = "Please use format: X,Y,Z",
+                Duration = 3,
+                Image = 4483362458
+            })
+        end
+    end
+})
+
+-- Teleport to custom position
+MainTab:CreateButton({
+    Name = "Teleport to Custom Location",
+    Callback = function()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = CFrame.new(customTP)
+            Rayfield:Notify({
+                Title = "Teleported",
+                Content = "You teleported to: " .. tostring(customTP),
+                Duration = 3,
+                Image = 4483362458
             })
         end
     end
