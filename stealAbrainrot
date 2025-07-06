@@ -1,156 +1,287 @@
---[[ UI BY OnlyRobloxScript ]]--
+--[[ UI BY OnlyRobloxScript - FIXED VERSION ]]--
 
--- Load Rayfield UI Library
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+-- Error handling wrapper
+local function safeExecute(func, errorMsg)
+    local success, result = pcall(func)
+    if not success then
+        warn("Error: " .. errorMsg .. " - " .. tostring(result))
+        return false
+    end
+    return true
+end
 
--- Create Main Window
-local Window = Rayfield:CreateWindow({
-    Name = "OnlyRobloxScript Hub",
-    LoadingTitle = "OnlyRobloxScript UI",
-    LoadingSubtitle = "BY OnlyRobloxScript",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = nil,
-        FileName = "OnlyRobloxScriptConfig"
-    },
-    Discord = {
-        Enabled = false,
-        Invite = "",
-        RememberJoins = false
-    },
-    KeySystem = false
-})
+-- Load Rayfield UI Library with error handling
+local Rayfield
+local success = safeExecute(function()
+    Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+end, "Failed to load Rayfield UI Library")
+
+if not success or not Rayfield then
+    warn("Failed to load Rayfield UI Library. Please check your internet connection.")
+    return
+end
+
+-- Wait for game to fully load
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- Services
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Wait for LocalPlayer to be ready
+if not LocalPlayer then
+    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    LocalPlayer = Players.LocalPlayer
+end
+
+-- Create Main Window with error handling
+local Window
+safeExecute(function()
+    Window = Rayfield:CreateWindow({
+        Name = "OnlyRobloxScript Hub",
+        LoadingTitle = "OnlyRobloxScript UI",
+        LoadingSubtitle = "BY OnlyRobloxScript",
+        ConfigurationSaving = {
+            Enabled = true,
+            FolderName = nil,
+            FileName = "OnlyRobloxScriptConfig"
+        },
+        Discord = {
+            Enabled = false,
+            Invite = "",
+            RememberJoins = false
+        },
+        KeySystem = false
+    })
+end, "Failed to create main window")
+
+if not Window then
+    warn("Failed to create UI window")
+    return
+end
 
 -- Create Main Tab
-local MainTab = Window:CreateTab("Main", 4483362458)
+local MainTab
+safeExecute(function()
+    MainTab = Window:CreateTab("Main", 4483362458)
+end, "Failed to create main tab")
+
+if not MainTab then
+    warn("Failed to create main tab")
+    return
+end
 
 -- Section: Teleport & Speed
 MainTab:CreateSection("Teleport & Speed Boost")
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
--- Teleport To Player Dropdown
+-- Variables
 local playerDropdown = nil
 local selectedPlayer = nil
+local customTP = Vector3.new(0, 10, 0) -- Default safe height
 
-playerDropdown = MainTab:CreateDropdown({
-    Name = "Select Player to Teleport",
-    Options = {},
-    CurrentOption = "",
-    Flag = "PlayerDropdown",
-    Callback = function(option)
-        selectedPlayer = option
-    end
-})
+-- Safe notification function
+local function safeNotify(title, content, duration)
+    safeExecute(function()
+        Rayfield:Notify({
+            Title = title,
+            Content = content,
+            Duration = duration or 3,
+            Image = 4483362458,
+            Actions = { Ignore = true }
+        })
+    end, "Failed to send notification")
+end
+
+-- Teleport To Player Dropdown
+safeExecute(function()
+    playerDropdown = MainTab:CreateDropdown({
+        Name = "Select Player to Teleport",
+        Options = {},
+        CurrentOption = "",
+        Flag = "PlayerDropdown",
+        Callback = function(option)
+            selectedPlayer = option
+        end
+    })
+end, "Failed to create player dropdown")
 
 -- Update Dropdown Options
 local function UpdatePlayerList()
-    local names = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            table.insert(names, player.Name)
+    safeExecute(function()
+        local names = {}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Name then
+                table.insert(names, player.Name)
+            end
         end
-    end
-    if playerDropdown then
-        playerDropdown:UpdateOptions(names)
-    end
+        if playerDropdown and playerDropdown.UpdateOptions then
+            playerDropdown:UpdateOptions(names)
+        end
+    end, "Failed to update player list")
 end
 
+-- Initial update and connections
 UpdatePlayerList()
-Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerAdded:Connect(function()
+    wait(0.1) -- Small delay to ensure player is fully loaded
+    UpdatePlayerList()
+end)
 Players.PlayerRemoving:Connect(UpdatePlayerList)
 
 -- Teleport to selected player
-MainTab:CreateButton({
-    Name = "Teleport to Selected Player",
-    Callback = function()
-        local target = Players:FindFirstChild(selectedPlayer)
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.CFrame = target.Character.HumanoidRootPart.CFrame
-                Rayfield:Notify({
-                    Title = "Teleport Success",
-                    Content = "You teleported to " .. selectedPlayer,
-                    Duration = 3.5,
-                    Image = 4483362458,
-                    Actions = { Ignore = true }
-                })
-            end
-        else
-            Rayfield:Notify({
-                Title = "Teleport Failed",
-                Content = "Invalid target player.",
-                Duration = 3.5,
-                Image = 4483362458,
-                Actions = { Ignore = true }
-            })
+safeExecute(function()
+    MainTab:CreateButton({
+        Name = "Teleport to Selected Player",
+        Callback = function()
+            safeExecute(function()
+                if not selectedPlayer or selectedPlayer == "" then
+                    safeNotify("Teleport Failed", "Please select a player first.")
+                    return
+                end
+                
+                local target = Players:FindFirstChild(selectedPlayer)
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        hrp.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5) -- Offset to avoid collision
+                        safeNotify("Teleport Success", "You teleported to " .. selectedPlayer, 3.5)
+                    else
+                        safeNotify("Teleport Failed", "Your character is not ready.")
+                    end
+                else
+                    safeNotify("Teleport Failed", "Target player not found or not spawned.")
+                end
+            end, "Teleport to player failed")
         end
-    end
-})
+    })
+end, "Failed to create teleport button")
 
 -- Speed Slider
-MainTab:CreateSlider({
-    Name = "Speed Boost",
-    Range = {16, 100},
-    Increment = 1,
-    Suffix = "Speed",
-    CurrentValue = 16,
-    Flag = "SpeedSlider",
-    Callback = function(value)
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.WalkSpeed = value
+safeExecute(function()
+    MainTab:CreateSlider({
+        Name = "Speed Boost",
+        Range = {16, 100},
+        Increment = 1,
+        Suffix = " Speed",
+        CurrentValue = 16,
+        Flag = "SpeedSlider",
+        Callback = function(value)
+            safeExecute(function()
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") then
+                    char.Humanoid.WalkSpeed = value
+                end
+            end, "Failed to set speed")
         end
-    end
-})
+    })
+end, "Failed to create speed slider")
+
+-- Reset Speed Button
+safeExecute(function()
+    MainTab:CreateButton({
+        Name = "Reset Speed",
+        Callback = function()
+            safeExecute(function()
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") then
+                    char.Humanoid.WalkSpeed = 16
+                    safeNotify("Speed Reset", "Speed reset to normal (16)")
+                end
+            end, "Failed to reset speed")
+        end
+    })
+end, "Failed to create reset speed button")
 
 -- Section: Custom TP
 MainTab:CreateSection("Custom Teleport Location")
 
-local customTP = Vector3.new(0, 0, 0)
-
 -- Set Coordinates
-MainTab:CreateTextbox({
-    Name = "Set TP Coordinates (X,Y,Z)",
-    PlaceholderText = "Example: 0,10,0",
-    Flag = "SetTPBox",
-    Callback = function(text)
-        local x, y, z = text:match("([^,]+),([^,]+),([^,]+)")
-        x, y, z = tonumber(x), tonumber(y), tonumber(z)
-        if x and y and z then
-            customTP = Vector3.new(x, y, z)
-            Rayfield:Notify({
-                Title = "Coordinates Set",
-                Content = "Teleport location set to: " .. tostring(customTP),
-                Duration = 3,
-                Image = 4483362458
-            })
-        else
-            Rayfield:Notify({
-                Title = "Invalid Input",
-                Content = "Please use format: X,Y,Z",
-                Duration = 3,
-                Image = 4483362458
-            })
+safeExecute(function()
+    MainTab:CreateTextbox({
+        Name = "Set TP Coordinates (X,Y,Z)",
+        PlaceholderText = "Example: 0,10,0",
+        Flag = "SetTPBox",
+        Callback = function(text)
+            safeExecute(function()
+                if not text or text == "" then
+                    safeNotify("Invalid Input", "Please enter coordinates.")
+                    return
+                end
+                
+                local x, y, z = text:match("([^,]+),([^,]+),([^,]+)")
+                if x and y and z then
+                    x, y, z = tonumber(x), tonumber(y), tonumber(z)
+                    if x and y and z then
+                        customTP = Vector3.new(x, y, z)
+                        safeNotify("Coordinates Set", "Teleport location set to: " .. tostring(customTP))
+                    else
+                        safeNotify("Invalid Input", "Please use valid numbers.")
+                    end
+                else
+                    safeNotify("Invalid Input", "Please use format: X,Y,Z")
+                end
+            end, "Failed to set coordinates")
         end
-    end
-})
+    })
+end, "Failed to create coordinates textbox")
 
 -- Teleport to custom position
-MainTab:CreateButton({
-    Name = "Teleport to Custom Location",
-    Callback = function()
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = CFrame.new(customTP)
-            Rayfield:Notify({
-                Title = "Teleported",
-                Content = "You teleported to: " .. tostring(customTP),
-                Duration = 3,
-                Image = 4483362458
-            })
+safeExecute(function()
+    MainTab:CreateButton({
+        Name = "Teleport to Custom Location",
+        Callback = function()
+            safeExecute(function()
+                local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.CFrame = CFrame.new(customTP)
+                    safeNotify("Teleported", "You teleported to: " .. tostring(customTP))
+                else
+                    safeNotify("Teleport Failed", "Your character is not ready.")
+                end
+            end, "Failed to teleport to custom location")
         end
-    end
-})
+    })
+end, "Failed to create custom teleport button")
+
+-- Get Current Position Button
+safeExecute(function()
+    MainTab:CreateButton({
+        Name = "Get Current Position",
+        Callback = function()
+            safeExecute(function()
+                local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local pos = hrp.Position
+                    local posString = math.floor(pos.X) .. "," .. math.floor(pos.Y) .. "," .. math.floor(pos.Z)
+                    safeNotify("Current Position", "Your position: " .. posString)
+                    print("Current Position: " .. posString) -- Also print to console
+                else
+                    safeNotify("Failed", "Your character is not ready.")
+                end
+            end, "Failed to get current position")
+        end
+    })
+end, "Failed to create get position button")
+
+-- Section: Utilities
+MainTab:CreateSection("Utilities")
+
+-- Respawn Button
+safeExecute(function()
+    MainTab:CreateButton({
+        Name = "Respawn",
+        Callback = function()
+            safeExecute(function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    LocalPlayer.Character.Humanoid.Health = 0
+                    safeNotify("Respawning", "You will respawn in a moment...")
+                end
+            end, "Failed to respawn")
+        end
+    })
+end, "Failed to create respawn button")
+
+-- Success notification
+safeNotify("Script Loaded", "OnlyRobloxScript Hub loaded successfully!", 4)
