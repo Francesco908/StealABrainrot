@@ -1,0 +1,71 @@
+-- Rayfield UI Loader
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Variabili
+local savedPosition = nil
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local defaultSpeed = humanoid.WalkSpeed
+
+-- UI Principale
+local Window = Rayfield:CreateWindow({
+   Name = "SKIBIDI Hub - Rayfield",
+   LoadingTitle = "Caricamento...",
+   LoadingSubtitle = "by SKIBIDI",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil,
+      FileName = "SKIBIDIHub"
+   },
+   Discord = {
+      Enabled = false,
+   },
+   KeySystem = false,
+})
+
+local Tab = Window:CreateTab("Main", 4483362458)
+
+-- SPEED BOOST SWITCH
+Tab:CreateToggle({
+   Name = "Speed Boost +30%",
+   CurrentValue = false,
+   Callback = function(Value)
+      if Value then
+         humanoid.WalkSpeed = defaultSpeed * 1.3
+      else
+         humanoid.WalkSpeed = defaultSpeed
+      end
+   end,
+})
+
+-- SET TELEPORT POINT
+Tab:CreateButton({
+   Name = "📍 Set TP Point",
+   Callback = function()
+      character = player.Character or player.CharacterAdded:Wait()
+      savedPosition = character:WaitForChild("HumanoidRootPart").CFrame
+      Rayfield:Notify({
+         Title = "TP Point",
+         Content = "Posizione salvata!",
+         Duration = 3,
+      })
+   end,
+})
+
+-- TP TO BASE
+Tab:CreateButton({
+   Name = "🚀 TP Base",
+   Callback = function()
+      if savedPosition then
+         character = player.Character or player.CharacterAdded:Wait()
+         character:WaitForChild("HumanoidRootPart").CFrame = savedPosition
+      else
+         Rayfield:Notify({
+            Title = "Errore",
+            Content = "Nessuna posizione salvata!",
+            Duration = 3,
+         })
+      end
+   end,
+})
