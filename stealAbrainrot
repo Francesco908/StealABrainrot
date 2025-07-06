@@ -31,6 +31,7 @@ local antiRagdoll = false
 local autoWalk = false
 local skyWidget = nil
 local skyWidgetVisible = false
+local skyWidgetMinimized = false
 
 -- Anti-kick system
 local function antiKick()
@@ -47,7 +48,7 @@ local function antiKick()
     setreadonly(mt, true)
 end
 
--- Natural walk teleport (80% speed)
+-- Natural walk teleport (115% speed for bypass)
 local function naturalWalk(targetPosition)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
@@ -57,8 +58,8 @@ local function naturalWalk(targetPosition)
     local startPos = hrp.Position
     local distance = (startPos - targetPosition).Magnitude
     
-    -- Calculate time for 80% normal walk speed
-    local walkTime = distance / (originalSpeed * 0.8)
+    -- Calculate time for 115% normal walk speed (faster for bypass)
+    local walkTime = distance / (originalSpeed * 1.15)
     
     -- Create smooth tween
     local tweenInfo = TweenInfo.new(
@@ -102,6 +103,7 @@ local function createSkyWidget()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "SkyWidget"
     screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ResetOnSpawn = false -- Persist through death
     skyWidget = screenGui
     
     -- Main Frame - Glassmorphism effect
@@ -153,7 +155,7 @@ local function createSkyWidget()
     -- Title with cool font
     local title = Instance.new("TextLabel")
     title.Name = "Title"
-    title.Size = UDim2.new(1, -40, 1, 0)
+    title.Size = UDim2.new(1, -70, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "⭐ SKY CONTROL ⭐"
@@ -161,6 +163,23 @@ local function createSkyWidget()
     title.TextSize = 16
     title.Font = Enum.Font.GothamBold
     title.Parent = header
+    
+    -- Minimize Button
+    local minimizeButton = Instance.new("TextButton")
+    minimizeButton.Name = "MinimizeButton"
+    minimizeButton.Size = UDim2.new(0, 25, 0, 25)
+    minimizeButton.Position = UDim2.new(1, -62, 0, 7)
+    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 200, 60)
+    minimizeButton.Text = "−"
+    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeButton.TextSize = 14
+    minimizeButton.Font = Enum.Font.GothamBold
+    minimizeButton.BorderSizePixel = 0
+    minimizeButton.Parent = header
+    
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = UDim.new(0, 12)
+    minimizeCorner.Parent = minimizeButton
     
     -- Close Button with animation
     local closeButton = Instance.new("TextButton")
@@ -179,18 +198,26 @@ local function createSkyWidget()
     closeCorner.CornerRadius = UDim.new(0, 12)
     closeCorner.Parent = closeButton
     
+    -- Content Frame (for minimize functionality)
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "ContentFrame"
+    contentFrame.Size = UDim2.new(1, 0, 1, -40)
+    contentFrame.Position = UDim2.new(0, 0, 0, 40)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = mainFrame
+    
     -- Up Button - Improved design
     local upButton = Instance.new("TextButton")
     upButton.Name = "UpButton"
     upButton.Size = UDim2.new(0, 85, 0, 35)
-    upButton.Position = UDim2.new(0, 20, 0, 55)
+    upButton.Position = UDim2.new(0, 20, 0, 15)
     upButton.BackgroundColor3 = Color3.fromRGB(50, 200, 120)
     upButton.Text = "🚀 UP"
     upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     upButton.TextSize = 14
     upButton.Font = Enum.Font.GothamBold
     upButton.BorderSizePixel = 0
-    upButton.Parent = mainFrame
+    upButton.Parent = contentFrame
     
     local upCorner = Instance.new("UICorner")
     upCorner.CornerRadius = UDim.new(0, 8)
@@ -215,14 +242,14 @@ local function createSkyWidget()
     local downButton = Instance.new("TextButton")
     downButton.Name = "DownButton"
     downButton.Size = UDim2.new(0, 85, 0, 35)
-    downButton.Position = UDim2.new(0, 115, 0, 55)
+    downButton.Position = UDim2.new(0, 115, 0, 15)
     downButton.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
     downButton.Text = "⬇️ DOWN"
     downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     downButton.TextSize = 14
     downButton.Font = Enum.Font.GothamBold
     downButton.BorderSizePixel = 0
-    downButton.Parent = mainFrame
+    downButton.Parent = contentFrame
     
     local downCorner = Instance.new("UICorner")
     downCorner.CornerRadius = UDim.new(0, 8)
@@ -247,15 +274,31 @@ local function createSkyWidget()
     local infoLabel = Instance.new("TextLabel")
     infoLabel.Name = "InfoLabel"
     infoLabel.Size = UDim2.new(1, -40, 0, 20)
-    infoLabel.Position = UDim2.new(0, 20, 0, 100)
+    infoLabel.Position = UDim2.new(0, 20, 0, 60)
     infoLabel.BackgroundTransparency = 1
     infoLabel.Text = "UP: +265 | DOWN: -50"
     infoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
     infoLabel.TextSize = 12
     infoLabel.Font = Enum.Font.Gotham
-    infoLabel.Parent = mainFrame
+    infoLabel.Parent = contentFrame
+    
+    -- Minimize functionality
+    local function toggleMinimize()
+        skyWidgetMinimized = not skyWidgetMinimized
+        if skyWidgetMinimized then
+            contentFrame.Visible = false
+            mainFrame.Size = UDim2.new(0, 220, 0, 40)
+            minimizeButton.Text = "+"
+        else
+            contentFrame.Visible = true
+            mainFrame.Size = UDim2.new(0, 220, 0, 140)
+            minimizeButton.Text = "−"
+        end
+    end
     
     -- Button connections
+    minimizeButton.MouseButton1Click:Connect(toggleMinimize)
+    
     closeButton.MouseButton1Click:Connect(function()
         skyWidget:Destroy()
         skyWidget = nil
@@ -381,7 +424,7 @@ Tab:CreateButton({
             naturalWalk(basePosition)
             Rayfield:Notify({
                 Title = "Natural Walk",
-                Content = "Walking to base naturally...",
+                Content = "Walking to base faster for bypass...",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -477,21 +520,33 @@ StealTab:CreateToggle({
 })
 
 StealTab:CreateButton({
-    Name = "Fake Invisibility",
+    Name = "Invisibility",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
             if char then
-                -- Solo visual per il giocatore
+                -- Real invisibility toggle
                 for _, part in pairs(char:GetChildren()) do
                     if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.LocalTransparencyModifier = part.LocalTransparencyModifier == 0 and 0.8 or 0
+                        part.Transparency = part.Transparency == 0 and 1 or 0
+                    end
+                    if part:IsA("Accessory") then
+                        part.Handle.Transparency = part.Handle.Transparency == 0 and 1 or 0
+                    end
+                end
+                
+                -- Hide head accessories
+                if char:FindFirstChild("Head") then
+                    for _, child in pairs(char.Head:GetChildren()) do
+                        if child:IsA("Decal") then
+                            child.Transparency = child.Transparency == 0 and 1 or 0
+                        end
                     end
                 end
                 
                 Rayfield:Notify({
-                    Title = "Fake Invisibility",
-                    Content = "Visual invisibility toggled",
+                    Title = "Invisibility",
+                    Content = "Invisibility toggled",
                     Duration = 2,
                     Image = 4483362458
                 })
