@@ -1,173 +1,673 @@
--- Brainrot Universal Script Enhanced for All Players
--- Multiple Rayfield loading methods
+-- Enhanced Brainrot Universal Admin Script
+-- Advanced Features with Modern UI
 local Rayfield
 pcall(function()
     Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 end)
+
 if not Rayfield then
     pcall(function()
         Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
     end)
 end
+
 if not Rayfield then return end
 
--- Wait for game load
+-- Wait for game
 repeat wait(0.1) until game:IsLoaded()
 
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variables
 local basePosition = Vector3.new(0, 10, 0)
 local originalSpeed = 16
+local godMode = false
+local antiRagdoll = false
+local autoWalk = false
+local skyWidget = nil
+local skyWidgetVisible = false
+local skyWidgetMinimized = false
+local leaveGui = nil
+local baseGui = nil
 local killAuraActive = false
 local killAuraConnection = nil
+local allGuis = {}
 
--- Grant admin commands to all players
-Players.PlayerAdded:Connect(function(player)
-    Rayfield:Notify({Title = "Admin Enabled", Content = player.Name .. " ora ha comandi admin!", Duration = 2})
-end)
-
--- Anti-kick system
+-- Enhanced Anti-kick system
 local function antiKick()
-    local mt = getrawmetatable(game)
-    local old = mt.__namecall
-    setreadonly(mt, false)
-    mt.__namecall = newcclosure(function(self, ...)
-        if getnamecallmethod() == "Kick" then return end
-        return old(self, ...)
+    pcall(function()
+        local mt = getrawmetatable(game)
+        local old = mt.__namecall
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if method == "Kick" then
+                return
+            end
+            return old(self, ...)
+        end)
+        setreadonly(mt, true)
     end)
-    setreadonly(mt, true)
 end
-pcall(antiKick)
 
--- Natural walk teleport for bypass
+-- Create minimize button for any GUI
+local function createMinimizeButton(parentFrame, contentFrame, originalSize)
+    local minimizeButton = Instance.new("TextButton")
+    minimizeButton.Name = "MinimizeButton"
+    minimizeButton.Size = UDim2.new(0, 25, 0, 25)
+    minimizeButton.Position = UDim2.new(1, -62, 0, 7)
+    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 200, 60)
+    minimizeButton.Text = "−"
+    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeButton.TextSize = 14
+    minimizeButton.Font = Enum.Font.GothamBold
+    minimizeButton.BorderSizePixel = 0
+    minimizeButton.ZIndex = 10
+    
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = UDim.new(0, 12)
+    minimizeCorner.Parent = minimizeButton
+    
+    local isMinimized = false
+    minimizeButton.MouseButton1Click:Connect(function()
+        isMinimized = not isMinimized
+        if isMinimized then
+            contentFrame.Visible = false
+            parentFrame.Size = UDim2.new(0, originalSize.X.Offset, 0, 50)
+            minimizeButton.Text = "+"
+        else
+            contentFrame.Visible = true
+            parentFrame.Size = originalSize
+            minimizeButton.Text = "−"
+        end
+    end)
+    
+    return minimizeButton
+end
+
+-- Enhanced natural walk teleport with better bypass
 local function naturalWalk(targetPosition)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    local dist = (hrp.Position - targetPosition).Magnitude
-    local walkTime = dist / (originalSpeed * 1.15)
-    TweenService:Create(hrp, TweenInfo.new(walkTime, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPosition)}):Play()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        
+        local hrp = char.HumanoidRootPart
+        local humanoid = char.Humanoid
+        local startPos = hrp.Position
+        local distance = (startPos - targetPosition).Magnitude
+        
+        -- Multi-step bypass teleport
+        local steps = math.ceil(distance / 100) -- 100 stud steps
+        local currentPos = startPos
+        
+        for i = 1, steps do
+            local progress = i / steps
+            local nextPos = startPos:Lerp(targetPosition, progress)
+            
+            -- Add slight randomization to avoid detection
+            local randomOffset = Vector3.new(
+                math.random(-2, 2),
+                math.random(-1, 1),
+                math.random(-2, 2)
+            )
+            nextPos = nextPos + randomOffset
+            
+            -- Teleport with small delay
+            hrp.CFrame = CFrame.new(nextPos)
+            wait(0.05 + math.random() * 0.03) -- Random delay between 0.05-0.08
+        end
+        
+        -- Final position
+        hrp.CFrame = CFrame.new(targetPosition)
+    end)
 end
 
--- Kill Aura 360°
+-- Enhanced teleport functions
+local function teleportUp()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            -- Multi-step upward teleport for bypass
+            for i = 1, 5 do
+                char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 53 * i, 0))
+                wait(0.02)
+            end
+        end
+    end)
+end
+
+local function teleportDown()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            -- Safe downward teleport
+            for i = 1, 3 do
+                char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 17 * i, 0))
+                wait(0.02)
+            end
+        end
+    end)
+end
+
+-- Enhanced Kill Aura with 360-degree detection
 local function startKillAura()
-    if killAuraActive then return end; killAuraActive = true
+    if killAuraActive then return end
+    killAuraActive = true
+    
     killAuraConnection = RunService.Heartbeat:Connect(function()
         pcall(function()
             local char = LocalPlayer.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-            local tool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool") or char:FindFirstChildOfClass("Tool")
-            if not tool then return end
-            local playersNearby = {}
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local d = (p.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
-                    if d < 20 then table.insert(playersNearby, {p,d}) end
-                end
+            
+            local tool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+            if not tool then
+                tool = char:FindFirstChildOfClass("Tool")
             end
-            table.sort(playersNearby, function(a,b) return a[2] < b[2] end)
-            for i=1, math.min(#playersNearby,3) do
-                local pos = playersNearby[i][1].Character.HumanoidRootPart.Position
-                char.HumanoidRootPart.CFrame = CFrame.lookAt(char.HumanoidRootPart.Position, pos)
-                if tool.Parent == LocalPlayer.Backpack then char.Humanoid:EquipTool(tool) end
-                tool:Activate(); wait(0.05)
+            
+            if tool then
+                local nearbyPlayers = {}
+                
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local distance = (player.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
+                        if distance < 25 then
+                            table.insert(nearbyPlayers, {player = player, distance = distance})
+                        end
+                    end
+                end
+                
+                table.sort(nearbyPlayers, function(a, b)
+                    return a.distance < b.distance
+                end)
+                
+                for i = 1, math.min(#nearbyPlayers, 4) do
+                    local targetPlayer = nearbyPlayers[i].player
+                    local targetChar = targetPlayer.Character
+                    
+                    if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+                        local targetDirection = (targetChar.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Unit
+                        local lookDirection = Vector3.new(targetDirection.X, 0, targetDirection.Z)
+                        char.HumanoidRootPart.CFrame = CFrame.lookAt(char.HumanoidRootPart.Position, char.HumanoidRootPart.Position + lookDirection)
+                        
+                        if tool.Parent == LocalPlayer.Backpack then
+                            char.Humanoid:EquipTool(tool)
+                        end
+                        
+                        if tool:FindFirstChild("Handle") then
+                            tool:Activate()
+                        end
+                        
+                        wait(0.03)
+                    end
+                end
             end
         end)
     end)
 end
+
 local function stopKillAura()
-    if killAuraConnection then killAuraConnection:Disconnect() end; killAuraActive = false
+    if killAuraConnection then
+        killAuraConnection:Disconnect()
+        killAuraConnection = nil
+    end
+    killAuraActive = false
 end
 
--- GUI helper for minimizable frames
-local function makeMinimizable(frame, header, content)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0,25,0,25)
-    btn.Position = UDim2.new(1,-30,0,5)
-    btn.Text = "−"; btn.Font = Enum.Font.GothamBold; btn.TextSize = 16
-    btn.BackgroundColor3 = Color3.fromRGB(50,50,60); btn.BackgroundTransparency = 0.5
-    btn.Parent = header
-    local mini = false
-    btn.MouseButton1Click:Connect(function()
-        mini = not mini
-        content.Visible = not mini
-        if mini then
-            frame.Size = UDim2.new(frame.Size.X.Scale, frame.Size.X.Offset, 0, header.Size.Y.Offset)
-            btn.Text = "+"
-        else
-            frame.Size = UDim2.new(frame.Size.X.Scale, frame.Size.X.Offset, frame.Size.Y.Scale, header.Size.Y.Offset + content.Size.Y.Offset)
-            btn.Text = "−"
-        end
-    end)
-end
-
--- Leave & Server Hop GUI
+-- Enhanced Leave GUI with separate buttons
 local function createLeaveGui()
-    if LocalPlayer.PlayerGui:FindFirstChild("LeaveGui") then LocalPlayer.PlayerGui.LeaveGui:Destroy() end
-    local gui = Instance.new("ScreenGui", LocalPlayer.PlayerGui); gui.Name = "LeaveGui"
-    local frame = Instance.new("Frame", gui)
-    frame.Size = UDim2.new(0,260,0,130); frame.Position = UDim2.new(0.5,-130,0.5,-65)
-    frame.BackgroundColor3 = Color3.fromRGB(30,30,40); frame.Active = true; frame.Draggable = true
-    local header = Instance.new("Frame", frame)
-    header.Size = UDim2.new(1,0,0,30); header.BackgroundColor3 = Color3.fromRGB(40,40,60)
-    local content = Instance.new("Frame", frame)
-    content.Size = UDim2.new(1,0,1,-30); content.Position = UDim2.new(0,0,0,30)
-    content.BackgroundTransparency = 1
-    makeMinimizable(frame, header, content)
-    local title = Instance.new("TextLabel", header)
-    title.Text = "🚪 Leave & Hop"; title.Size = UDim2.new(1,-60,1,0); title.BackgroundTransparency = 1; title.Font = Enum.Font.GothamBold; title.TextSize = 18
-    local btnLeave = Instance.new("TextButton", content)
-    btnLeave.Size = UDim2.new(0,100,0,40); btnLeave.Position = UDim2.new(0.1,0,0.2,0)
-    btnLeave.Text = "❌ LEAVE"; btnLeave.Font = Enum.Font.GothamBold; btnLeave.TextSize = 16; btnLeave.BackgroundColor3 = Color3.fromRGB(200,80,80)
-    btnLeave.MouseButton1Click:Connect(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, nil, LocalPlayer) end)
-    local btnHop = Instance.new("TextButton", content)
-    btnHop.Size = UDim2.new(0,120,0,40); btnHop.Position = UDim2.new(0.55,0,0.2,0)
-    btnHop.Text = "🔄 SERVER HOP"; btnHop.Font = Enum.Font.GothamBold; btnHop.TextSize = 16; btnHop.BackgroundColor3 = Color3.fromRGB(100,150,255)
-    btnHop.MouseButton1Click:Connect(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
-end
-
--- Base Control GUI
-local function createBaseGui()
-    if LocalPlayer.PlayerGui:FindFirstChild("BaseGui") then LocalPlayer.PlayerGui.BaseGui:Destroy() end
-    local gui = Instance.new("ScreenGui", LocalPlayer.PlayerGui); gui.Name = "BaseGui"
-    local frame = Instance.new("Frame", gui)
-    frame.Size = UDim2.new(0,320,0,170); frame.Position = UDim2.new(0.5,-160,0.5,-85)
-    frame.BackgroundColor3 = Color3.fromRGB(25,25,35); frame.Active = true; frame.Draggable = true
-    local header = Instance.new("Frame", frame)
-    header.Size = UDim2.new(1,0,0,30); header.BackgroundColor3 = Color3.fromRGB(35,35,55)
-    local content = Instance.new("Frame", frame)
-    content.Size = UDim2.new(1,0,1,-30); content.Position = UDim2.new(0,0,0,30); content.BackgroundTransparency = 1
-    makeMinimizable(frame, header, content)
-    local title = Instance.new("TextLabel", header)
-    title.Text = "📍 Base Control"; title.Size = UDim2.new(1,-60,1,0); title.BackgroundTransparency = 1; title.Font = Enum.Font.GothamBold; title.TextSize = 18
-    local btnSet = Instance.new("TextButton", content)
-    btnSet.Size = UDim2.new(0,140,0,35); btnSet.Position = UDim2.new(0.1,0,0.2,0)
-    btnSet.Text = "📌 SET POSITION"; btnSet.Font = Enum.Font.GothamBold; btnSet.TextSize = 14; btnSet.BackgroundColor3 = Color3.fromRGB(100,200,120)
-    btnSet.MouseButton1Click:Connect(function()
-        local c = LocalPlayer.Character
-        if c and c:FindFirstChild("HumanoidRootPart") then
-            basePosition = c.HumanoidRootPart.Position
-            Rayfield:Notify({Title="Base Set",Content="Posizione impostata: "..tostring(basePosition),Duration=2})
-        end
+    if leaveGui then
+        leaveGui:Destroy()
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "LeaveGui"
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ResetOnSpawn = false
+    leaveGui = screenGui
+    allGuis[#allGuis + 1] = screenGui
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 350, 0, 200)
+    mainFrame.Position = UDim2.new(0.5, -175, 0.5, -100)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    mainFrame.BackgroundTransparency = 0.05
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    
+    -- Glassmorphism effect
+    local blur = Instance.new("Frame")
+    blur.Name = "Blur"
+    blur.Size = UDim2.new(1, 0, 1, 0)
+    blur.Position = UDim2.new(0, 0, 0, 0)
+    blur.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    blur.BackgroundTransparency = 0.95
+    blur.BorderSizePixel = 0
+    blur.Parent = mainFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 20)
+    corner.Parent = mainFrame
+    
+    local blurCorner = Instance.new("UICorner")
+    blurCorner.CornerRadius = UDim.new(0, 20)
+    blurCorner.Parent = blur
+    
+    -- Gradient border
+    local borderFrame = Instance.new("Frame")
+    borderFrame.Name = "BorderFrame"
+    borderFrame.Size = UDim2.new(1, 6, 1, 6)
+    borderFrame.Position = UDim2.new(0, -3, 0, -3)
+    borderFrame.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+    borderFrame.BackgroundTransparency = 0.3
+    borderFrame.BorderSizePixel = 0
+    borderFrame.Parent = mainFrame
+    borderFrame.ZIndex = -1
+    
+    local borderCorner = Instance.new("UICorner")
+    borderCorner.CornerRadius = UDim.new(0, 23)
+    borderCorner.Parent = borderFrame
+    
+    -- Header
+    local header = Instance.new("Frame")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 50)
+    header.Position = UDim2.new(0, 0, 0, 0)
+    header.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+    header.BackgroundTransparency = 0.1
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 20)
+    headerCorner.Parent = header
+    
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, -90, 1, 0)
+    title.Position = UDim2.new(0, 20, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "🚪 GAME CONTROL"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 20
+    title.Font = Enum.Font.GothamBold
+    title.Parent = header
+    
+    -- Content frame
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "ContentFrame"
+    contentFrame.Size = UDim2.new(1, 0, 1, -50)
+    contentFrame.Position = UDim2.new(0, 0, 0, 50)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = mainFrame
+    
+    -- Minimize button
+    local minimizeButton = createMinimizeButton(mainFrame, contentFrame, UDim2.new(0, 350, 0, 200))
+    minimizeButton.Parent = header
+    
+    -- Close button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -40, 0, 10)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    closeButton.Text = "✕"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.TextSize = 16
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.BorderSizePixel = 0
+    closeButton.Parent = header
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 15)
+    closeCorner.Parent = closeButton
+    
+    -- Leave button
+    local leaveButton = Instance.new("TextButton")
+    leaveButton.Name = "LeaveButton"
+    leaveButton.Size = UDim2.new(0, 140, 0, 50)
+    leaveButton.Position = UDim2.new(0, 30, 0, 30)
+    leaveButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    leaveButton.Text = "🚪 LEAVE GAME"
+    leaveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    leaveButton.TextSize = 16
+    leaveButton.Font = Enum.Font.GothamBold
+    leaveButton.BorderSizePixel = 0
+    leaveButton.Parent = contentFrame
+    
+    local leaveCorner = Instance.new("UICorner")
+    leaveCorner.CornerRadius = UDim.new(0, 12)
+    leaveCorner.Parent = leaveButton
+    
+    -- Server hop button
+    local serverHopButton = Instance.new("TextButton")
+    serverHopButton.Name = "ServerHopButton"
+    serverHopButton.Size = UDim2.new(0, 140, 0, 50)
+    serverHopButton.Position = UDim2.new(0, 180, 0, 30)
+    serverHopButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    serverHopButton.Text = "🔄 SERVER HOP"
+    serverHopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    serverHopButton.TextSize = 16
+    serverHopButton.Font = Enum.Font.GothamBold
+    serverHopButton.BorderSizePixel = 0
+    serverHopButton.Parent = contentFrame
+    
+    local serverHopCorner = Instance.new("UICorner")
+    serverHopCorner.CornerRadius = UDim.new(0, 12)
+    serverHopCorner.Parent = serverHopButton
+    
+    -- Info label
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Name = "InfoLabel"
+    infoLabel.Size = UDim2.new(1, -60, 0, 40)
+    infoLabel.Position = UDim2.new(0, 30, 0, 100)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Text = "Leave: Exit to menu\nServer Hop: Join new server"
+    infoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    infoLabel.TextSize = 14
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.Parent = contentFrame
+    
+    -- Button connections
+    closeButton.MouseButton1Click:Connect(function()
+        leaveGui:Destroy()
+        leaveGui = nil
     end)
-    local btnGo = Instance.new("TextButton", content)
-    btnGo.Size = UDim2.new(0,140,0,35); btnGo.Position = UDim2.new(0.6,0,0.2,0)
-    btnGo.Text = "🚀 GO TO BASE"; btnGo.Font = Enum.Font.GothamBold; btnGo.TextSize = 14; btnGo.BackgroundColor3 = Color3.fromRGB(100,150,255)
-    btnGo.MouseButton1Click:Connect(function() naturalWalk(basePosition) end)
+    
+    leaveButton.MouseButton1Click:Connect(function()
+        pcall(function()
+            LocalPlayer:Kick("Left game manually")
+        end)
+    end)
+    
+    serverHopButton.MouseButton1Click:Connect(function()
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end)
+    end)
 end
 
--- Main Window & Tabs
-local Window = Rayfield:CreateWindow({Name="Brainrot Hub Universal",LoadingTitle="Loading...",ConfigurationSaving={Enabled=false},Discord={Enabled=false},KeySystem=false})
-local TabMain = Window:CreateTab("Main",4483362458)
-TabMain:CreateButton({Name="Open Leave GUI",Callback=createLeaveGui})
-TabMain:CreateButton({Name="Open Base GUI",Callback=createBaseGui})
-local TabCombat = Window:CreateTab("Combat",4483362458)
-TabCombat:CreateToggle({Name="Enhanced Kill Aura",Default=false,Callback=function(v) if v then startKillAura() else stopKillAura() end end})
+-- Enhanced Base GUI with set current position
+local function createBaseGui()
+    if baseGui then
+        baseGui:Destroy()
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BaseGui"
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ResetOnSpawn = false
+    baseGui = screenGui
+    allGuis[#allGuis + 1] = screenGui
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 400, 0, 280)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -140)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+    mainFrame.BackgroundTransparency = 0.05
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    
+    -- Advanced styling
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 40)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 20))
+    }
+    gradient.Rotation = 45
+    gradient.Parent = mainFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 25)
+    corner.Parent = mainFrame
+    
+    -- Animated border
+    local borderFrame = Instance.new("Frame")
+    borderFrame.Name = "BorderFrame"
+    borderFrame.Size = UDim2.new(1, 8, 1, 8)
+    borderFrame.Position = UDim2.new(0, -4, 0, -4)
+    borderFrame.BackgroundColor3 = Color3.fromRGB(150, 100, 255)
+    borderFrame.BackgroundTransparency = 0.2
+    borderFrame.BorderSizePixel = 0
+    borderFrame.Parent = mainFrame
+    borderFrame.ZIndex = -1
+    
+    local borderCorner = Instance.new("UICorner")
+    borderCorner.CornerRadius = UDim.new(0, 29)
+    borderCorner.Parent = borderFrame
+    
+    -- Header
+    local header = Instance.new("Frame")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 60)
+    header.Position = UDim2.new(0, 0, 0, 0)
+    header.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    header.BackgroundTransparency = 0.1
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 25)
+    headerCorner.Parent = header
+    
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, -100, 1, 0)
+    title.Position = UDim2.new(0, 25, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "🏠 BASE CONTROL CENTER"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 22
+    title.Font = Enum.Font.GothamBold
+    title.Parent = header
+    
+    -- Content frame
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "ContentFrame"
+    contentFrame.Size = UDim2.new(1, 0, 1, -60)
+    contentFrame.Position = UDim2.new(0, 0, 0, 60)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = mainFrame
+    
+    -- Minimize button
+    local minimizeButton = createMinimizeButton(mainFrame, contentFrame, UDim2.new(0, 400, 0, 280))
+    minimizeButton.Parent = header
+    
+    -- Close button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 35, 0, 35)
+    closeButton.Position = UDim2.new(1, -45, 0, 12)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    closeButton.Text = "✕"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.TextSize = 18
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.BorderSizePixel = 0
+    closeButton.Parent = header
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 17)
+    closeCorner.Parent = closeButton
+    
+    -- Input box
+    local inputBox = Instance.new("TextBox")
+    inputBox.Name = "InputBox"
+    inputBox.Size = UDim2.new(0, 300, 0, 40)
+    inputBox.Position = UDim2.new(0.5, -150, 0, 30)
+    inputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    inputBox.Text = string.format("%.1f,%.1f,%.1f", basePosition.X, basePosition.Y, basePosition.Z)
+    inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    inputBox.TextSize = 16
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.PlaceholderText = "X,Y,Z coordinates"
+    inputBox.BorderSizePixel = 0
+    inputBox.Parent = contentFrame
+    
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 10)
+    inputCorner.Parent = inputBox
+    
+    -- Set current position button
+    local setCurrentButton = Instance.new("TextButton")
+    setCurrentButton.Name = "SetCurrentButton"
+    setCurrentButton.Size = UDim2.new(0, 140, 0, 40)
+    setCurrentButton.Position = UDim2.new(0, 30, 0, 90)
+    setCurrentButton.BackgroundColor3 = Color3.fromRGB(255, 150, 50)
+    setCurrentButton.Text = "📍 SET CURRENT"
+    setCurrentButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    setCurrentButton.TextSize = 16
+    setCurrentButton.Font = Enum.Font.GothamBold
+    setCurrentButton.BorderSizePixel = 0
+    setCurrentButton.Parent = contentFrame
+    
+    local setCurrentCorner = Instance.new("UICorner")
+    setCurrentCorner.CornerRadius = UDim.new(0, 10)
+    setCurrentCorner.Parent = setCurrentButton
+    
+    -- Set manual button
+    local setManualButton = Instance.new("TextButton")
+    setManualButton.Name = "SetManualButton"
+    setManualButton.Size = UDim2.new(0, 140, 0, 40)
+    setManualButton.Position = UDim2.new(0, 180, 0, 90)
+    setManualButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    setManualButton.Text = "⚙️ SET MANUAL"
+    setManualButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    setManualButton.TextSize = 16
+    setManualButton.Font = Enum.Font.GothamBold
+    setManualButton.BorderSizePixel = 0
+    setManualButton.Parent = contentFrame
+    
+    local setManualCorner = Instance.new("UICorner")
+    setManualCorner.CornerRadius = UDim.new(0, 10)
+    setManualCorner.Parent = setManualButton
+    
+    -- Go to base button
+    local goButton = Instance.new("TextButton")
+    goButton.Name = "GoButton"
+    goButton.Size = UDim2.new(0, 200, 0, 45)
+    goButton.Position = UDim2.new(0.5, -100, 0, 150)
+    goButton.BackgroundColor3 = Color3.fromRGB(100, 200, 120)
+    goButton.Text = "🚀 TELEPORT TO BASE"
+    goButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    goButton.TextSize = 18
+    goButton.Font = Enum.Font.GothamBold
+    goButton.BorderSizePixel = 0
+    goButton.Parent = contentFrame
+    
+    local goCorner = Instance.new("UICorner")
+    goCorner.CornerRadius = UDim.new(0, 12)
+    goCorner.Parent = goButton
+    
+    -- Info label
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Name = "InfoLabel"
+    infoLabel.Size = UDim2.new(1, -60, 0, 20)
+    infoLabel.Position = UDim2.new(0, 30, 0, 210)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Text = "Enhanced bypass: Multi-step teleportation with randomization"
+    infoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    infoLabel.TextSize = 14
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.Parent = contentFrame
+    
+    -- Button connections
+    closeButton.MouseButton1Click:Connect(function()
+        baseGui:Destroy()
+        baseGui = nil
+    end)
+    
+    setCurrentButton.MouseButton1Click:Connect(function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local pos = char.HumanoidRootPart.Position
+                basePosition = pos
+                inputBox.Text = string.format("%.1f,%.1f,%.1f", pos.X, pos.Y, pos.Z)
+                Rayfield:Notify({
+                    Title = "Position Set",
+                    Content = "Current position saved as base",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end)
+    
+    setManualButton.MouseButton1Click:Connect(function()
+        pcall(function()
+            local text = inputBox.Text
+            local coords = string.split(text, ",")
+            if #coords == 3 then
+                local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
+                if x and y and z then
+                    basePosition = Vector3.new(x, y, z)
+                    Rayfield:Notify({
+                        Title = "Base Set",
+                        Content = "Manual position set: " .. text,
+                        Duration = 2,
+                        Image = 4483362458
+                    })
+                end
+            end
+        end)
+    end)
+    
+    goButton.MouseButton1Click:Connect(function()
+        pcall(function()
+            naturalWalk(basePosition)
+            Rayfield:Notify({
+                Title = "Base Travel",
+                Content = "Enhanced bypass teleport to base",
+                Duration = 3,
+                Image = 4483362458
+            })
+        end)
+    end)
+end
 
-Rayfield:Notify({Title="Universal Admin Hub",Content="Tutto pronto: GUI minimizzabili, server hop, base TP bypass e kill aura!",Duration=4})
+-- Enhanced Sky Widget with better design
+local function createSkyWidget()
+    if skyWidget then
+        skyWidget:Destroy()
+    end
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "SkyWidget"
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ResetOnSpawn = false
+    skyWidget = screenGui
+    allGuis[#allGuis + 1] = screenGui
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 280, 0, 180)
+    mainFrame.Position = UDim2.new(0.5, -140, 0.3, -90)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 15)
+    mainFrame.BackgroundTransparency = 0.05
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    
+    -- Neon effect
+    local neonGlow = Instance.new("Frame")
+    neonGlow.Name = "NeonGlow"
+    neonGlow.Size = UDim2.new(1, 12, 1, 12)
+    neonGlow.Position = UDim2.new(0, -6, 0, -6)
+    neonGlow.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+    neonGlow.Back
