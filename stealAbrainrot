@@ -38,6 +38,8 @@ local baseGui = nil
 local killAuraActive = false
 local killAuraConnection = nil
 local intentionalKick = false
+local flyEnabled = false
+local flyConnection = nil
 
 -- Anti-kick system
 local function antiKick()
@@ -172,7 +174,7 @@ local function stopKillAura()
     killAuraActive = false
 end
 
--- Create Leave GUI (compatta come Go Sky)
+-- Create Leave GUI (pulsanti verticali)
 local function createLeaveGui()
     if leaveGui then
         leaveGui:Destroy()
@@ -184,11 +186,11 @@ local function createLeaveGui()
     screenGui.ResetOnSpawn = false
     leaveGui = screenGui
     
-    -- Main Frame - Stile compatto come Sky Widget
+    -- Main Frame - Stile compatto
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 250, 0, 140)
-    mainFrame.Position = UDim2.new(0.5, -125, 0.5, -70)
+    mainFrame.Size = UDim2.new(0, 200, 0, 150)
+    mainFrame.Position = UDim2.new(0.5, -100, 0.5, -75)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
@@ -226,7 +228,7 @@ local function createLeaveGui()
     title.Font = Enum.Font.GothamBold
     title.Parent = header
     
-    -- Minimize Button (piccolino)
+    -- Minimize Button
     local minimizeButton = Instance.new("TextButton")
     minimizeButton.Name = "MinimizeButton"
     minimizeButton.Size = UDim2.new(0, 20, 0, 20)
@@ -243,7 +245,7 @@ local function createLeaveGui()
     minimizeCorner.CornerRadius = UDim.new(0, 10)
     minimizeCorner.Parent = minimizeButton
     
-    -- Close Button (piccolino)
+    -- Close Button
     local closeButton = Instance.new("TextButton")
     closeButton.Name = "CloseButton"
     closeButton.Size = UDim2.new(0, 20, 0, 20)
@@ -268,13 +270,13 @@ local function createLeaveGui()
     contentFrame.BackgroundTransparency = 1
     contentFrame.Parent = mainFrame
     
-    -- Leave Button (piccolino)
+    -- Leave Button
     local leaveButton = Instance.new("TextButton")
     leaveButton.Name = "LeaveButton"
-    leaveButton.Size = UDim2.new(0, 110, 0, 30)
-    leaveButton.Position = UDim2.new(0.5, -120, 0, 20)
+    leaveButton.Size = UDim2.new(0, 180, 0, 30)
+    leaveButton.Position = UDim2.new(0.5, -90, 0, 20)
     leaveButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-    leaveButton.Text = "🚪 LEAVE"
+    leaveButton.Text = "🚪 LEAVE GAME"
     leaveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     leaveButton.TextSize = 14
     leaveButton.Font = Enum.Font.GothamBold
@@ -285,13 +287,13 @@ local function createLeaveGui()
     leaveCorner.CornerRadius = UDim.new(0, 8)
     leaveCorner.Parent = leaveButton
     
-    -- Server Hop Button (piccolino)
+    -- Server Hop Button
     local hopButton = Instance.new("TextButton")
     hopButton.Name = "HopButton"
-    hopButton.Size = UDim2.new(0, 110, 0, 30)
-    hopButton.Position = UDim2.new(0.5, 10, 0, 20)
+    hopButton.Size = UDim2.new(0, 180, 0, 30)
+    hopButton.Position = UDim2.new(0.5, -90, 0, 60)
     hopButton.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
-    hopButton.Text = "🔄 HOP"
+    hopButton.Text = "🔄 SERVER HOP"
     hopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     hopButton.TextSize = 14
     hopButton.Font = Enum.Font.GothamBold
@@ -306,11 +308,11 @@ local function createLeaveGui()
     local function toggleMinimize()
         if contentFrame.Visible then
             contentFrame.Visible = false
-            mainFrame.Size = UDim2.new(0, 250, 0, 30)
+            mainFrame.Size = UDim2.new(0, 200, 0, 30)
             minimizeButton.Text = "+"
         else
             contentFrame.Visible = true
-            mainFrame.Size = UDim2.new(0, 250, 0, 140)
+            mainFrame.Size = UDim2.new(0, 200, 0, 150)
             minimizeButton.Text = "-"
         end
     end
@@ -335,7 +337,7 @@ local function createLeaveGui()
     end)
 end
 
--- Create Base GUI (compatta e funzionante)
+-- Create Base GUI (pulsanti verticali e volo a mezz'aria)
 local function createBaseGui()
     if baseGui then
         baseGui:Destroy()
@@ -347,11 +349,11 @@ local function createBaseGui()
     screenGui.ResetOnSpawn = false
     baseGui = screenGui
     
-    -- Main Frame - Stile compatto come Sky Widget
+    -- Main Frame - Stile compatto
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 250, 0, 180)
-    mainFrame.Position = UDim2.new(0.5, -125, 0.5, -90)
+    mainFrame.Size = UDim2.new(0, 220, 0, 230)
+    mainFrame.Position = UDim2.new(0.5, -110, 0.5, -115)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 35, 45)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
@@ -389,7 +391,7 @@ local function createBaseGui()
     title.Font = Enum.Font.GothamBold
     title.Parent = header
     
-    -- Minimize Button (piccolino)
+    -- Minimize Button
     local minimizeButton = Instance.new("TextButton")
     minimizeButton.Name = "MinimizeButton"
     minimizeButton.Size = UDim2.new(0, 20, 0, 20)
@@ -406,7 +408,7 @@ local function createBaseGui()
     minimizeCorner.CornerRadius = UDim.new(0, 10)
     minimizeCorner.Parent = minimizeButton
     
-    -- Close Button (piccolino)
+    -- Close Button
     local closeButton = Instance.new("TextButton")
     closeButton.Name = "CloseButton"
     closeButton.Size = UDim2.new(0, 20, 0, 20)
@@ -431,11 +433,11 @@ local function createBaseGui()
     contentFrame.BackgroundTransparency = 1
     contentFrame.Parent = mainFrame
     
-    -- Input Box (piccolino)
+    -- Input Box
     local inputBox = Instance.new("TextBox")
     inputBox.Name = "InputBox"
-    inputBox.Size = UDim2.new(0, 230, 0, 25)
-    inputBox.Position = UDim2.new(0.5, -115, 0, 10)
+    inputBox.Size = UDim2.new(0, 200, 0, 25)
+    inputBox.Position = UDim2.new(0.5, -100, 0, 10)
     inputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
     inputBox.Text = "0,10,0"
     inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -449,13 +451,13 @@ local function createBaseGui()
     inputCorner.CornerRadius = UDim.new(0, 6)
     inputCorner.Parent = inputBox
     
-    -- Set Position Button (piccolino)
+    -- Set Position Button
     local setPositionButton = Instance.new("TextButton")
     setPositionButton.Name = "SetPositionButton"
-    setPositionButton.Size = UDim2.new(0, 230, 0, 25)
-    setPositionButton.Position = UDim2.new(0.5, -115, 0, 40)
+    setPositionButton.Size = UDim2.new(0, 200, 0, 25)
+    setPositionButton.Position = UDim2.new(0.5, -100, 0, 40)
     setPositionButton.BackgroundColor3 = Color3.fromRGB(120, 80, 200)
-    setPositionButton.Text = "📍 SET CURRENT POS"
+    setPositionButton.Text = "📍 SET CURRENT POSITION"
     setPositionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     setPositionButton.TextSize = 12
     setPositionButton.Font = Enum.Font.GothamBold
@@ -466,11 +468,11 @@ local function createBaseGui()
     setPositionCorner.CornerRadius = UDim.new(0, 6)
     setPositionCorner.Parent = setPositionButton
     
-    -- Set Base Button (piccolino)
+    -- Set Base Button
     local setButton = Instance.new("TextButton")
     setButton.Name = "SetButton"
-    setButton.Size = UDim2.new(0, 110, 0, 25)
-    setButton.Position = UDim2.new(0, 10, 0, 75)
+    setButton.Size = UDim2.new(0, 200, 0, 25)
+    setButton.Position = UDim2.new(0.5, -100, 0, 70)
     setButton.BackgroundColor3 = Color3.fromRGB(80, 120, 200)
     setButton.Text = "📍 SET BASE"
     setButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -483,13 +485,13 @@ local function createBaseGui()
     setCorner.CornerRadius = UDim.new(0, 6)
     setCorner.Parent = setButton
     
-    -- Go to Base Button (piccolino)
+    -- Go to Base Button (con volo a mezz'aria)
     local goButton = Instance.new("TextButton")
     goButton.Name = "GoButton"
-    goButton.Size = UDim2.new(0, 110, 0, 25)
-    goButton.Position = UDim2.new(1, -120, 0, 75)
+    goButton.Size = UDim2.new(0, 200, 0, 25)
+    goButton.Position = UDim2.new(0.5, -100, 0, 100)
     goButton.BackgroundColor3 = Color3.fromRGB(80, 180, 120)
-    goButton.Text = "🚀 GO BASE"
+    goButton.Text = "🚀 GO TO BASE (FLY)"
     goButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     goButton.TextSize = 12
     goButton.Font = Enum.Font.GothamBold
@@ -504,9 +506,9 @@ local function createBaseGui()
     local infoLabel = Instance.new("TextLabel")
     infoLabel.Name = "InfoLabel"
     infoLabel.Size = UDim2.new(1, -20, 0, 15)
-    infoLabel.Position = UDim2.new(0, 10, 0, 110)
+    infoLabel.Position = UDim2.new(0, 10, 0, 130)
     infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "Fast teleport - bypassed method"
+    infoLabel.Text = "Teleport con volo a mezz'aria"
     infoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
     infoLabel.TextSize = 10
     infoLabel.Font = Enum.Font.Gotham
@@ -516,11 +518,11 @@ local function createBaseGui()
     local function toggleMinimize()
         if contentFrame.Visible then
             contentFrame.Visible = false
-            mainFrame.Size = UDim2.new(0, 250, 0, 30)
+            mainFrame.Size = UDim2.new(0, 220, 0, 30)
             minimizeButton.Text = "+"
         else
             contentFrame.Visible = true
-            mainFrame.Size = UDim2.new(0, 250, 0, 180)
+            mainFrame.Size = UDim2.new(0, 220, 0, 230)
             minimizeButton.Text = "-"
         end
     end
@@ -570,32 +572,59 @@ local function createBaseGui()
         end)
     end)
     
-    goButton.MouseButton1Click:Connect(function()
+    -- Funzione per volare a mezz'aria
+    local function flyToBase()
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local hrp = char.HumanoidRootPart
                 
-                -- Teleport rapido e bypassabile
-                local currentPos = hrp.Position
-                hrp.CFrame = CFrame.new(currentPos + Vector3.new(0, 500, 0))
-                RunService.Heartbeat:Wait() -- Attende un solo frame
-                hrp.CFrame = CFrame.new(basePosition + Vector3.new(0, 500, 0))
-                RunService.Heartbeat:Wait()
-                hrp.CFrame = CFrame.new(basePosition)
+                -- Calcola l'altezza di volo (100 unità sopra la base)
+                local flyHeight = basePosition.Y + 100
+                
+                -- Imposta la posizione di volo
+                local flyPosition = Vector3.new(basePosition.X, flyHeight, basePosition.Z)
+                
+                -- Teleport rapido alla posizione di volo
+                hrp.CFrame = CFrame.new(flyPosition)
+                
+                -- Attiva il fly mode per rimanere in aria
+                if flyConnection then
+                    flyConnection:Disconnect()
+                    flyConnection = nil
+                end
+                
+                flyConnection = RunService.Heartbeat:Connect(function()
+                    if char and hrp then
+                        -- Mantieni il player a mezz'aria
+                        local currentPos = hrp.Position
+                        hrp.CFrame = CFrame.new(Vector3.new(currentPos.X, flyHeight, currentPos.Z))
+                        
+                        -- Aggiungi un effetto di fluttuazione
+                        hrp.Velocity = Vector3.new(0, 0, 0)
+                        hrp.RotVelocity = Vector3.new(0, 0, 0)
+                    else
+                        if flyConnection then
+                            flyConnection:Disconnect()
+                            flyConnection = nil
+                        end
+                    end
+                end)
                 
                 Rayfield:Notify({
-                    Title = "Base Travel",
-                    Content = "Teleport completato!",
-                    Duration = 1.5,
+                    Title = "Base Flight",
+                    Content = "Volo a mezz'aria attivato!",
+                    Duration = 2,
                     Image = 4483362458
                 })
             end
         end)
-    end)
+    end
+    
+    goButton.MouseButton1Click:Connect(flyToBase)
 end
 
--- Create Sky Widget (già compatto)
+-- Create Sky Widget (pulsanti verticali)
 local function createSkyWidget()
     if skyWidget then
         skyWidget:Destroy()
@@ -610,8 +639,8 @@ local function createSkyWidget()
     -- Main Frame
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 200, 0, 130)
-    mainFrame.Position = UDim2.new(0.5, -100, 0.3, -65)
+    mainFrame.Size = UDim2.new(0, 180, 0, 150)
+    mainFrame.Position = UDim2.new(0.5, -90, 0.3, -75)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
@@ -691,13 +720,13 @@ local function createSkyWidget()
     contentFrame.BackgroundTransparency = 1
     contentFrame.Parent = mainFrame
     
-    -- Up Button (piccolino)
+    -- Up Button
     local upButton = Instance.new("TextButton")
     upButton.Name = "UpButton"
-    upButton.Size = UDim2.new(0, 80, 0, 30)
-    upButton.Position = UDim2.new(0, 20, 0, 15)
+    upButton.Size = UDim2.new(0, 160, 0, 30)
+    upButton.Position = UDim2.new(0.5, -80, 0, 20)
     upButton.BackgroundColor3 = Color3.fromRGB(60, 180, 100)
-    upButton.Text = "↑ UP"
+    upButton.Text = "↑ UP ↑"
     upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     upButton.TextSize = 14
     upButton.Font = Enum.Font.GothamBold
@@ -708,13 +737,13 @@ local function createSkyWidget()
     upCorner.CornerRadius = UDim.new(0, 8)
     upCorner.Parent = upButton
     
-    -- Down Button (piccolino)
+    -- Down Button
     local downButton = Instance.new("TextButton")
     downButton.Name = "DownButton"
-    downButton.Size = UDim2.new(0, 80, 0, 30)
-    downButton.Position = UDim2.new(1, -100, 0, 15)
+    downButton.Size = UDim2.new(0, 160, 0, 30)
+    downButton.Position = UDim2.new(0.5, -80, 0, 60)
     downButton.BackgroundColor3 = Color3.fromRGB(180, 80, 80)
-    downButton.Text = "↓ DOWN"
+    downButton.Text = "↓ DOWN ↓"
     downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     downButton.TextSize = 14
     downButton.Font = Enum.Font.GothamBold
@@ -730,11 +759,11 @@ local function createSkyWidget()
         skyWidgetMinimized = not skyWidgetMinimized
         if skyWidgetMinimized then
             contentFrame.Visible = false
-            mainFrame.Size = UDim2.new(0, 200, 0, 30)
+            mainFrame.Size = UDim2.new(0, 180, 0, 30)
             minimizeButton.Text = "+"
         else
             contentFrame.Visible = true
-            mainFrame.Size = UDim2.new(0, 200, 0, 130)
+            mainFrame.Size = UDim2.new(0, 180, 0, 150)
             minimizeButton.Text = "-"
         end
     end
@@ -843,7 +872,7 @@ Tab:CreateButton({
                 Content = "Walking to base...",
                 Duration = 1.5,
                 Image = 4483362458
-            })
+                })
         end)
     end
 })
