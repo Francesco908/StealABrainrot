@@ -1,181 +1,47 @@
--- Brainrot Ultimate Script v3.0
--- Bypassa qualsiasi anti-cheat con tecniche avanzate
-local Rayfield
-local DexLoaded = false
-local Dex
-
--- Caricamento Rayfield con fallback
-pcall(function()
-    Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-end)
-
-if not Rayfield then
-    pcall(function()
-        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
-    end)
-end
-
-if not Rayfield then return end
-
-repeat task.wait(0.1) until game:IsLoaded()
-
--- Servizi
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local TeleportService = game:GetService("TeleportService")
-local Workspace = game:GetService("Workspace")
-local ProximityPromptService = game:GetService("ProximityPromptService")
-local LocalPlayer = Players.LocalPlayer
-
--- Variabili
-local godMode = false
-local noClipEnabled = false
-local antiRagdoll = false
-local skyWidget = nil
-local killAuraActive = false
-local killAuraConnection = nil
-local intentionalKick = false
-local espEnabled = false
-local espObjects = {}
-local boostGui = nil
-local customSpeed = 50
+-- Sistema Fast Steal avanzato con targeting intelligente
 local fastStealEnabled = false
 local fastStealConnection = nil
-local antiCheatDetected = false
-local antiCheatObjects = {}
+local maxStealDistance = 25  -- Distanza massima per il furto
+local stealCooldown = 0.5    -- Cooldown tra un furto e l'altro
 
--- =============================================
--- FUNZIONI AVANZATE BYPASS ANTICHEAT
--- =============================================
+local function getClosestStealable()
+    local character = LocalPlayer.Character
+    if not character then return nil end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
 
--- Carica DEX se disponibile
-local function loadDex()
-    pcall(function()
-        Dex = require(game:GetService("ReplicatedStorage").Dex)
-        DexLoaded = true
-        Rayfield:Notify({
-            Title = "DEX Caricato",
-            Content = "Strumenti avanzati abilitati!",
-            Duration = 3,
-            Image = 4483362458
-        })
-    end)
-end
+    local closestObject = nil
+    local closestDistance = math.huge
 
--- Rileva e rimuovi anticheat
-local function detectAndRemoveAntiCheat()
-    antiCheatDetected = false
-    antiCheatObjects = {}
-    
-    local suspiciousNames = {
-        "AntiCheat", "AntiExploit", "AC_", "Guard", "Shield", "Protect",
-        "Security", "Watchdog", "Sentry", "Validator", "Scanner"
-    }
-    
-    -- Cerca in tutti i luoghi possibili
-    local locations = {
-        Workspace,
-        game:GetService("ReplicatedStorage"),
-        game:GetService("ServerStorage"),
-        game:GetService("ServerScriptService"),
-        game:GetService("StarterPlayer"),
-        game:GetService("Lighting"),
-        LocalPlayer.PlayerGui,
-        LocalPlayer.PlayerScripts
-    }
-    
-    -- Scansione profonda
-    for _, location in ipairs(locations) do
-        for _, obj in ipairs(location:GetDescendants()) do
-            for _, name in ipairs(suspiciousNames) do
-                if obj.Name:lower():find(name:lower()) then
-                    table.insert(antiCheatObjects, obj)
-                    antiCheatDetected = true
-                end
+    -- Cerca nella workspace
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.Enabled then
+            local distance = (humanoidRootPart.Position - obj.Parent.Position).Magnitude
+            if distance <= maxStealDistance and distance < closestDistance then
+                closestObject = obj
+                closestDistance = distance
             end
         end
     end
-    
-    -- Rimuovi se trovati
-    if antiCheatDetected then
-        for _, obj in ipairs(antiCheatObjects) do
-            pcall(function()
-                obj:Destroy()
-            end)
-        end
-        
-        Rayfield:Notify({
-            Title = "ANTI-CHEAT RIMOSSO",
-            Content = #antiCheatObjects.. " oggetti eliminati!",
-            Duration = 5,
-            Image = 4483362458
-        })
-    else
-        Rayfield:Notify({
-            Title = "Nessun Anti-Cheat",
-            Content = "Nessun sistema di protezione rilevato",
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
-end
 
--- God Mode avanzata con NoClip
-local function setGodMode(state)
-    godMode = state
-    noClipEnabled = state
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    if godMode then
-        -- Tecnica avanzata di bypass
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-                part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-                part.Massless = true
-            end
-        end
-        
-        if char:FindFirstChild("Humanoid") then
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-            
-            -- Bypass danni
-            char.Humanoid.HealthChanged:Connect(function()
-                if char.Humanoid.Health < char.Humanoid.MaxHealth then
-                    char.Humanoid.Health = char.Humanoid.MaxHealth
-                end
-            end)
-        end
-        
-        -- Connessione NoClip
-        RunService.Stepped:Connect(function()
-            if noClipEnabled and char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                        part.Velocity = Vector3.new(0, 0, 0)
-                        part.RotVelocity = Vector3.new(0, 0, 0)
+    -- Cerca nei personaggi dei giocatori
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            for _, obj in ipairs(player.Character:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Enabled then
+                    local distance = (humanoidRootPart.Position - obj.Parent.Position).Magnitude
+                    if distance <= maxStealDistance and distance < closestDistance then
+                        closestObject = obj
+                        closestDistance = distance
                     end
                 end
             end
-        end)
-    else
-        noClipEnabled = false
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-                part.CustomPhysicalProperties = nil
-                part.Massless = false
-            end
         end
     end
+
+    return closestObject
 end
 
--- Fast Steal potenziato
 local function setupFastSteal()
     if fastStealConnection then
         fastStealConnection:Disconnect()
@@ -184,234 +50,50 @@ local function setupFastSteal()
     
     fastStealConnection = RunService.Heartbeat:Connect(function()
         pcall(function()
-            -- Trova l'oggetto più vicino
-            local closestObj, closestDist = nil, math.huge
-            local char = LocalPlayer.Character
-            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-            
-            for _, obj in ipairs(Workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and obj.Enabled then
-                    local dist = (obj.Parent.Position - char.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestObj = obj
-                    end
-                end
-            end
-            
-            -- Attiva l'oggetto più vicino entro 0.5 secondi
-            if closestObj and closestDist < 15 then
-                closestObj.HoldDuration = 0
-                closestObj.ActionText = "RUBANDO"
+            local closestPrompt = getClosestStealable()
+            if closestPrompt then
+                -- Imposta il tempo di hold a 0.5 secondi
+                local originalHoldDuration = closestPrompt.HoldDuration
+                closestPrompt.HoldDuration = 0.5
                 
-                -- Calcola il tempo di attivazione (max 0.5s)
-                local activationTime = math.min(0.5, closestDist / 30)
-                task.wait(activationTime)
+                -- Attiva il prompt
+                fireproximityprompt(closestPrompt)
                 
-                fireproximityprompt(closestObj)
+                -- Ripristina il valore originale
+                closestPrompt.HoldDuration = originalHoldDuration
+                
+                -- Breve pausa per evitare spam
+                task.wait(stealCooldown)
             end
         end)
     end)
 end
 
--- Boost velocità personalizzato
-local function setCustomSpeed(value)
-    customSpeed = value
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.WalkSpeed = value
-    end
-end
-
--- Interfaccia Boost avanzata
-local function createBoostGui()
-    if boostGui then boostGui:Destroy() end
-    
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "BoostControl"
-    screenGui.Parent = LocalPlayer.PlayerGui
-    boostGui = screenGui
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 250, 0, 180)
-    mainFrame.Position = UDim2.new(0.5, -125, 0.7, -90)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = mainFrame
-    
-    local title = Instance.new("TextLabel")
-    title.Text = "CONTROLLO VELOCITÀ"
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    title.TextColor3 = Color3.new(1, 1, 1)
-    title.Font = Enum.Font.GothamBold
-    title.Parent = mainFrame
-    
-    local speedLabel = Instance.new("TextLabel")
-    speedLabel.Text = "Velocità attuale: " .. customSpeed
-    speedLabel.Size = UDim2.new(1, -20, 0, 20)
-    speedLabel.Position = UDim2.new(0, 10, 0, 40)
-    speedLabel.BackgroundTransparency = 1
-    speedLabel.TextColor3 = Color3.new(0.8, 0.8, 1)
-    speedLabel.Font = Enum.Font.Gotham
-    speedLabel.Parent = mainFrame
-    
-    local slider = Instance.new("Slider")
-    slider.Size = UDim2.new(0.9, 0, 0, 20)
-    slider.Position = UDim2.new(0.05, 0, 0, 70)
-    slider.MinValue = 16
-    slider.MaxValue = 200
-    slider.Value = customSpeed
-    slider.Parent = mainFrame
-    
-    local applyBtn = Instance.new("TextButton")
-    applyBtn.Text = "APPLICA VELOCITÀ"
-    applyBtn.Size = UDim2.new(0.9, 0, 0, 30)
-    applyBtn.Position = UDim2.new(0.05, 0, 0, 100)
-    applyBtn.BackgroundColor3 = Color3.fromRGB(70, 150, 70)
-    applyBtn.TextColor3 = Color3.new(1, 1, 1)
-    applyBtn.Font = Enum.Font.GothamBold
-    applyBtn.Parent = mainFrame
-    
-    local boostBtn = Instance.new("TextButton")
-    boostBtn.Text = "ATTIVA BOOST"
-    boostBtn.Size = UDim2.new(0.9, 0, 0, 30)
-    boostBtn.Position = UDim2.new(0.05, 0, 0, 140)
-    boostBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
-    boostBtn.TextColor3 = Color3.new(1, 1, 1)
-    boostBtn.Font = Enum.Font.GothamBold
-    boostBtn.Parent = mainFrame
-    
-    -- Aggiornamento in tempo reale
-    slider.Changed:Connect(function()
-        speedLabel.Text = "Velocità attuale: " .. math.floor(slider.Value)
-    end)
-    
-    applyBtn.MouseButton1Click:Connect(function()
-        setCustomSpeed(math.floor(slider.Value))
-    end)
-    
-    boostBtn.MouseButton1Click:Connect(function()
-        setCustomSpeed(100)
-        slider.Value = 100
-        speedLabel.Text = "Velocità attuale: 100"
-    end)
-end
-
--- =============================================
--- SETUP INTERFACCIA
--- =============================================
-
-local Window = Rayfield:CreateWindow({
-    Name = "BRAINROT ULTIMATE",
-    LoadingTitle = "Caricamento strumenti avanzati...",
-    LoadingSubtitle = "Bypass anti-cheat attivo",
-    ConfigurationSaving = {Enabled = false},
-    Discord = {Enabled = false},
-    KeySystem = false
-})
-
--- TAB PRINCIPALE
-local MainTab = Window:CreateTab("Main", 4483362458)
-MainTab:CreateSection("Funzioni Principali")
-
+-- Nel tab Main:
 MainTab:CreateToggle({
-    Name = "GOD MODE + NO CLIP",
-    Default = false,
-    Callback = function(value)
-        setGodMode(value)
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "FAST STEAL (0.5s)",
+    Name = "Fast Steal (0.5s)",
     Default = false,
     Callback = function(value)
         fastStealEnabled = value
         if value then
             setupFastSteal()
-        elseif fastStealConnection then
-            fastStealConnection:Disconnect()
-        end
-    end
-})
-
-MainTab:CreateButton({
-    Name = "CONTROLLO VELOCITÀ",
-    Callback = createBoostGui
-})
-
-MainTab:CreateButton({
-    Name = "RIMUOVI ANTI-CHEAT",
-    Callback = detectAndRemoveAntiCheat
-})
-
--- TAB ESP
-local ESPTab = Window:CreateTab("ESP", 4483362458)
-ESPTab:CreateSection("Visualizzazione Giocatori")
-
-ESPTab:CreateToggle({
-    Name = "ESP GIOCATORI",
-    Default = false,
-    Callback = function(value)
-        espEnabled = value
-        -- (Implementazione ESP qui)
-    end
-})
-
-ESPTab:CreateColorPicker({
-    Name = "COLORE ESP",
-    Color = Color3.fromRGB(255, 0, 0),
-    Callback = function(color)
-        -- (Implementazione cambio colore qui)
-    end
-})
-
--- TAB DEX
-local DexTab = Window:CreateTab("DEX Tools", 4483362458)
-DexTab:CreateSection("Strumenti Avanzati")
-
-DexTab:CreateButton({
-    Name = "CARICA DEX",
-    Callback = loadDex
-})
-
-DexTab:CreateButton({
-    Name = "SCANSIONE PROFONDA",
-    Callback = function()
-        if DexLoaded then
-            Dex:Explore(game)
             Rayfield:Notify({
-                Title = "DEX Attivato",
-                Content = "Esploratore avanzato aperto!",
-                Duration = 3,
+                Title = "Fast Steal Attivato",
+                Content = "Furto istantaneo (0.5s) attivo!",
+                Duration = 2,
                 Image = 4483362458
             })
         else
+            if fastStealConnection then
+                fastStealConnection:Disconnect()
+                fastStealConnection = nil
+            end
             Rayfield:Notify({
-                Title = "Errore DEX",
-                Content = "Carica prima il DEX!",
-                Duration = 3,
+                Title = "Fast Steal Disattivato",
+                Content = "Furto istantaneo disattivato",
+                Duration = 1.5,
                 Image = 4483362458
             })
         end
     end
 })
-
--- Notifica iniziale
-Rayfield:Notify({
-    Title = "BRAINROT ULTIMATE CARICATO",
-    Content = "Tutti i bypass attivi!",
-    Duration = 5,
-    Image = 4483362458
-})
-
--- Caricamento automatico DEX
-task.spawn(loadDex)
