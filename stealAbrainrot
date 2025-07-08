@@ -1,87 +1,112 @@
--- Carica Rayfield
+-- VERSIONE 1: Minimalista
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
--- Variabili
 local BrainrotRubati = 0
 
--- Crea finestra
+local Window = Rayfield:CreateWindow({
+    Name = "BRAINROT HEIST",
+    LoadingTitle = "Caricamento...",
+    LoadingSubtitle = "by il tuo username"
+})
+
+local Tab = Window:CreateTab("Main")
+local Label = Tab:CreateLabel("Brainrot Rubati: 0")
+
+-- PULSANTE ISTANTANEO
+Tab:CreateButton({
+    Name = "🔓 RUBA ISTANTANEO",
+    Callback = function()
+        BrainrotRubati = BrainrotRubati + 1
+        Label:Set("Brainrot Rubati: " .. BrainrotRubati)
+    end,
+})
+
+print("GUI V1 LOADED")
+
+-- VERSIONE 2: Con notifiche (rimuovi --[[ e --]] per usare)
+--[[
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+
+local BrainrotRubati = 0
+
 local Window = Rayfield:CreateWindow({
     Name = "BRAINROT HEIST",
     LoadingTitle = "Caricamento...",
     LoadingSubtitle = "by il tuo username",
-    ConfigurationSaving = {
-        Enabled = false,
-        FolderName = nil,
-        FileName = "BrainrotHeist"
-    },
-    Discord = {
-        Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = false
-    },
+    ConfigurationSaving = {Enabled = false},
     KeySystem = false
 })
 
--- Crea tab
-local MainTab = Window:CreateTab("🍑 BRAINROT STEALER", 4483362458)
+local Tab = Window:CreateTab("Main", nil)
+local Label = Tab:CreateLabel("Brainrot Rubati: 0")
 
--- Sezione steal
-local StealSection = MainTab:CreateSection("Instant Steal")
+-- PULSANTE ISTANTANEO
+Tab:CreateButton({
+    Name = "🔓 RUBA ISTANTANEO",
+    Callback = function()
+        BrainrotRubati = BrainrotRubati + 1
+        Label:Set("Brainrot Rubati: " .. BrainrotRubati)
+        Rayfield:Notify({
+            Title = "Brainrot Rubato!",
+            Content = "Totale: " .. BrainrotRubati,
+            Duration = 1
+        })
+    end,
+})
 
--- Contatore
-local CounterLabel = MainTab:CreateLabel("Brainrot Rubati: 0")
+print("GUI V2 LOADED")
+--]]
 
--- Funzione per rubare
+-- VERSIONE 3: Completa con auto steal (rimuovi --[[ e --]] per usare)
+--[[
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+
+local BrainrotRubati = 0
+
+local Window = Rayfield:CreateWindow({
+    Name = "BRAINROT HEIST",
+    LoadingTitle = "Caricamento...",
+    LoadingSubtitle = "by il tuo username",
+    ConfigurationSaving = {Enabled = false},
+    KeySystem = false
+})
+
+local Tab = Window:CreateTab("Main", 4483362458)
+local Label = Tab:CreateLabel("Brainrot Rubati: 0")
+
 local function StealBrainrot()
     BrainrotRubati = BrainrotRubati + 1
-    CounterLabel:Set("Brainrot Rubati: " .. BrainrotRubati)
-    
-    -- Notifica
-    Rayfield:Notify({
-        Title = "Brainrot Rubato!",
-        Content = "Totale: " .. BrainrotRubati,
-        Duration = 1,
-        Image = 4483362458
-    })
+    Label:Set("Brainrot Rubati: " .. BrainrotRubati)
 end
 
--- Pulsante per rubare ISTANTANEO
-MainTab:CreateButton({
-    Name = "🔓 RUBA BRAINROT (ISTANTANEO)",
+-- PULSANTE ISTANTANEO
+Tab:CreateButton({
+    Name = "🔓 RUBA ISTANTANEO",
     Callback = function()
         StealBrainrot()
     end,
 })
 
--- Sezione Admin
-local AdminSection = MainTab:CreateSection("Admin Commands")
-
--- Auto steal con velocità regolabile
-local AutoStealSpeed = 0.1
-local AutoStealEnabled = false
-
-MainTab:CreateSlider({
-    Name = "Velocità Auto Steal",
-    Range = {0.01, 2},
-    Increment = 0.01,
-    Suffix = "sec",
-    CurrentValue = 0.1,
-    Flag = "AutoStealSpeed",
-    Callback = function(Value)
-        AutoStealSpeed = Value
+-- MEGA STEAL
+Tab:CreateButton({
+    Name = "💥 MEGA STEAL (+100)",
+    Callback = function()
+        BrainrotRubati = BrainrotRubati + 100
+        Label:Set("Brainrot Rubati: " .. BrainrotRubati)
     end,
 })
 
-MainTab:CreateToggle({
-    Name = "🔥 AUTO STEAL",
+-- AUTO STEAL
+local AutoSteal = false
+Tab:CreateToggle({
+    Name = "Auto Steal",
     CurrentValue = false,
-    Flag = "AutoStealToggle",
     Callback = function(Value)
-        AutoStealEnabled = Value
-        if AutoStealEnabled then
+        AutoSteal = Value
+        if AutoSteal then
             spawn(function()
-                while AutoStealEnabled do
-                    wait(AutoStealSpeed)
+                while AutoSteal do
+                    wait(0.1)
                     StealBrainrot()
                 end
             end)
@@ -89,48 +114,14 @@ MainTab:CreateToggle({
     end,
 })
 
--- Slider per impostare brainrot manualmente
-MainTab:CreateSlider({
-    Name = "Imposta Brainrot Manualmente",
-    Range = {0, 999999},
-    Increment = 1,
-    Suffix = "Brainrot",
-    CurrentValue = 0,
-    Flag = "ManualBrainrot",
-    Callback = function(Value)
-        BrainrotRubati = Value
-        CounterLabel:Set("Brainrot Rubati: " .. BrainrotRubati)
-    end,
-})
-
--- Reset button
-MainTab:CreateButton({
-    Name = "🔄 RESET CONTATORE",
+-- RESET
+Tab:CreateButton({
+    Name = "🔄 RESET",
     Callback = function()
         BrainrotRubati = 0
-        CounterLabel:Set("Brainrot Rubati: 0")
-        Rayfield:Notify({
-            Title = "Reset Completato!",
-            Content = "Contatore azzerato",
-            Duration = 2,
-            Image = 4483362458
-        })
+        Label:Set("Brainrot Rubati: 0")
     end,
 })
 
--- Mega steal button
-MainTab:CreateButton({
-    Name = "💥 MEGA STEAL (+100)",
-    Callback = function()
-        BrainrotRubati = BrainrotRubati + 100
-        CounterLabel:Set("Brainrot Rubati: " .. BrainrotRubati)
-        Rayfield:Notify({
-            Title = "MEGA STEAL!",
-            Content = "+100 Brainrot rubati!",
-            Duration = 2,
-            Image = 4483362458
-        })
-    end,
-})
-
-print("🍑 BRAINROT HEIST GUI caricata con successo!")
+print("GUI V3 LOADED")
+--]]
