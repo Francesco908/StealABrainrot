@@ -1,7 +1,14 @@
 -- Universal Script Hub - Fully Functional
 -- by OnlyRobloxScript
 
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+end)
+
+if not success then
+    warn("Failed to load Rayfield library")
+    return
+end
 
 -- Create main window
 local Window = Rayfield:CreateWindow({
@@ -338,30 +345,30 @@ local function setupFly()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
-    
+
     local flySpeed = 50
     local bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
     bodyVelocity.Parent = character.HumanoidRootPart
-    
+
     local flying = false
-    
+
     game:GetService("UserInputService").InputBegan:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.E and flyEnabled then
             flying = not flying
             bodyVelocity.MaxForce = flying and Vector3.new(9e9, 9e9, 9e9) or Vector3.new(0, 0, 0)
         end
     end)
-    
+
     game:GetService("RunService").Heartbeat:Connect(function()
         if flyEnabled and flying and character and character:FindFirstChild("HumanoidRootPart") then
             local rootPart = character.HumanoidRootPart
             local camera = workspace.CurrentCamera
-            
+
             -- Movement controls
             local moveDirection = Vector3.new(0, 0, 0)
-            
+
             if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
                 moveDirection = moveDirection + camera.CFrame.LookVector
             end
@@ -380,7 +387,7 @@ local function setupFly()
             if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
                 moveDirection = moveDirection + Vector3.new(0, -1, 0)
             end
-            
+
             if moveDirection.Magnitude > 0 then
                 bodyVelocity.Velocity = moveDirection.Unit * flySpeed
             else
@@ -398,6 +405,7 @@ game.Players.LocalPlayer.CharacterAdded:Connect(setupFly)
 
 -- ESP Tab
 local playersESP = {}
+
 ESPTab:CreateSection("Player ESP")
 ESPTab:CreateToggle({
     Name = "👤 Player ESP",
@@ -420,7 +428,7 @@ ESPTab:CreateToggle({
                     end
                 end
             end
-            
+
             Rayfield:Notify({
                 Title = "Player ESP Enabled",
                 Content = "Players highlighted in red",
@@ -433,7 +441,7 @@ ESPTab:CreateToggle({
                 highlight:Destroy()
             end
             table.clear(playersESP)
-            
+
             Rayfield:Notify({
                 Title = "Player ESP Disabled",
                 Content = "Player highlights removed",
@@ -489,7 +497,6 @@ end
 
 -- Pets Tab
 PetsTab:CreateSection("Pet Collection")
-
 local pets = {
     {name = "🐉 Dragon", rarity = "Legendary", price = 5000},
     {name = "🦅 Eagle", rarity = "Epic", price = 2500},
@@ -532,7 +539,6 @@ Rayfield:LoadConfiguration()
 Rayfield:SetWatermark("⚡ Ultimate Script Hub v1.0 | "..os.date("%X"))
 Rayfield:SetWatermarkVisibility(true)
 Rayfield:SetKeybind(Enum.KeyCode.F4)
-
 Rayfield:Notify({
     Title = "Hub Loaded",
     Content = "Welcome to Ultimate Script Hub!",
