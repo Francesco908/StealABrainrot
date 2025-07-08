@@ -1,4 +1,14 @@
--- Brainrot Universal Script with Enhanced Features
+-- Brainrot Universal Steal Script
+-- Loading message
+local success, err = pcall(function()
+    game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
+        Text = "[STEAL] Brainrot Script Loading...",
+        Color = Color3.new(1, 0.5, 0),
+        Font = Enum.Font.SourceSansBold,
+        FontSize = Enum.FontSize.Size24
+    })
+end)
+
 -- Multiple Rayfield loading methods
 local Rayfield
 pcall(function()
@@ -14,7 +24,7 @@ end
 if not Rayfield then return end
 
 -- Wait for game
-repeat wait(0.1) until game:IsLoaded()
+repeat task.wait(0.1) until game:IsLoaded()
 
 -- Services
 local Players = game:GetService("Players")
@@ -26,17 +36,14 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variables
-local basePosition = Vector3.new(0, 10, 0)
-local originalSpeed = 16
 local godMode = false
 local antiRagdoll = false
-local autoWalk = false
 local skyWidget = nil
 local skyWidgetVisible = false
 local skyWidgetMinimized = false
 local leaveGui = nil
 local killAuraActive = false
-local killAuraDistance = 50 -- Default distance
+local killAuraDistance = 50
 local killAuraConnection = nil
 local intentionalKick = false
 local flyEnabled = false
@@ -48,6 +55,7 @@ local boostActive = false
 local infiniteJump = false
 local jumpCooldown = false
 local targetPlayers = {"Tralalero Tralala", "La Vacca Saturno Saturnita"}
+local wallsRemoved = false
 
 -- Anti-kick system
 local function antiKick()
@@ -64,7 +72,7 @@ local function antiKick()
     setreadonly(mt, true)
 end
 
--- Enhanced God Mode with anti-ragdoll (Vecchia versione)
+-- Enhanced God Mode with anti-ragdoll
 local function toggleGodMode()
     godMode = not godMode
     local char = LocalPlayer.Character
@@ -81,8 +89,8 @@ local function toggleGodMode()
         end)
         
         Rayfield:Notify({
-            Title = "God Mode Attivato",
-            Content = "Vecchia versione attivata!",
+            Title = "God Mode Activated",
+            Content = "Old version activated!",
             Duration = 3,
             Image = 4483362458
         })
@@ -91,8 +99,8 @@ local function toggleGodMode()
         char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
         
         Rayfield:Notify({
-            Title = "God Mode Disattivato",
-            Content = "Protezione rimossa",
+            Title = "God Mode Deactivated",
+            Content = "Protection removed",
             Duration = 3,
             Image = 4483362458
         })
@@ -107,36 +115,49 @@ local function setupInfiniteJump()
             if char and char:FindFirstChild("Humanoid") then
                 char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 jumpCooldown = true
-                wait(0.1)
+                task.wait(0.1)
                 jumpCooldown = false
             end
         end
     end)
 end
 
--- Remove Walls function (evita la tua base)
+-- Permanent Wall Removal (works after death)
 local function removeWalls()
-    pcall(function()
-        local playerPosition = LocalPlayer.Character.HumanoidRootPart.Position
-        local safeRadius = 50 -- Studs
-        
-        -- Remove lasers
+    if wallsRemoved then return end
+    wallsRemoved = true
+    
+    local function removeWallsNow()
         for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and (obj.Name:lower():find("laser") or obj.Name:lower():find("laserhitbox")) then
-                -- Skip walls near player's position
-                if (playerPosition - obj.Position).Magnitude > safeRadius then
-                    obj:Destroy()
-                end
+            if obj:IsA("BasePart") and (obj.Name:lower():find("laser") or obj.Name:lower():find("wall")) then
+                obj:Destroy()
             end
         end
-        
-        Rayfield:Notify({
-            Title = "Walls Removed",
-            Content = "Lasers removed except near your base!",
-            Duration = 3,
-            Image = 4483362458
-        })
+    end
+    
+    -- Remove immediately
+    removeWallsNow()
+    
+    -- Keep removing as new walls appear
+    local connection
+    connection = Workspace.DescendantAdded:Connect(function(obj)
+        if obj:IsA("BasePart") and (obj.Name:lower():find("laser") or obj.Name:lower():find("wall")) then
+            obj:Destroy()
+        end
     end)
+    
+    -- Reconnect after character respawn
+    LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(1)
+        removeWallsNow()
+    end)
+    
+    Rayfield:Notify({
+        Title = "Walls Removed",
+        Content = "All walls permanently removed!",
+        Duration = 3,
+        Image = 4483362458
+    })
 end
 
 -- ESP Functions with target search
@@ -222,46 +243,6 @@ local function toggleESP()
     end
 end
 
--- Teleport Up function
-local function teleportUp()
-    pcall(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local pos = char.HumanoidRootPart.Position
-            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 265, 0))
-        end
-    end)
-end
-
--- Teleport Down function
-local function teleportDown()
-    pcall(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local pos = char.HumanoidRootPart.Position
-            char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
-        end
-    end)
-end
-
--- Teleport to Base (high above)
-local function teleportToBase()
-    pcall(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local targetPos = basePosition + Vector3.new(0, 265, 0)
-            char.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-            
-            Rayfield:Notify({
-                Title = "Base Teleport",
-                Content = "Teleported above base! Use DOWN to land.",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end
-    end)
-end
-
 -- Enhanced Kill Aura with configurable distance
 local function startKillAura()
     if killAuraActive then return end
@@ -308,17 +289,15 @@ local function startKillAura()
                         local lookDirection = Vector3.new(targetDirection.X, 0, targetDirection.Z)
                         char.HumanoidRootPart.CFrame = CFrame.lookAt(char.HumanoidRootPart.Position, char.HumanoidRootPart.Position + lookDirection)
                         
-                        -- Equip and activate tool
+                        -- Equip and activate tool (instant activation)
                         if tool.Parent == LocalPlayer.Backpack then
                             char.Humanoid:EquipTool(tool)
                         end
                         
                         if tool:FindFirstChild("Handle") then
                             tool:Activate()
+                            task.wait(0.05) -- Minimal delay
                         end
-                        
-                        -- Small delay between attacks
-                        wait(0.05)
                     end
                 end
             end
@@ -334,27 +313,28 @@ local function stopKillAura()
     killAuraActive = false
 end
 
--- Create Leave GUI with Rejoin option
-local function createLeaveGui()
-    if leaveGui then
-        leaveGui:Destroy()
+-- Create Sky Widget (fixed version)
+local function createSkyWidget()
+    if skyWidget then
+        skyWidget:Destroy()
+        skyWidget = nil
     end
     
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "LeaveGui"
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    screenGui.ResetOnSpawn = false
-    leaveGui = screenGui
+    skyWidget = Instance.new("ScreenGui")
+    skyWidget.Name = "SkyWidget"
+    skyWidget.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    skyWidget.ResetOnSpawn = false
+    skyWidget.Enabled = true
     
     -- Main Frame
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 200, 0, 180) -- Increased height
-    mainFrame.Position = UDim2.new(0.5, -100, 0.5, -90)
+    mainFrame.Size = UDim2.new(0, 200, 0, 150)
+    mainFrame.Position = UDim2.new(0.5, -100, 0.1, 0)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
+    mainFrame.Parent = skyWidget
     mainFrame.Active = true
     mainFrame.Draggable = true
     
@@ -382,28 +362,11 @@ local function createLeaveGui()
     title.Size = UDim2.new(1, -60, 1, 0)
     title.Position = UDim2.new(0, 10, 0, 0)
     title.BackgroundTransparency = 1
-    title.Text = "SERVER OPTIONS"
+    title.Text = "SKY CONTROLS"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextSize = 14
     title.Font = Enum.Font.GothamBold
     title.Parent = header
-    
-    -- Minimize Button
-    local minimizeButton = Instance.new("TextButton")
-    minimizeButton.Name = "MinimizeButton"
-    minimizeButton.Size = UDim2.new(0, 20, 0, 20)
-    minimizeButton.Position = UDim2.new(1, -50, 0.5, -10)
-    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 180, 40)
-    minimizeButton.Text = "-"
-    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    minimizeButton.TextSize = 14
-    minimizeButton.Font = Enum.Font.GothamBold
-    minimizeButton.BorderSizePixel = 0
-    minimizeButton.Parent = header
-    
-    local minimizeCorner = Instance.new("UICorner")
-    minimizeCorner.CornerRadius = UDim.new(0, 10)
-    minimizeCorner.Parent = minimizeButton
     
     -- Close Button
     local closeButton = Instance.new("TextButton")
@@ -422,7 +385,7 @@ local function createLeaveGui()
     closeCorner.CornerRadius = UDim.new(0, 10)
     closeCorner.Parent = closeButton
     
-    -- Content Frame
+    -- Content
     local contentFrame = Instance.new("Frame")
     contentFrame.Name = "ContentFrame"
     contentFrame.Size = UDim2.new(1, 0, 1, -30)
@@ -430,97 +393,68 @@ local function createLeaveGui()
     contentFrame.BackgroundTransparency = 1
     contentFrame.Parent = mainFrame
     
-    -- Leave Button
-    local leaveButton = Instance.new("TextButton")
-    leaveButton.Name = "LeaveButton"
-    leaveButton.Size = UDim2.new(0, 180, 0, 30)
-    leaveButton.Position = UDim2.new(0.5, -90, 0, 20)
-    leaveButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-    leaveButton.Text = "🚪 LEAVE GAME"
-    leaveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    leaveButton.TextSize = 14
-    leaveButton.Font = Enum.Font.GothamBold
-    leaveButton.BorderSizePixel = 0
-    leaveButton.Parent = contentFrame
+    -- Up Button
+    local upButton = Instance.new("TextButton")
+    upButton.Name = "UpButton"
+    upButton.Size = UDim2.new(0, 180, 0, 30)
+    upButton.Position = UDim2.new(0.5, -90, 0, 20)
+    upButton.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
+    upButton.Text = "⬆️ UP"
+    upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    upButton.TextSize = 14
+    upButton.Font = Enum.Font.GothamBold
+    upButton.BorderSizePixel = 0
+    upButton.Parent = contentFrame
     
-    local leaveCorner = Instance.new("UICorner")
-    leaveCorner.CornerRadius = UDim.new(0, 8)
-    leaveCorner.Parent = leaveButton
+    local upCorner = Instance.new("UICorner")
+    upCorner.CornerRadius = UDim.new(0, 8)
+    upCorner.Parent = upButton
     
-    -- Server Hop Button
-    local hopButton = Instance.new("TextButton")
-    hopButton.Name = "HopButton"
-    hopButton.Size = UDim2.new(0, 180, 0, 30)
-    hopButton.Position = UDim2.new(0.5, -90, 0, 60)
-    hopButton.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
-    hopButton.Text = "🔄 SERVER HOP"
-    hopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    hopButton.TextSize = 14
-    hopButton.Font = Enum.Font.GothamBold
-    hopButton.BorderSizePixel = 0
-    hopButton.Parent = contentFrame
+    -- Down Button
+    local downButton = Instance.new("TextButton")
+    downButton.Name = "DownButton"
+    downButton.Size = UDim2.new(0, 180, 0, 30)
+    downButton.Position = UDim2.new(0.5, -90, 0, 60)
+    downButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+    downButton.Text = "⬇️ DOWN"
+    downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    downButton.TextSize = 14
+    downButton.Font = Enum.Font.GothamBold
+    downButton.BorderSizePixel = 0
+    downButton.Parent = contentFrame
     
-    local hopCorner = Instance.new("UICorner")
-    hopCorner.CornerRadius = UDim.new(0, 8)
-    hopCorner.Parent = hopButton
-    
-    -- Rejoin Button
-    local rejoinButton = Instance.new("TextButton")
-    rejoinButton.Name = "RejoinButton"
-    rejoinButton.Size = UDim2.new(0, 180, 0, 30)
-    rejoinButton.Position = UDim2.new(0.5, -90, 0, 100)
-    rejoinButton.BackgroundColor3 = Color3.fromRGB(100, 180, 100)
-    rejoinButton.Text = "🔁 REJOIN SERVER"
-    rejoinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    rejoinButton.TextSize = 14
-    rejoinButton.Font = Enum.Font.GothamBold
-    rejoinButton.BorderSizePixel = 0
-    rejoinButton.Parent = contentFrame
-    
-    local rejoinCorner = Instance.new("UICorner")
-    rejoinCorner.CornerRadius = UDim.new(0, 8)
-    rejoinCorner.Parent = rejoinButton
-    
-    -- Minimize functionality
-    local function toggleMinimize()
-        if contentFrame.Visible then
-            contentFrame.Visible = false
-            mainFrame.Size = UDim2.new(0, 200, 0, 30)
-            minimizeButton.Text = "+"
-        else
-            contentFrame.Visible = true
-            mainFrame.Size = UDim2.new(0, 200, 0, 180)
-            minimizeButton.Text = "-"
-        end
-    end
+    local downCorner = Instance.new("UICorner")
+    downCorner.CornerRadius = UDim.new(0, 8)
+    downCorner.Parent = downButton
     
     -- Button connections
-    minimizeButton.MouseButton1Click:Connect(toggleMinimize)
-    
     closeButton.MouseButton1Click:Connect(function()
-        leaveGui:Destroy()
-        leaveGui = nil
+        skyWidget:Destroy()
+        skyWidget = nil
     end)
     
-    leaveButton.MouseButton1Click:Connect(function()
-        intentionalKick = true
-        LocalPlayer:Kick("Left the game")
-    end)
-    
-    hopButton.MouseButton1Click:Connect(function()
+    upButton.MouseButton1Click:Connect(function()
         pcall(function()
-            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0, 50, 0)
+            end
         end)
     end)
     
-    rejoinButton.MouseButton1Click:Connect(function()
+    downButton.MouseButton1Click:Connect(function()
         pcall(function()
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame - Vector3.new(0, 50, 0)
+            end
         end)
     end)
+    
+    skyWidgetVisible = true
 end
 
--- Create Boost GUI (87% boost)
+-- Create Boost GUI (87% boost, works even when carrying brainrot)
 local function createBoostGui()
     if boostGui then
         boostGui:Destroy()
@@ -565,28 +499,60 @@ local function createBoostGui()
     boostCorner.CornerRadius = UDim.new(0, 8)
     boostCorner.Parent = boostButton
     
-    boostButton.MouseButton1Click:Connect(function()
-        boostActive = not boostActive
+    -- Boost connection that works even when carrying brainrot
+    local function updateBoost()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             if boostActive then
-                char.Humanoid.WalkSpeed = originalSpeed * 1.87 -- 87% boost
+                char.Humanoid.WalkSpeed = 16 * 1.87 -- 87% boost
                 boostButton.Text = "BOOST: ON"
                 boostButton.BackgroundColor3 = Color3.fromRGB(200, 120, 70)
             else
-                char.Humanoid.WalkSpeed = originalSpeed
+                char.Humanoid.WalkSpeed = 16
                 boostButton.Text = "BOOST: OFF"
                 boostButton.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
             end
         end
+    end
+    
+    -- Keep updating even when carrying items
+    local boostConnection
+    boostConnection = RunService.Heartbeat:Connect(function()
+        pcall(updateBoost)
+    end)
+    
+    boostButton.MouseButton1Click:Connect(function()
+        boostActive = not boostActive
+        updateBoost()
+    end)
+    
+    -- Clean up when GUI is destroyed
+    boostGui.Destroying:Connect(function()
+        boostConnection:Disconnect()
     end)
 end
 
 -- Character setup
 local function setupCharacter()
-    repeat wait(0.1) until LocalPlayer.Character
-    repeat wait(0.1) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    basePosition = LocalPlayer.Character.HumanoidRootPart.Position
+    repeat task.wait(0.1) until LocalPlayer.Character
+    repeat task.wait(0.1) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    -- Reapply ESP if needed
+    if espEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player.Character then
+                createESP(player)
+            end
+        end
+    end
+    
+    -- Reapply boost if needed
+    if boostActive then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = 16 * 1.87
+        end
+    end
 end
 
 if LocalPlayer.Character then
@@ -602,9 +568,9 @@ setupInfiniteJump()
 
 -- Create UI with multiple tabs
 local Window = Rayfield:CreateWindow({
-    Name = "Brainrot Hub Pro",
-    LoadingTitle = "Loading Pro Version...",
-    LoadingSubtitle = "Admin tools for everyone",
+    Name = "Brainrot Steal Hub",
+    LoadingTitle = "Loading Steal Script...",
+    LoadingSubtitle = "Instant steal features",
     ConfigurationSaving = {Enabled = false},
     Discord = {Enabled = false},
     KeySystem = false
@@ -626,63 +592,22 @@ local GUITab = Window:CreateTab("GUI", 4483362458)
 local BoostTab = Window:CreateTab("Boost", 4483362458)
 
 -- Main Tab Features
-MainTab:CreateSection("Movement")
+MainTab:CreateSection("Utilities")
 
 MainTab:CreateButton({
-    Name = "Speed Boost +45%",
-    Callback = function()
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.WalkSpeed = originalSpeed * 1.45
-                Rayfield:Notify({
-                    Title = "Speed Boost",
-                    Content = "Speed activated",
-                    Duration = 1.5,
-                    Image = 4483362458
-                })
-            end
-        end)
-    end
-})
-
-MainTab:CreateInput({
-    Name = "Set Base (X,Y,Z)",
-    PlaceholderText = "0,10,0",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(text)
-        pcall(function()
-            local coords = string.split(text, ",")
-            if #coords == 3 then
-                local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
-                if x and y and z then
-                    basePosition = Vector3.new(x, y, z)
-                    Rayfield:Notify({
-                        Title = "Base Set",
-                        Content = "New base position set",
-                        Duration = 1.5,
-                        Image = 4483362458
-                    })
-                end
-            end
-        end)
-    end
-})
-
-MainTab:CreateButton({
-    Name = "Remove Walls",
+    Name = "Remove All Walls (Permanent)",
     Callback = function()
         removeWalls()
     end
 })
 
 MainTab:CreateToggle({
-    Name = "Block Base Protection",
+    Name = "Base Protection Bypass",
     Default = true,
     Callback = function(value)
         Rayfield:Notify({
             Title = "Base Protection",
-            Content = value and "ON - Base protetta" or "OFF - Base vulnerabile",
+            Content = value and "ON - Base protected" or "OFF - Base vulnerable",
             Duration = 2,
             Image = 4483362458
         })
@@ -705,28 +630,26 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Kill Aura",
+    Name = "Instant Kill Aura (No Hold)",
     Default = false,
     Callback = function(value)
-        pcall(function()
-            if value then
-                startKillAura()
-                Rayfield:Notify({
-                    Title = "Kill Aura",
-                    Content = "Attivata - Distanza: " .. killAuraDistance .. " studs",
-                    Duration = 1.5,
-                    Image = 4483362458
-                })
-            else
-                stopKillAura()
-                Rayfield:Notify({
-                    Title = "Kill Aura",
-                    Content = "Disattivata",
-                    Duration = 1.5,
-                    Image = 4483362458
-                })
-            end
-        end)
+        if value then
+            startKillAura()
+            Rayfield:Notify({
+                Title = "Kill Aura",
+                Content = "Activated - Distance: " .. killAuraDistance .. " studs",
+                Duration = 1.5,
+                Image = 4483362458
+            })
+        else
+            stopKillAura()
+            Rayfield:Notify({
+                Title = "Kill Aura",
+                Content = "Deactivated",
+                Duration = 1.5,
+                Image = 4483362458
+            })
+        end
     end
 })
 
@@ -749,7 +672,7 @@ CombatTab:CreateToggle({
         infiniteJump = value
         Rayfield:Notify({
             Title = "Infinite Jump",
-            Content = value and "ON - Salti infiniti attivi" or "OFF",
+            Content = value and "ON - Infinite jumps active" or "OFF",
             Duration = 2,
             Image = 4483362458
         })
@@ -764,7 +687,7 @@ ESPTab:CreateToggle({
         toggleESP()
         Rayfield:Notify({
             Title = "ESP",
-            Content = value and "Attivato" or "Disattivato",
+            Content = value and "Activated" or "Deactivated",
             Duration = 1.5,
             Image = 4483362458
         })
@@ -790,7 +713,7 @@ ESPTab:CreateColorPicker({
 })
 
 ESPTab:CreateButton({
-    Name = "Find Brainrot Players",
+    Name = "Find Target Players",
     Callback = function()
         local found = false
         for _, playerName in ipairs(targetPlayers) do
@@ -798,8 +721,8 @@ ESPTab:CreateButton({
             if player then
                 found = true
                 Rayfield:Notify({
-                    Title = "Player Trovato!",
-                    Content = playerName .. " è nel server",
+                    Title = "Target Found!",
+                    Content = playerName .. " is in the server",
                     Duration = 5,
                     Image = 4483362458
                 })
@@ -811,8 +734,8 @@ ESPTab:CreateButton({
         
         if not found then
             Rayfield:Notify({
-                Title = "Player Non Trovati",
-                Content = "Nessun Brainrot trovato, usare Server Hop?",
+                Title = "Targets Not Found",
+                Content = "No targets found, server hop?",
                 Duration = 6,
                 Image = 4483362458,
                 Actions = {
@@ -834,38 +757,29 @@ ESPTab:CreateButton({
 
 -- GUI Tab Features
 GUITab:CreateButton({
-    Name = "Sky GUI",
+    Name = "Sky Controls GUI",
     Callback = function()
-        pcall(function()
-            if not skyWidgetVisible then
-                createSkyWidget()
-            end
-        end)
-    end
-})
-
-GUITab:CreateButton({
-    Name = "Leave GUI",
-    Callback = function()
-        pcall(function()
-            createLeaveGui()
-        end)
+        createSkyWidget()
+        Rayfield:Notify({
+            Title = "Sky GUI",
+            Content = "Sky controls activated!",
+            Duration = 2,
+            Image = 4483362458
+        })
     end
 })
 
 -- Boost Tab Features
 BoostTab:CreateButton({
-    Name = "Attiva Speed Boost Overlay",
+    Name = "Enable Speed Boost Overlay",
     Callback = function()
-        pcall(function()
-            createBoostGui()
-            Rayfield:Notify({
-                Title = "Boost Overlay",
-                Content = "Boost overlay attivato (87%)!",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end)
+        createBoostGui()
+        Rayfield:Notify({
+            Title = "Boost Overlay",
+            Content = "Boost overlay activated (87%)!",
+            Duration = 2,
+            Image = 4483362458
+        })
     end
 })
 
@@ -877,9 +791,9 @@ BoostTab:CreateToggle({
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             if boostActive then
-                char.Humanoid.WalkSpeed = originalSpeed * 1.87
+                char.Humanoid.WalkSpeed = 16 * 1.87
             else
-                char.Humanoid.WalkSpeed = originalSpeed
+                char.Humanoid.WalkSpeed = 16
             end
         end
     end
@@ -887,8 +801,8 @@ BoostTab:CreateToggle({
 
 -- Success notification
 Rayfield:Notify({
-    Title = "Brainrot Hub Pro Caricato",
-    Content = "Tutte le funzionalità attivate!",
+    Title = "Brainrot Steal Script Loaded",
+    Content = "All features activated! Instant steal ready!",
     Duration = 3,
     Image = 4483362458
 })
