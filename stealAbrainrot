@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "✨ Ultimate Script Hub",
-    LoadingTitle = "Loading Universal Hub...",
+    Name = "✨ Ultimate Combat Hub",
+    LoadingTitle = "Loading Universal Combat Hub...",
     LoadingSubtitle = "by OnlyRobloxScript",
     ConfigurationSaving = {
         Enabled = true,
@@ -20,6 +20,87 @@ local Window = Rayfield:CreateWindow({
     }
 })
 
+-- Combat Tab with Kill Aura
+local CombatTab = Window:CreateTab("⚔️ Combat", 6022668888)
+
+CombatTab:CreateSection("Kill Aura")
+local killAuraActive = false
+local killAuraRange = 25
+local killAuraCooldown = 0.3
+
+CombatTab:CreateToggle({
+    Name = "💀 Kill Aura",
+    CurrentValue = false,
+    Flag = "KillAura",
+    Callback = function(Value)
+        killAuraActive = Value
+        Rayfield:Notify({
+            Title = Value and "Kill Aura Enabled" or "Kill Aura Disabled",
+            Content = Value and "Attacking nearby enemies" or "Combat system offline",
+            Duration = 3,
+            Image = 6022668888
+        })
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "📏 Kill Aura Range",
+    Range = {5, 50},
+    Increment = 1,
+    Suffix = "studs",
+    CurrentValue = 25,
+    Flag = "AuraRange",
+    Callback = function(Value)
+        killAuraRange = Value
+    end,
+})
+
+CombatTab:CreateSlider({
+    Name = "⏱️ Attack Cooldown",
+    Range = {0.1, 1.5},
+    Increment = 0.1,
+    Suffix = "seconds",
+    CurrentValue = 0.3,
+    Flag = "AttackCooldown",
+    Callback = function(Value)
+        killAuraCooldown = Value
+    end,
+})
+
+-- Combat automation
+spawn(function()
+    while true do
+        if killAuraActive then
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local character = player.Character
+                local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+                
+                if humanoidRootPart then
+                    for _, target in ipairs(game.Players:GetPlayers()) do
+                        if target ~= player and target.Character then
+                            local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+                            local targetHumanoid = target.Character:FindFirstChildOfClass("Humanoid")
+                            
+                            if targetHRP and targetHumanoid and targetHumanoid.Health > 0 then
+                                local distance = (humanoidRootPart.Position - targetHRP.Position).Magnitude
+                                
+                                if distance <= killAuraRange then
+                                    -- Simulate attack (customize based on game)
+                                    game:GetService("ReplicatedStorage").MeleeEvent:FireServer(target.Character)
+                                    -- Bypass cooldown
+                                    wait(killAuraCooldown)
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        wait(0.1)
+    end
+end)
+
 -- Main Tab
 local MainTab = Window:CreateTab("🏠 Main", 6022668888)
 
@@ -28,40 +109,19 @@ local TeleportSection = MainTab:CreateSection("Teleportation")
 MainTab:CreateButton({
     Name = "🚀 Go to Sky (Y:256)",
     Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = CFrame.new(
-                char.HumanoidRootPart.Position.X,
-                256,
-                char.HumanoidRootPart.Position.Z
-            )
-            Rayfield:Notify({
-                Title = "Teleported to Sky!",
-                Content = "You're now at Y:256 position",
-                Duration = 3,
-                Image = 6022668888
-            })
-        end
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "⬇️ Go Down (Y:-50)",
-    Callback = function()
-        local char = game.Players.LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = CFrame.new(
-                char.HumanoidRootPart.Position.X,
-                -50,
-                char.HumanoidRootPart.Position.Z
-            )
-            Rayfield:Notify({
-                Title = "Teleported Down!",
-                Content = "You're now at Y:-50 position",
-                Duration = 3,
-                Image = 6022668888
-            })
-        end
+        pcall(function()
+            local char = game.Players.LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = CFrame.new(hrp.Position.X, 256, hrp.Position.Z)
+                Rayfield:Notify({
+                    Title = "Teleported to Sky!",
+                    Content = "You're now at Y:256 position",
+                    Duration = 3,
+                    Image = 6022668888
+                })
+            end
+        end)
     end,
 })
 
@@ -75,68 +135,21 @@ MainTab:CreateSlider({
     CurrentValue = 16,
     Flag = "MaxSpeed",
     Callback = function(Value)
-        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
-        end
-    end,
-})
-
-MainTab:CreateToggle({
-    Name = "⚡ Speed Boost (Shift to activate)",
-    CurrentValue = false,
-    Flag = "SpeedBoost",
-    Callback = function(Value)
-        if Value then
-            game:GetService("RunService").Heartbeat:Connect(function()
-                if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-                        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 100
-                    else
-                        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
-                    end
-                end
-            end)
-        else
-            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        pcall(function()
+            local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = Value
             end
-        end
+        end)
     end,
 })
 
 -- Server Actions Section
 local ServerSection = MainTab:CreateSection("Server Actions")
 MainTab:CreateButton({
-    Name = "🔄 Server Hop",
-    Callback = function()
-        Rayfield:Notify({
-            Title = "Server Hop",
-            Content = "Finding new server...",
-            Duration = 3,
-            Image = 6022668888
-        })
-        wait(3)
-        -- Implement server hop logic here
-        Rayfield:Notify({
-            Title = "Server Hop Complete!",
-            Content = "You're in a new server",
-            Duration = 3,
-            Image = 6022668888
-        })
-    end,
-})
-
-MainTab:CreateButton({
     Name = "🔁 Rejoin Server",
     Callback = function()
-        game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "🚪 Exit Game",
-    Callback = function()
-        game:Shutdown()
+        game:GetService("TeleportService"):Teleport(game.PlaceId)
     end,
 })
 
@@ -145,34 +158,6 @@ local HelperTab = Window:CreateTab("🛠️ Helper", 6022668888)
 
 -- Anti-Cheats Section
 local AntiCheatsSection = HelperTab:CreateSection("Anti-Cheats")
-HelperTab:CreateToggle({
-    Name = "⚠️ Anti Trap",
-    CurrentValue = false,
-    Flag = "AntiTrap",
-    Callback = function(Value)
-        Rayfield:Notify({
-            Title = Value and "Anti Trap Enabled" or "Anti Trap Disabled",
-            Content = Value and "Traps will be avoided" or "Traps can affect you",
-            Duration = 3,
-            Image = 6022668888
-        })
-    end,
-})
-
-HelperTab:CreateToggle({
-    Name = "❄️ Anti Freeze",
-    CurrentValue = false,
-    Flag = "AntiFreeze",
-    Callback = function(Value)
-        Rayfield:Notify({
-            Title = Value and "Anti Freeze Enabled" or "Anti Freeze Disabled",
-            Content = Value and "Immune to freeze effects" or "Can be frozen",
-            Duration = 3,
-            Image = 6022668888
-        })
-    end,
-})
-
 HelperTab:CreateToggle({
     Name = "⏱️ Anti AFK",
     CurrentValue = false,
@@ -190,131 +175,9 @@ HelperTab:CreateToggle({
                 Duration = 3,
                 Image = 6022668888
             })
-        else
-            Rayfield:Notify({
-                Title = "Anti AFK Disabled",
-                Content = "AFK detection active",
-                Duration = 3,
-                Image = 6022668888
-            })
         end
     end,
 })
-
--- Movement Section in Helper Tab
-local HelperMovementSection = HelperTab:CreateSection("Movement")
-local infiniteJumpEnabled = false
-HelperTab:CreateToggle({
-    Name = "🦘 Infinite Jump",
-    CurrentValue = false,
-    Flag = "InfiniteJump",
-    Callback = function(Value)
-        infiniteJumpEnabled = Value
-        if Value then
-            game:GetService("UserInputService").JumpRequest:Connect(function()
-                game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-            end)
-            Rayfield:Notify({
-                Title = "Infinite Jump Enabled",
-                Content = "Bypassing anti-cheat...",
-                Duration = 3,
-                Image = 6022668888
-            })
-        else
-            Rayfield:Notify({
-                Title = "Infinite Jump Disabled",
-                Content = "Normal jump restored",
-                Duration = 3,
-                Image = 6022668888
-            })
-        end
-    end,
-})
-
-local flyEnabled = false
-HelperTab:CreateToggle({
-    Name = "✈️ Fly (Press E to toggle)",
-    CurrentValue = false,
-    Flag = "Fly",
-    Callback = function(Value)
-        flyEnabled = Value
-        if Value then
-            Rayfield:Notify({
-                Title = "Fly Enabled",
-                Content = "Press E to toggle flight mode",
-                Duration = 5,
-                Image = 6022668888
-            })
-        else
-            Rayfield:Notify({
-                Title = "Fly Disabled",
-                Content = "Flight mode deactivated",
-                Duration = 3,
-                Image = 6022668888
-            })
-        end
-    end,
-})
-
--- Fly system setup
-local function setupFly()
-    local player = game.Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-
-    local flySpeed = 50
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    bodyVelocity.Parent = character.HumanoidRootPart
-
-    local flying = false
-
-    game:GetService("UserInputService").InputBegan:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.E and flyEnabled then
-            flying = not flying
-            bodyVelocity.MaxForce = flying and Vector3.new(9e9, 9e9, 9e9) or Vector3.new(0, 0, 0)
-        end
-    end)
-
-    game:GetService("RunService").Heartbeat:Connect(function()
-        if flyEnabled and flying and character and character:FindFirstChild("HumanoidRootPart") then
-            local rootPart = character.HumanoidRootPart
-            local camera = workspace.CurrentCamera
-
-            local moveDirection = Vector3.new(0, 0, 0)
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
-                moveDirection = moveDirection + camera.CFrame.LookVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
-                moveDirection = moveDirection - camera.CFrame.LookVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
-                moveDirection = moveDirection + camera.CFrame.RightVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
-                moveDirection = moveDirection - camera.CFrame.RightVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
-                moveDirection = moveDirection + Vector3.new(0, 1, 0)
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-                moveDirection = moveDirection + Vector3.new(0, -1, 0)
-            end
-
-            if moveDirection.Magnitude > 0 then
-                bodyVelocity.Velocity = moveDirection.Unit * flySpeed
-            else
-                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-            end
-        end
-    end)
-end
-
-if game.Players.LocalPlayer.Character then
-    setupFly()
-end
-game.Players.LocalPlayer.CharacterAdded:Connect(setupFly)
 
 -- ESP Tab
 local ESPTab = Window:CreateTab("👁️ ESP", 6022668888)
@@ -327,14 +190,18 @@ ESPTab:CreateToggle({
     Callback = function(Value)
         if Value then
             for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-                if player ~= game.Players.LocalPlayer and player.Character then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Name = player.Name .. "_ESP"
-                    highlight.OutlineColor = Color3.new(1, 0, 0)
-                    highlight.FillColor = Color3.new(1, 0, 0)
-                    highlight.FillTransparency = 0.5
-                    highlight.Parent = player.Character
-                    playersESP[player] = highlight
+                if player ~= game.Players.LocalPlayer then
+                    pcall(function()
+                        if player.Character then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Name = player.Name .. "_ESP"
+                            highlight.OutlineColor = Color3.new(1, 0, 0)
+                            highlight.FillColor = Color3.new(1, 0, 0)
+                            highlight.FillTransparency = 0.5
+                            highlight.Parent = player.Character
+                            playersESP[player] = highlight
+                        end
+                    end)
                 end
             end
             Rayfield:Notify({
@@ -344,8 +211,10 @@ ESPTab:CreateToggle({
                 Image = 6022668888
             })
         else
-            for _, highlight in pairs(playersESP) do
-                highlight:Destroy()
+            for player, highlight in pairs(playersESP) do
+                if highlight then
+                    highlight:Destroy()
+                end
             end
             table.clear(playersESP)
             Rayfield:Notify({
@@ -358,46 +227,32 @@ ESPTab:CreateToggle({
     end,
 })
 
-ESPTab:CreateToggle({
-    Name = "🔒 Lock ESP (Coming Soon)",
-    CurrentValue = false,
-    Flag = "LockESP",
-    Callback = function(Value)
-        Rayfield:Notify({
-            Title = Value and "Lock ESP Enabled (Coming Soon)" or "Lock ESP Disabled (Coming Soon)",
-            Content = Value and "Feature coming soon" or "Feature disabled",
-            Duration = 3,
-            Image = 6022668888
-        })
-    end,
-})
-
--- Buy Tab (Placeholder)
-local BuyTab = Window:CreateTab("🛒 Buy", 6022668888)
-BuyTab:CreateSection("Premium Features")
-BuyTab:CreateParagraph({
-    Title = "💰 In-App Purchases",
-    Content = "Unlock premium features with Robux! (Coming Soon)"
-})
-
--- Pets Tab (Placeholder)
-local PetsTab = Window:CreateTab("🐾 Pets", 6022668888)
-PetsTab:CreateSection("Pet Collection")
-PetsTab:CreateParagraph({
-    Title = "Pets",
-    Content = "Pet features coming soon!"
-})
+-- Auto-Update ESP
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    if ESPTab:Get("PlayerESP").CurrentValue then
+        player.CharacterAdded:Connect(function(char)
+            if playersESP[player] then playersESP[player]:Destroy() end
+            local highlight = Instance.new("Highlight")
+            highlight.Name = player.Name .. "_ESP"
+            highlight.OutlineColor = Color3.new(1, 0, 0)
+            highlight.FillColor = Color3.new(1, 0, 0)
+            highlight.FillTransparency = 0.5
+            highlight.Parent = char
+            playersESP[player] = highlight
+        end)
+    end
+end)
 
 -- Initialize
 Rayfield:LoadConfiguration()
-Rayfield:SetWatermark("✨ Ultimate Script Hub v1.0 | " .. os.date("%X"))
+Rayfield:SetWatermark("✨ Ultimate Combat Hub v2.0 | " .. os.date("%X"))
 Rayfield:SetWatermarkVisibility(true)
 Rayfield:SetKeybind(Enum.KeyCode.F4)
 Rayfield:Notify({
     Title = "Hub Loaded",
-    Content = "Welcome to Ultimate Script Hub!",
+    Content = "Combat features activated!",
     Duration = 5,
     Image = 6022668888
 })
 
-print("Ultimate Script Hub loaded successfully!")
+print("Ultimate Combat Hub loaded successfully!")
