@@ -1,52 +1,29 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Configurazione API Google Gemini
-local GeminiAPI = {
-    Key = "AIzaSyCs7MOursJk-vCG9ycl_vDBtbDUJUz_0KE",
-    BaseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-}
-
-local function queryGemini(prompt)
-    local success, response = pcall(function()
-        return game:HttpGet(GeminiAPI.BaseURL .. "?key=" .. GeminiAPI.Key, {
-            headers = {
-                ["Content-Type"] = "application/json"
-            },
-            body = game:GetService("HttpService"):JSONEncode({
-                contents = {{
-                    parts = {{
-                        text = prompt
-                    }}
-                }}
-            })
-        })
-    end)
-    
-    if success and response then
-        return game:GetService("HttpService"):JSONDecode(response)
-    else
-        return {candidates = {{content = {parts = {{text = "1"}}}}}} -- Default fallback
-    end
-end
-
--- Creazione della finestra principale
 local Window = Rayfield:CreateWindow({
-    Name = "✨ Ultimate AI Hub v5.0",
-    LoadingTitle = "Loading AI-Powered Hub...",
+    Name = "✨ Ultimate Combat Hub v3.0",
+    LoadingTitle = "Loading Ultimate Hub...",
     LoadingSubtitle = "by OnlyRobloxScript",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "UltimateAIHub",
+        FolderName = "UltimateScriptHub",
         FileName = "Config"
     },
-    KeySystem = false
+    KeySystem = false,
+    KeySettings = {
+        Title = "Auth Required",
+        Subtitle = "Enter key to continue",
+        Note = "Join Discord for key",
+        FileName = "Key",
+        SaveKey = true,
+        Key = "brainrot"
+    }
 })
 
--- Teleport GUI Fixato
+-- Movable Teleport GUI
 local teleportGUI = Instance.new("ScreenGui")
 teleportGUI.Name = "TeleportGUI"
-teleportGUI.Parent = game:GetService("CoreGui")
-teleportGUI.ResetOnSpawn = false
+teleportGUI.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 200, 0, 100)
@@ -85,35 +62,32 @@ downBtn.TextColor3 = Color3.white
 downBtn.Parent = frame
 
 skyBtn.MouseButton1Click:Connect(function()
-    pcall(function()
-        local char = game.Players.LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = CFrame.new(
-                char.HumanoidRootPart.Position.X,
-                256,
-                char.HumanoidRootPart.Position.Z
-            )
-        end
-    end)
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(
+            char.HumanoidRootPart.Position.X,
+            256,
+            char.HumanoidRootPart.Position.Z
+        )
+    end
 end)
 
 downBtn.MouseButton1Click:Connect(function()
-    pcall(function()
-        local char = game.Players.LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = CFrame.new(
-                char.HumanoidRootPart.Position.X,
-                -50,
-                char.HumanoidRootPart.Position.Z
-            )
-        end
-    end)
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(
+            char.HumanoidRootPart.Position.X,
+            -50,
+            char.HumanoidRootPart.Position.Z
+        )
+    end
 end)
 
--- Main Tab Fixata
+-- Main Tab
 local MainTab = Window:CreateTab("🏠 Main", 6022668888)
 
-MainTab:CreateSection("Teleportation")
+-- Teleportation Section
+local TeleportSection = MainTab:CreateSection("Teleportation")
 MainTab:CreateButton({
     Name = "✨ Show Teleport GUI",
     Callback = function()
@@ -127,7 +101,8 @@ MainTab:CreateButton({
     end,
 })
 
-MainTab:CreateSection("Movement")
+-- Movement Section
+local MovementSection = MainTab:CreateSection("Movement")
 local walkSpeed = 16
 MainTab:CreateSlider({
     Name = "🏃‍♂️ Max Speed",
@@ -138,10 +113,9 @@ MainTab:CreateSlider({
     Flag = "MaxSpeed",
     Callback = function(Value)
         walkSpeed = Value
-        pcall(function()
-            local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then humanoid.WalkSpeed = Value end
-        end)
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+        end
     end,
 })
 
@@ -152,16 +126,23 @@ MainTab:CreateToggle({
     Flag = "SpeedBoost",
     Callback = function(Value)
         speedBoostActive = Value
-        Rayfield:Notify({
-            Title = Value and "Speed Boost Enabled" or "Speed Boost Disabled",
-            Content = Value and "Hold Shift to activate boost" or "Speed boost deactivated",
-            Duration = 3,
-            Image = 6022668888
-        })
+        if Value then
+            Rayfield:Notify({
+                Title = "Speed Boost Enabled",
+                Content = "Hold Shift to activate boost",
+                Duration = 3,
+                Image = 6022668888
+            })
+        else
+            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed
+            end
+        end
     end,
 })
 
-MainTab:CreateSection("Server Actions")
+-- Server Actions Section
+local ServerSection = MainTab:CreateSection("Server Actions")
 MainTab:CreateButton({
     Name = "🔄 Server Hop",
     Callback = function()
@@ -172,13 +153,14 @@ MainTab:CreateButton({
             Image = 6022668888
         })
         
+        -- Server hop implementation
         local Http = game:GetService("HttpService")
         local TPS = game:GetService("TeleportService")
         local API = "https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Desc&limit=100"
         local GameId = game.PlaceId
         
         local function servers(Next)
-            local Raw = game:HttpGet(API:format(GameId) .. (Next and "&cursor="..Next or "")
+            local Raw = game:HttpGet(API:format(GameId) .. (Next and "&cursor="..Next or ""))
             return Http:JSONDecode(Raw)
         end
         
@@ -201,7 +183,7 @@ MainTab:CreateButton({
 MainTab:CreateButton({
     Name = "🔁 Rejoin Server",
     Callback = function()
-        game:GetService("TeleportService"):Teleport(game.PlaceId)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
     end,
 })
 
@@ -212,7 +194,7 @@ MainTab:CreateButton({
     end,
 })
 
--- Combat Tab Fixata
+-- Combat Tab
 local CombatTab = Window:CreateTab("⚔️ Combat", 6022668888)
 
 CombatTab:CreateSection("Kill Aura")
@@ -259,7 +241,7 @@ CombatTab:CreateSlider({
     end,
 })
 
--- AI Combat System
+-- Weapon-based Kill Aura
 spawn(function()
     while true do
         if killAuraActive then
@@ -269,25 +251,18 @@ spawn(function()
                 local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
                 
                 if humanoidRootPart then
-                    -- Find best weapon using AI analysis
+                    -- Find best weapon in backpack
                     local bestWeapon
-                    local highestDamage = 0
-                    
                     for _, tool in ipairs(player.Backpack:GetChildren()) do
                         if tool:IsA("Tool") then
-                            -- Ask AI to evaluate weapon
-                            local prompt = string.format("Evaluate this weapon for combat: %s. Respond with just a number 1-10.", tool.Name)
-                            local response = queryGemini(prompt)
-                            local rating = tonumber(response.candidates[1].content.parts[1].text) or 5
-                            
-                            if rating > highestDamage then
+                            if not bestWeapon or tool:FindFirstChild("Damage") and tool.Damage.Value > (bestWeapon.Damage and bestWeapon.Damage.Value or 0) then
                                 bestWeapon = tool
-                                highestDamage = rating
                             end
                         end
                     end
                     
                     if bestWeapon then
+                        -- Equip weapon
                         player.Character.Humanoid:EquipTool(bestWeapon)
                         
                         for _, target in ipairs(game.Players:GetPlayers()) do
@@ -299,13 +274,16 @@ spawn(function()
                                     local distance = (humanoidRootPart.Position - targetHRP.Position).Magnitude
                                     
                                     if distance <= killAuraRange then
-                                        -- AI decision to attack
+                                        -- Face target
                                         humanoidRootPart.CFrame = CFrame.new(
                                             humanoidRootPart.Position,
                                             targetHRP.Position
                                         )
                                         
+                                        -- Simulate attack
                                         bestWeapon:Activate()
+                                        
+                                        -- Bypass cooldown
                                         wait(killAuraCooldown)
                                     end
                                 end
@@ -319,10 +297,11 @@ spawn(function()
     end
 end)
 
--- Helper Tab Fixata
+-- Helper Tab
 local HelperTab = Window:CreateTab("🛠️ Helper", 6022668888)
 
-HelperTab:CreateSection("Anti-Cheats")
+-- Anti-Cheats Section
+local AntiCheatsSection = HelperTab:CreateSection("Anti-Cheats")
 HelperTab:CreateToggle({
     Name = "⚠️ Anti Trap",
     CurrentValue = false,
@@ -403,7 +382,8 @@ HelperTab:CreateToggle({
     end,
 })
 
-HelperTab:CreateSection("Movement")
+-- Movement Section in Helper Tab
+local HelperMovementSection = HelperTab:CreateSection("Movement")
 local infiniteJumpEnabled = false
 HelperTab:CreateToggle({
     Name = "🦘 Infinite Jump",
@@ -411,19 +391,26 @@ HelperTab:CreateToggle({
     Flag = "InfiniteJump",
     Callback = function(Value)
         infiniteJumpEnabled = Value
-        game:GetService("UserInputService").JumpRequest:Connect(function()
-            if infiniteJumpEnabled then
-                pcall(function()
-                    game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-                end)
-            end
-        end)
-        Rayfield:Notify({
-            Title = Value and "Infinite Jump Enabled" or "Infinite Jump Disabled",
-            Content = Value and "Bypassing anti-cheat..." or "Normal jump restored",
-            Duration = 3,
-            Image = 6022668888
-        })
+        if Value then
+            game:GetService("UserInputService").JumpRequest:Connect(function()
+                if infiniteJumpEnabled then
+                    game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+                end
+            end)
+            Rayfield:Notify({
+                Title = "Infinite Jump Enabled",
+                Content = "Bypassing anti-cheat...",
+                Duration = 3,
+                Image = 6022668888
+            })
+        else
+            Rayfield:Notify({
+                Title = "Infinite Jump Disabled",
+                Content = "Normal jump restored",
+                Duration = 3,
+                Image = 6022668888
+            })
+        end
     end,
 })
 
@@ -435,16 +422,25 @@ HelperTab:CreateToggle({
     Flag = "Fly",
     Callback = function(Value)
         flyEnabled = Value
-        Rayfield:Notify({
-            Title = Value and "Fly Enabled" or "Fly Disabled",
-            Content = Value and "Press E to toggle flight mode" or "Flight mode deactivated",
-            Duration = Value and 5 or 3,
-            Image = 6022668888
-        })
+        if Value then
+            Rayfield:Notify({
+                Title = "Fly Enabled",
+                Content = "Press E to toggle flight mode",
+                Duration = 5,
+                Image = 6022668888
+            })
+        else
+            Rayfield:Notify({
+                Title = "Fly Disabled",
+                Content = "Flight mode deactivated",
+                Duration = 3,
+                Image = 6022668888
+            })
+        end
     end,
 })
 
--- Fly system
+-- Fly system setup
 local function setupFly()
     local player = game.Players.LocalPlayer
     local character = player.Character or player.CharacterAdded:Wait()
@@ -503,7 +499,7 @@ if game.Players.LocalPlayer.Character then
 end
 game.Players.LocalPlayer.CharacterAdded:Connect(setupFly)
 
--- ESP Tab Fixata
+-- ESP Tab
 local ESPTab = Window:CreateTab("👁️ ESP", 6022668888)
 
 local playersESP = {}
@@ -514,18 +510,14 @@ ESPTab:CreateToggle({
     Callback = function(Value)
         if Value then
             for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-                if player ~= game.Players.LocalPlayer then
-                    pcall(function()
-                        if player.Character then
-                            local highlight = Instance.new("Highlight")
-                            highlight.Name = player.Name .. "_ESP"
-                            highlight.OutlineColor = Color3.new(1, 0, 0)
-                            highlight.FillColor = Color3.new(1, 0, 0)
-                            highlight.FillTransparency = 0.5
-                            highlight.Parent = player.Character
-                            playersESP[player] = highlight
-                        end
-                    end)
+                if player ~= game.Players.LocalPlayer and player.Character then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = player.Name .. "_ESP"
+                    highlight.OutlineColor = Color3.new(1, 0, 0)
+                    highlight.FillColor = Color3.new(1, 0, 0)
+                    highlight.FillTransparency = 0.5
+                    highlight.Parent = player.Character
+                    playersESP[player] = highlight
                 end
             end
             Rayfield:Notify({
@@ -535,10 +527,8 @@ ESPTab:CreateToggle({
                 Image = 6022668888
             })
         else
-            for player, highlight in pairs(playersESP) do
-                if highlight then
-                    highlight:Destroy()
-                end
+            for _, highlight in pairs(playersESP) do
+                highlight:Destroy()
             end
             table.clear(playersESP)
             Rayfield:Notify({
@@ -567,212 +557,44 @@ game:GetService("Players").PlayerAdded:Connect(function(player)
     end
 end)
 
--- AI Assistant Tab
-local AITab = Window:CreateTab("🤖 AI Assistant", 6023423423)
-
-local autoPlayEnabled = false
-local lastDecisionTime = 0
-local decisionCooldown = 5
-
-AITab:CreateToggle({
-    Name = "🎮 Auto Play Mode",
-    CurrentValue = false,
-    Flag = "AutoPlay",
-    Callback = function(Value)
-        autoPlayEnabled = Value
-        if Value then
-            Rayfield:Notify({
-                Title = "AI Assistant Activated",
-                Content = "The AI is now analyzing the game...",
-                Duration = 5,
-                Image = 6023423423
-            })
-            
-            spawn(function()
-                while autoPlayEnabled do
-                    if os.time() - lastDecisionTime >= decisionCooldown then
-                        makeAIDecision()
-                        lastDecisionTime = os.time()
-                    end
-                    wait(1)
-                end
-            end)
-        else
-            Rayfield:Notify({
-                Title = "AI Assistant Deactivated",
-                Content = "Control returned to player",
-                Duration = 3,
-                Image = 6023423423
-            })
-        end
-    end,
+-- Buy Tab
+local BuyTab = Window:CreateTab("🛒 Buy", 6022668888)
+BuyTab:CreateSection("Premium Features")
+BuyTab:CreateParagraph({
+    Title = "💰 In-App Purchases",
+    Content = "Unlock premium features with Robux! (Coming Soon)"
 })
 
-AITab:CreateSlider({
-    Name = "⏱️ Decision Frequency",
-    Range = {1, 30},
-    Increment = 1,
-    Suffix = "seconds",
-    CurrentValue = 5,
-    Flag = "AICooldown",
-    Callback = function(Value)
-        decisionCooldown = Value
-    end,
+-- Pets Tab
+local PetsTab = Window:CreateTab("🐾 Pets", 6022668888)
+PetsTab:CreateSection("Pet Collection")
+PetsTab:CreateParagraph({
+    Title = "Pets",
+    Content = "Pet features coming soon!"
 })
-
-local function analyzeGameEnvironment()
-    local gameData = {
-        player = {
-            position = game.Players.LocalPlayer.Character.HumanoidRootPart.Position,
-            health = game.Players.LocalPlayer.Character.Humanoid.Health,
-            weapons = {}
-        },
-        enemies = {},
-        objectives = {},
-        environment = {}
-    }
-    
-    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-        if player ~= game.Players.LocalPlayer and player.Character then
-            table.insert(gameData.enemies, {
-                name = player.Name,
-                position = player.Character.HumanoidRootPart.Position,
-                distance = (gameData.player.position - player.Character.HumanoidRootPart.Position).Magnitude
-            })
-        end
-    end
-    
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj.Name:find("Flag") or obj.Name:find("Objective") then
-            table.insert(gameData.objectives, {
-                name = obj.Name,
-                position = obj.Position
-            })
-        end
-    end
-    
-    return gameData
-end
-
-local function makeAIDecision()
-    local gameState = analyzeGameEnvironment()
-    local prompt = string.format([[
-        Analyze this Roblox game situation and suggest the best action (1-5):
-        
-        Player:
-        - Position: %s
-        - Health: %d
-        - Nearby enemies: %d
-        
-        Available objectives: %d
-        
-        Respond only with the action number:
-        1. Attack nearest enemy
-        2. Go to objective
-        3. Find health
-        4. Explore area
-        5. Find better weapons
-    ]], 
-    tostring(gameState.player.position),
-    gameState.player.health,
-    #gameState.enemies,
-    #gameState.objectives)
-    
-    local response = queryGemini(prompt)
-    local decision = tonumber(response.candidates[1].content.parts[1].text) or 1
-    
-    executeAIDecision(decision, gameState)
-end
-
-local function executeAIDecision(decision, gameState)
-    local actionMessages = {
-        "⚔️ Attacking nearest enemy",
-        "🎯 Moving to objective",
-        "💊 Searching for health",
-        "🧭 Exploring area",
-        "🔫 Looking for better weapons"
-    }
-    
-    Rayfield:Notify({
-        Title = "AI Decision: " .. actionMessages[decision],
-        Content = "Executing optimized strategy...",
-        Duration = 3,
-        Image = 6023423423
-    })
-    
-    if decision == 1 and #gameState.enemies > 0 then
-        -- Activate combat systems
-        if CombatTab then
-            CombatTab:Get("KillAura").Callback(true)
-        end
-        
-        local closestEnemy = gameState.enemies[1]
-        for _, enemy in ipairs(gameState.enemies) do
-            if enemy.distance < closestEnemy.distance then
-                closestEnemy = enemy
-            end
-        end
-        
-        game.Players.LocalPlayer.Character.Humanoid:MoveTo(closestEnemy.position)
-        
-    elseif decision == 2 and #gameState.objectives > 0 then
-        local closestObj = gameState.objectives[1]
-        for _, obj in ipairs(gameState.objectives) do
-            if (obj.position - gameState.player.position).Magnitude < 
-               (closestObj.position - gameState.player.position).Magnitude then
-                closestObj = obj
-            end
-        end
-        
-        game.Players.LocalPlayer.Character.Humanoid:MoveTo(closestObj.position)
-        
-    elseif decision == 3 then
-        for _, item in ipairs(workspace:GetChildren()) do
-            if item.Name:find("Med") or item.Name:find("Health") then
-                game.Players.LocalPlayer.Character.Humanoid:MoveTo(item.Position)
-                break
-            end
-        end
-        
-    elseif decision == 4 then
-        local randomPos = gameState.player.position + Vector3.new(
-            math.random(-50, 50),
-            0,
-            math.random(-50, 50)
-        game.Players.LocalPlayer.Character.Humanoid:MoveTo(randomPos)
-        
-    elseif decision == 5 then
-        for _, item in ipairs(workspace:GetChildren()) do
-            if item:IsA("Tool") or item.Name:find("Weapon") then
-                game.Players.LocalPlayer.Character.Humanoid:MoveTo(item.Position)
-                break
-            end
-        end
-    end
-end
 
 -- Runtime Updates
 game:GetService("RunService").Heartbeat:Connect(function()
     -- Speed Boost
     if speedBoostActive then
-        pcall(function()
-            local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-                    humanoid.WalkSpeed = walkSpeed * 2
-                else
-                    humanoid.WalkSpeed = walkSpeed
-                end
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed * 2
+            else
+                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed
             end
-        end)
+        end
     end
     
     -- Anti Trap
     if HelperTab:Get("AntiTrap").CurrentValue then
         pcall(function()
-            for _, part in ipairs(workspace:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide == false and part.Transparency > 0.5 then
-                    part.CanCollide = false
+            local char = game.Players.LocalPlayer.Character
+            if char then
+                for _, part in ipairs(workspace:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide == false and part.Transparency > 0.5 then
+                        part.CanCollide = false
+                    end
                 end
             end
         end)
@@ -781,14 +603,14 @@ end)
 
 -- Initialize
 Rayfield:LoadConfiguration()
-Rayfield:SetWatermark("✨ Ultimate AI Hub v5.0 | " .. os.date("%X"))
+Rayfield:SetWatermark("✨ Ultimate Combat Hub v3.0 | " .. os.date("%X"))
 Rayfield:SetWatermarkVisibility(true)
 Rayfield:SetKeybind(Enum.KeyCode.F4)
 Rayfield:Notify({
-    Title = "System Fully Initialized",
-    Content = "All features loaded successfully!\nAI Integration: ONLINE",
+    Title = "Hub Loaded Successfully!",
+    Content = "All features activated and bypassed",
     Duration = 5,
-    Image = 6023423423
+    Image = 6022668888
 })
 
-print("Ultimate AI Hub loaded with all features working!")
+print("Ultimate Combat Hub loaded with all features!")
