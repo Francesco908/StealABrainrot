@@ -1,362 +1,432 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ProximityPromptService = game:GetService("ProximityPromptService")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local Player = Players.LocalPlayer
-local Mouse = Player:GetMouse()
-
--- Mobile detection
-local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-local TOUCH_PADDING = 15 -- Extra padding for touch controls
-
--- Load Linoria Library
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua"))()
-local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/ThemeManager.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/SaveManager.lua"))()
-
--- Mobile-friendly window size
-local WINDOW_SIZE = IS_MOBILE and Vector2.new(500, 600) or Vector2.new(550, 500)
-
-local Window = Library:CreateWindow({
-    Title = "Mobile Admin Tools v2.0",
-    Center = true,
-    AutoShow = true,
-    Size = WINDOW_SIZE
+local Window = Rayfield:CreateWindow({
+   Name = "🔧 Admin Tools v4.0",
+   LoadingTitle = "Loading advanced tools...",
+   LoadingSubtitle = "Mobile Edition",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "AdminToolsConfig",
+      FileName = "MobileConfig"
+   },
+   KeySystem = true,
+   KeySettings = {
+      Title = "Admin Tools",
+      Subtitle = "Key Required",
+      Note = "Get key from Discord",
+      FileName = "AdminKey",
+      SaveKey = false,
+      GrabKeyFromSite = false,
+   }
 })
 
-local Tabs = {
-    Main = Window:AddTab("Main"),
-    Visual = Window:AddTab("Visual"),
-    Misc = Window:AddTab("Misc")
-}
-
--- Mobile adaptions
-if IS_MOBILE then
-    Library:SetWatermark("Mobile Mode Active")
-    Library:SetWatermarkVisibility(true)
-    Library.ToggleKeybind = Enum.KeyCode.Home
-end
-
---[[
-    =======================
-    MAIN TAB FUNCTIONALITIES
-    =======================
-]]--
-local MainBox = Tabs.Main:AddLeftGroupbox("Core Functions")
+-- Tab Main
+local MainTab = Window:CreateTab("Main", 13014546637)
+local MainSection = MainTab:CreateSection("Core Features")
 
 -- Air Jump
-local AirJumpToggle = MainBox:AddToggle("AirJumpToggle", {
-    Text = "Air Jump",
-    Default = false,
-    Tooltip = "Jump while in mid-air",
+local AirJumpToggle = MainTab:CreateToggle({
+   Name = "🦘 Air Jump",
+   CurrentValue = false,
+   Flag = "AirJump",
+   Callback = function(Value)
+      AirJumpEnabled = Value
+   end,
 })
 
-MainBox:AddKeyPicker("AirJumpKey", {
-    Default = "Space",
-    SyncToggleState = true,
-    Mode = "Toggle",
-    Text = "Air Jump Key",
-    NoUI = false,
-})
-
-local airJumpConn
-AirJumpToggle:OnChanged(function()
-    if airJumpConn then airJumpConn:Disconnect() end
-    
-    if AirJumpToggle.Value then
-        airJumpConn = UserInputService.JumpRequest:Connect(function()
-            if AirJumpToggle.Value and Player.Character then
-                Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-            end
-        end)
-    end
-end)
-
--- Speed Boost
-local SpeedBoostToggle = MainBox:AddToggle("SpeedBoostToggle", {
-    Text = "Speed Boost",
-    Default = false,
-    Tooltip = "Activate speed boost",
-})
-
+-- Speed Boost System
 local SpeedBoostActive = false
-local SpeedBoostOverlay = MainBox:AddButton("", function() 
-    SpeedBoostActive = not SpeedBoostActive
-end)
-SpeedBoostOverlay:SetText("")
-SpeedBoostOverlay.Visible = false
-
-SpeedBoostToggle:OnChanged(function()
-    SpeedBoostOverlay.Visible = SpeedBoostToggle.Value
-    if not SpeedBoostToggle.Value then
-        SpeedBoostActive = false
-    end
-end)
-
--- Update Speed Boost UI
-task.spawn(function()
-    while task.wait(0.2) do
-        if SpeedBoostOverlay.Visible then
-            SpeedBoostOverlay:SetText(SpeedBoostActive and "ON" or "OFF")
-            SpeedBoostOverlay:SetTextColor(SpeedBoostActive and Color3.new(0,1,0) or Color3.new(1,0,0))
-            
-            -- Mobile-friendly button size
-            if IS_MOBILE then
-                SpeedBoostOverlay:SetText(SpeedBoostActive and "● ON" or "○ OFF")
-            end
-        end
-    end
-end)
-
--- Float (Anti-Stun + Anti-AFK)
-local FloatToggle = MainBox:AddToggle("FloatToggle", {
-    Text = "Float Mode",
-    Default = false,
-    Tooltip = "Immunity to attacks + Anti AFK",
+local SpeedBoostToggle = MainTab:CreateToggle({
+   Name = "🚀 Speed Boost",
+   CurrentValue = false,
+   Flag = "SpeedBoost",
+   Callback = function(Value)
+      if Value then
+         SpeedBoostButton = MainTab:CreateButton({
+            Name = "Boost: OFF",
+            Callback = function()
+               SpeedBoostActive = not SpeedBoostActive
+               SpeedBoostButton:Set("Boost: " .. (SpeedBoostActive and "ON" or "OFF"))
+            end,
+         })
+         SpeedBoostButton:SetTextColor(SpeedBoostActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0))
+      elseif SpeedBoostButton then
+         SpeedBoostButton:Destroy()
+         SpeedBoostButton = nil
+         SpeedBoostActive = false
+      end
+   end,
 })
 
--- Anti-stun implementation
-FloatToggle:OnChanged(function()
-    if FloatToggle.Value then
-        -- Anti-stun implementation would go here
-    end
-end)
-
--- Steal Helper
-local StealHelperToggle = MainBox:AddToggle("StealHelperToggle", {
-    Text = "Steal Helper",
-    Default = false,
-    Tooltip = "Instant collection of items",
+-- Float Mode (Anti-Stun + Anti-AFK)
+local FloatToggle = MainTab:CreateToggle({
+   Name = "✨ Float Mode",
+   CurrentValue = false,
+   Flag = "FloatMode",
+   Callback = function(Value)
+      if Value then
+         Rayfield:Notify({
+            Title = "Float Mode Enabled",
+            Content = "Stun immunity + Anti AFK active",
+            Duration = 4,
+            Image = 13014546637,
+         })
+      end
+      FloatEnabled = Value
+   end,
 })
 
--- GUI for Steal Helper
+-- Steal Helper System
+local StealHelperToggle = MainTab:CreateToggle({
+   Name = "🎯 Steal Helper",
+   CurrentValue = false,
+   Flag = "StealHelper",
+   Callback = function(Value)
+      StealHelperEnabled = Value
+      if StealGUI then
+         StealGUI.Enabled = Value
+      end
+      if Value then
+         Rayfield:Notify({
+            Title = "Steal Helper Active",
+            Content = "Instant collection enabled",
+            Duration = 3,
+            Image = 13014546637,
+         })
+      end
+   end,
+})
+
+-- Steal Helper GUI
 local StealGUI = Instance.new("ScreenGui")
 StealGUI.Name = "StealHelperGUI"
-StealGUI.Parent = Player:WaitForChild("PlayerGui")
+StealGUI.Parent = game:GetService("CoreGui")
 StealGUI.ResetOnSpawn = false
+StealGUI.Enabled = false
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, IS_MOBILE and 200 or 150, 0, IS_MOBILE and 180 or 120)
-Frame.Position = UDim2.new(0.5, -100, 0.7, -60)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-Frame.BackgroundTransparency = 0.3
-Frame.BorderSizePixel = 0
-Frame.Visible = false
-Frame.Parent = StealGUI
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0.3, 0, 0.2, 0)
+MainFrame.Position = UDim2.new(0.35, 0, 0.7, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+MainFrame.BackgroundTransparency = 0.3
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = StealGUI
 
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = Frame
-
--- Mobile touch optimization
-local BUTTON_SIZE = IS_MOBILE and UDim2.new(0.9, 0, 0.25, 0) or UDim2.new(0.8, 0, 0.3, 0)
-local BUTTON_POS_Y = IS_MOBILE and {0.1, 0.4} or {0.1, 0.6}
+UICorner.CornerRadius = UDim.new(0.1, 0)
+UICorner.Parent = MainFrame
 
 local UpButton = Instance.new("TextButton")
-UpButton.Size = BUTTON_SIZE
-UpButton.Position = UDim2.new(0.05, 0, BUTTON_POS_Y[1], 0)
+UpButton.Size = UDim2.new(0.8, 0, 0.3, 0)
+UpButton.Position = UDim2.new(0.1, 0, 0.1, 0)
 UpButton.Text = "UP ↑"
-UpButton.TextSize = IS_MOBILE and 18 or 14
+UpButton.TextSize = 20
 UpButton.TextColor3 = Color3.new(1, 1, 1)
-UpButton.BackgroundColor3 = Color3.fromRGB(60, 120, 60)
-UpButton.Parent = Frame
+UpButton.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
+UpButton.Parent = MainFrame
 
 local DownButton = Instance.new("TextButton")
-DownButton.Size = BUTTON_SIZE
-DownButton.Position = UDim2.new(0.05, 0, BUTTON_POS_Y[2], 0)
+DownButton.Size = UDim2.new(0.8, 0, 0.3, 0)
+DownButton.Position = UDim2.new(0.1, 0, 0.6, 0)
 DownButton.Text = "DOWN ↓"
-DownButton.TextSize = IS_MOBILE and 18 or 14
+DownButton.TextSize = 20
 DownButton.TextColor3 = Color3.new(1, 1, 1)
-DownButton.BackgroundColor3 = Color3.fromRGB(120, 60, 60)
-DownButton.Parent = Frame
+DownButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+DownButton.Parent = MainFrame
 
--- Corner rounding for buttons
 local UICornerUp = Instance.new("UICorner")
-UICornerUp.CornerRadius = UDim.new(0, 6)
+UICornerUp.CornerRadius = UDim.new(0.2, 0)
 UICornerUp.Parent = UpButton
 
 local UICornerDown = Instance.new("UICorner")
-UICornerDown.CornerRadius = UDim.new(0, 6)
+UICornerDown.CornerRadius = UDim.new(0.2, 0)
 UICornerDown.Parent = DownButton
 
 local CoordLabel = Instance.new("TextLabel")
-CoordLabel.Size = UDim2.new(1, 0, 0.15, 0)
-CoordLabel.Position = UDim2.new(0, 0, 0.85, 0)
+CoordLabel.Size = UDim2.new(1, 0, 0.2, 0)
+CoordLabel.Position = UDim2.new(0, 0, 0.8, 0)
 CoordLabel.Text = "X:0 Y:0 Z:0"
 CoordLabel.TextColor3 = Color3.new(1, 1, 1)
 CoordLabel.BackgroundTransparency = 1
-CoordLabel.Font = Enum.Font.Code
-CoordLabel.TextSize = IS_MOBILE and 16 or 14
-CoordLabel.Parent = Frame
+CoordLabel.Font = Enum.Font.GothamBold
+CoordLabel.TextSize = 16
+CoordLabel.Parent = MainFrame
 
--- Steal Helper functionality
-StealHelperToggle:OnChanged(function()
-    Frame.Visible = StealHelperToggle.Value
-    
-    if StealHelperToggle.Value then
-        -- Set all proximity prompts to instant
-        for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
-            prompt.HoldDuration = 0
-        end
-    end
-end)
+-- Coordinate updater
+local function updateCoords()
+   while task.wait(0.2) do
+      if StealHelperEnabled and game.Players.LocalPlayer.Character then
+         local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+         if root then
+            CoordLabel.Text = string.format("X:%d Y:%d Z:%d", root.Position.X, root.Position.Y, root.Position.Z)
+         end
+      end
+   end
+end
 
--- Coordinate updates
-local coordUpdateConn
-coordUpdateConn = RunService.Heartbeat:Connect(function()
-    if StealHelperToggle.Value and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local pos = Player.Character.HumanoidRootPart.Position
-        CoordLabel.Text = string.format("X:%d Y:%d Z:%d", pos.X, pos.Y, pos.Z)
-    end
-end)
+task.spawn(updateCoords)
 
--- Up/Down buttons
+-- Movement functions
 UpButton.MouseButton1Click:Connect(function()
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = Player.Character.HumanoidRootPart
-        hrp.CFrame = hrp.CFrame + Vector3.new(0, 165, 0)
-    end
+   local player = game.Players.LocalPlayer
+   if player.Character then
+      local root = player.Character:FindFirstChild("HumanoidRootPart")
+      if root then
+         root.CFrame = root.CFrame + Vector3.new(0, 165, 0)
+      end
+   end
 end)
 
 DownButton.MouseButton1Click:Connect(function()
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = Player.Character.HumanoidRootPart
-        hrp.CFrame = hrp.CFrame - Vector3.new(0, 50, 0)
-    end
+   local player = game.Players.LocalPlayer
+   if player.Character then
+      local root = player.Character:FindFirstChild("HumanoidRootPart")
+      if root then
+         root.CFrame = root.CFrame - Vector3.new(0, 50, 0)
+      end
+   end
 end)
 
---[[
-    ========================
-    VISUAL TAB FUNCTIONALITIES
-    ========================
-]]--
-local VisualBox = Tabs.Visual:AddLeftGroupbox("ESP Settings")
+-- Tab Visual
+local VisualTab = Window:CreateTab("Visual", 13014546637)
+local VisualSection = VisualTab:CreateSection("Visual Settings")
 
 -- Player ESP
-VisualBox:AddToggle("PlayerESPToggle", {
-    Text = "Player ESP",
-    Default = false,
-    Tooltip = "Highlight other players",
-})
-
--- Base Timer ESP
-VisualBox:AddToggle("TimerESPToggle", {
-    Text = "Base Timer ESP",
-    Default = false,
-    Tooltip = "Show base timers",
+VisualTab:CreateToggle({
+   Name = "👤 Player ESP",
+   CurrentValue = false,
+   Flag = "PlayerESP",
+   Callback = function(Value)
+      ESPEnabled = Value
+      if Value then
+         Rayfield:Notify({
+            Title = "Player ESP Enabled",
+            Content = "Players highlighted",
+            Duration = 2,
+            Image = 13014546637,
+         })
+      end
+   end,
 })
 
 -- Name ESP
-VisualBox:AddToggle("NameESPToggle", {
-    Text = "Name ESP",
-    Default = false,
-    Tooltip = "Show player names",
+VisualTab:CreateToggle({
+   Name = "📛 Name ESP",
+   CurrentValue = false,
+   Flag = "NameESP",
+   Callback = function(Value)
+      NameESPEnabled = Value
+      if Value then
+         Rayfield:Notify({
+            Title = "Name ESP Enabled",
+            Content = "Player names visible",
+            Duration = 2,
+            Image = 13014546637,
+         })
+      end
+   end,
 })
 
---[[
-    ========================
-    MISC TAB FUNCTIONALITIES
-    ========================
-]]--
-local MiscBox = Tabs.Misc:AddLeftGroupbox("Utility")
-local ShopBox = Tabs.Misc:AddRightGroupbox("Item Shop")
+-- Base Timer ESP
+VisualTab:CreateToggle({
+   Name = "⏱️ Base Timer ESP",
+   CurrentValue = false,
+   Flag = "TimerESP",
+   Callback = function(Value)
+      TimerESPEnabled = Value
+      if Value then
+         Rayfield:Notify({
+            Title = "Timer ESP Enabled",
+            Content = "Base timers visible",
+            Duration = 2,
+            Image = 13014546637,
+         })
+      end
+   end,
+})
+
+-- Tab Misc
+local MiscTab = Window:CreateTab("Misc", 13014546637)
+local UtilitySection = MiscTab:CreateSection("Utility Features")
+local ShopSection = MiscTab:CreateSection("🛒 Shop Items")
 
 -- Anti-AFK
-MiscBox:AddToggle("AntiAFKToggle", {
-    Text = "Anti AFK",
-    Default = false,
-    Tooltip = "Prevent AFK kick",
+MiscTab:CreateToggle({
+   Name = "🚫 Anti AFK",
+   CurrentValue = false,
+   Flag = "AntiAFK",
+   Callback = function(Value)
+      AntiAFKEnabled = Value
+      if Value then
+         Rayfield:Notify({
+            Title = "Anti-AFK Enabled",
+            Content = "No idle kicks",
+            Duration = 2,
+            Image = 13014546637,
+         })
+      end
+   end,
 })
 
 -- Shop items
 local shopItems = {
-    "Invisibility Cloak",
-    "Bee Launcher",
-    "Medusas Head",
-    "Quantum Cloner",
-    "Rainbowrath Sword"
+   "Invisibility Cloak",
+   "Bee Launcher",
+   "Medusa's Head",
+   "Quantum Cloner",
+   "Rainbowrath Sword"
 }
 
 -- Purchase function
-local function BuyItem(itemName)
-    -- This would be replaced with actual game-specific code
-    Library:Notify("Attempting to purchase: "..itemName, 3)
-    
-    -- Simulate item search
-    local found = false
-    local price = math.random(500, 5000)
-    
-    -- Simulate money check
-    local money = math.random(0, 10000)
-    if money >= price then
-        Library:Notify("✅ Purchased "..itemName.." for $"..price, 5)
-    else
-        Library:Notify("❌ Insufficient funds for "..itemName, 3)
-    end
+local function buyItem(itemName)
+   local success, message = pcall(function()
+      -- Search for item
+      local foundItem
+      for _, location in {workspace, game:GetService("ReplicatedStorage")} do
+         for _, item in ipairs(location:GetDescendants()) do
+            if item.Name == itemName and item:IsA("Tool") then
+               foundItem = item
+               break
+            end
+         end
+         if foundItem then break end
+      end
+      
+      if not foundItem then
+         return false, "Item not found"
+      end
+      
+      -- Check player funds
+      local player = game.Players.LocalPlayer
+      local leaderstats = player:FindFirstChild("leaderstats")
+      local money = leaderstats and leaderstats:FindFirstChild("Money") or player:GetAttribute("Money")
+      
+      if not money then
+         return false, "Money system not found"
+      end
+      
+      local price = foundItem:GetAttribute("Price") or 1000
+      
+      if money.Value < price then
+         return false, "Not enough money"
+      end
+      
+      -- Simulate purchase
+      money.Value = money.Value - price
+      
+      -- Add to inventory
+      local clone = foundItem:Clone()
+      clone.Parent = player.Backpack
+      
+      return true, "Purchased: " .. itemName
+   end)
+   
+   if success then
+      Rayfield:Notify({
+         Title = "Purchase Successful",
+         Content = message,
+         Duration = 5,
+         Image = 13014546637,
+      })
+   else
+      Rayfield:Notify({
+         Title = "Purchase Failed",
+         Content = message,
+         Duration = 5,
+         Image = 13014546637,
+      })
+   end
 end
 
 -- Create shop buttons
 for _, item in ipairs(shopItems) do
-    ShopBox:AddButton(item, function()
-        BuyItem(item)
-    end)
+   MiscTab:CreateButton({
+      Name = "Buy: " .. item,
+      Callback = function()
+         buyItem(item)
+      end,
+   })
 end
 
--- Mobile-friendly buttons
-if IS_MOBILE then
-    for _, button in ipairs(ShopBox.Container:GetChildren()) do
-        if button:IsA("TextButton") then
-            button.Size = UDim2.new(1, -TOUCH_PADDING*2, 0, 40)
-            button.TextSize = 16
-        end
-    end
-end
+-- Core functionality
+local Player = game.Players.LocalPlayer
 
---[[
-    =========================
-    FLOAT MODE IMPLEMENTATION
-    =========================
-]]--
-local floatConn
-FloatToggle:OnChanged(function()
-    if floatConn then floatConn:Disconnect() end
-    
-    if FloatToggle.Value then
-        -- Anti-AFK implementation
-        floatConn = Player.Idled:Connect(function()
-            -- This prevents AFK kicks
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, "W", false, nil)
-            task.wait(0.1)
-            game:GetService("VirtualInputManager"):SendKeyEvent(false, "W", false, nil)
-        end)
-    end
+-- Air Jump
+game:GetService("UserInputService").TouchTap:Connect(function()
+   if AirJumpEnabled and Player.Character then
+      Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+   end
 end)
 
---[[
-    ======================
-    FINAL SETUP & CLEANUP
-    ======================
-]]--
-ThemeManager:SetLibrary(Library)
-SaveManager:SetLibrary(Library)
-ThemeManager:SetFolder("MobileAdminTools")
-SaveManager:SetFolder("MobileAdminTools")
-ThemeManager:ApplyToTab(Tabs.Misc)
+-- Speed Boost
+game:GetService("RunService").Heartbeat:Connect(function()
+   if SpeedBoostActive and Player.Character then
+      local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+      if humanoid then
+         humanoid.WalkSpeed = 48
+      end
+   end
+end)
 
-Library:Notify("Mobile Admin Tools Loaded!", 5)
+-- Float Mode (Anti-Stun)
+game:GetService("RunService").Heartbeat:Connect(function()
+   if FloatEnabled and Player.Character then
+      for _, part in ipairs(Player.Character:GetDescendants()) do
+         if part:IsA("BasePart") then
+            part.CanCollide = false
+            part.Material = Enum.Material.ForceField
+         end
+      end
+   end
+end)
 
--- Unload function
-Library.OnUnload = function()
-    if StealGUI then StealGUI:Destroy() end
-    if airJumpConn then airJumpConn:Disconnect() end
-    if coordUpdateConn then coordUpdateConn:Disconnect() end
-    if floatConn then floatConn:Disconnect() end
+-- Anti-AFK
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+   if AntiAFKEnabled or FloatEnabled then
+      game:GetService("VirtualInputManager"):SendKeyEvent(true, "W", false, game)
+      task.wait(0.1)
+      game:GetService("VirtualInputManager"):SendKeyEvent(false, "W", false, game)
+   end
+end)
+
+-- Steal Helper (Proximity Prompts)
+game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
+   if StealHelperEnabled then
+      prompt.HoldDuration = 0
+   end
+end)
+
+-- Player ESP
+local function createESP(player)
+   if not ESPEnabled then return end
+   
+   local character = player.Character or player.CharacterAdded:Wait()
+   local highlight = Instance.new("Highlight")
+   highlight.Name = "PlayerESP"
+   highlight.FillColor = Color3.fromRGB(0, 200, 255)
+   highlight.OutlineColor = Color3.fromRGB(0, 100, 150)
+   highlight.Parent = character
 end
 
--- Mobile menu keybind
-if IS_MOBILE then
-    Library:SetWatermarkVisibility(true)
-    Library:SetWatermark("Press HOME to toggle menu")
+game:GetService("Players").PlayerAdded:Connect(createESP)
+for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+   if player ~= Player then
+      createESP(player)
+   end
 end
+
+-- Unload button
+MiscTab:CreateButton({
+   Name = "Unload Interface",
+   Callback = function()
+      Rayfield:Destroy()
+      if StealGUI then StealGUI:Destroy() end
+   end,
+})
+
+Rayfield:Notify({
+   Title = "Admin Tools Loaded",
+   Content = "Mobile version ready!",
+   Duration = 5,
+   Image = 13014546637,
+})
