@@ -1,110 +1,150 @@
--- Carica la versione mobile di Rayfield
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/jensonhirst/Rayfield/main/source'))()
+-- VERSIONE ANTI-CRASH CON APERTURA MULTIPLA
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+end)
 
--- Variabile contatore
+if not success then
+    warn("Errore caricamento Rayfield, provo versione alternativa...")
+    success, Rayfield = pcall(function()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/jensonhirst/Rayfield/main/source'))()
+    end)
+end
+
+if not success then
+    error("Impossibile caricare Rayfield")
+end
+
 local BrainrotRubati = 0
 
--- Crea la finestra principale con impostazioni mobile
-local FinestraPrincipale = Rayfield:CreateWindow({
-	Name = "🧠 BRAINROT HEIST",
-	LoadingTitle = "Caricamento...",
-	LoadingSubtitle = "Mobile Edition",
-	ConfigurationSaving = { Enabled = false },
-	KeySystem = false,
-    MobileCompatible = true -- Abilita il supporto mobile
-})
-
--- Sezione per lo steal
-local SezioneSteal = FinestraPrincipale:CreateSection("Instant Steal")
-
--- Contatore
-local Contatore = FinestraPrincipale:CreateLabel("Brainrot Rubati: 0")
-
--- Pulsante per rubare (ottimizzato per touch)
-local PulsanteSteal = FinestraPrincipale:CreateButton({
-	Name = "👆 TOCCA PER RUBARE",
-    Hold = true, -- Abilita la funzionalità di hold per mobile
-    Callback = function()
-        -- Non necessario, gestiamo l'hold separatamente
-    end,
-})
-
--- Funzione per rubare
-local function RubaBrainrot()
-    BrainrotRubati += 1
-    Contatore:Set("Brainrot Rubati: "..BrainrotRubati)
+-- Forza creazione finestra con tentativi multipli
+local Window
+for i = 1, 3 do
+    local success, result = pcall(function()
+        return Rayfield:CreateWindow({
+            Name = "🧠 BRAINROT HEIST",
+            LoadingTitle = "Caricamento...",
+            LoadingSubtitle = "Tentativo " .. i,
+            ConfigurationSaving = {Enabled = false},
+            KeySystem = false
+        })
+    end)
     
-    -- Effetto visivo per mobile
-    local originalColor = Contatore.Instance.TextColor3
-    game:GetService("TweenService"):Create(
-        Contatore.Instance, 
-        TweenInfo.new(0.1), 
-        {TextColor3 = Color3.fromRGB(0, 255, 0)}
-    ):Play()
-    task.wait(0.15)
-    game:GetService("TweenService"):Create(
-        Contatore.Instance, 
-        TweenInfo.new(0.1), 
-        {TextColor3 = originalColor}
-    ):Play()
-    
-    -- Effetto sonoro (opzionale)
-    if script:FindFirstChild("StealSound") then
-        script.StealSound:Play()
+    if success then
+        Window = result
+        break
+    else
+        warn("Tentativo " .. i .. " fallito, riprovo...")
+        wait(1)
     end
 end
 
--- Rilevatore di input per mobile
-local function SetupStealButton()
-    local button = PulsanteSteal.Instance
-    local touchCount = 0
-    local lastSteal = 0
-    
-    -- Touch iniziato
-    button.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            touchCount += 1
-            local currentTouch = touchCount
-            
-            -- Ruba immediatamente al primo touch
-            RubaBrainrot()
-            lastSteal = time()
-            
-            -- Continua a rubare finché il dito è premuto
-            while currentTouch == touchCount and time() - lastSteal < 10 do
-                task.wait(0.15) -- Intervallo tra i rubamenti
-                RubaBrainrot()
-                lastSteal = time()
-            end
-        end
+if not Window then
+    error("Impossibile creare finestra")
+end
+
+-- Forza creazione tab con tentativi multipli
+local Tab
+for i = 1, 3 do
+    local success, result = pcall(function()
+        return Window:CreateTab("Main")
     end)
     
-    -- Touch rilasciato
-    button.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            touchCount += 1
-        end
+    if success then
+        Tab = result
+        break
+    else
+        warn("Tentativo tab " .. i .. " fallito, riprovo...")
+        wait(0.5)
+    end
+end
+
+if not Tab then
+    error("Impossibile creare tab")
+end
+
+-- Crea elementi con protezione errori
+local Label = Tab:CreateLabel("Brainrot Rubati: 0")
+
+-- Funzione steal protetta
+local function StealBrainrot()
+    pcall(function()
+        BrainrotRubati = BrainrotRubati + 1
+        Label:Set("Brainrot Rubati: " .. BrainrotRubati)
     end)
 end
 
--- Pulsante per aprire/chiudere la GUI
-local ToggleButton = Rayfield:CreateButton({
-	Name = "📱 APRI/CHIUDI",
-	Callback = function()
-		FinestraPrincipale:Toggle()
-	end,
+-- Pulsante istantaneo - UN CLICK SOLO
+Tab:CreateButton({
+    Name = "🔓 RUBA ISTANTANEO (1 CLICK)",
+    Callback = function()
+        StealBrainrot()
+    end,
 })
 
--- Setup iniziale
-SetupStealButton()
+-- Auto steal - UN CLICK SOLO
+local AutoSteal = false
+Tab:CreateToggle({
+    Name = "🔥 Auto Steal (1 CLICK)",
+    CurrentValue = false,
+    Callback = function(Value)
+        AutoSteal = Value
+        if AutoSteal then
+            spawn(function()
+                while AutoSteal do
+                    wait(0.1)
+                    StealBrainrot()
+                end
+            end)
+        end
+    end,
+})
 
--- Carica un suono opzionale (crea un oggetto Sound nello script)
-local sound = Instance.new("Sound")
-sound.SoundId = "rbxassetid://9046898040" -- Suono di monete
-sound.Volume = 0.5
-sound.Name = "StealSound"
-sound.Parent = script
+-- Mega steal - UN CLICK SOLO
+Tab:CreateButton({
+    Name = "💥 MEGA STEAL (+100) - 1 CLICK",
+    Callback = function()
+        pcall(function()
+            BrainrotRubati = BrainrotRubati + 100
+            Label:Set("Brainrot Rubati: " .. BrainrotRubati)
+        end)
+    end,
+})
 
--- Nascondi la finestra all'avvio
-task.wait(1)
-FinestraPrincipale:Hide()
+-- Reset - UN CLICK SOLO
+Tab:CreateButton({
+    Name = "🔄 RESET (1 CLICK)",
+    Callback = function()
+        pcall(function()
+            BrainrotRubati = 0
+            Label:Set("Brainrot Rubati: 0")
+        end)
+    end,
+})
+
+-- Forza apertura con tentativi multipli
+for i = 1, 3 do
+    spawn(function()
+        wait(i * 0.5)
+        pcall(function()
+            if Window and Window.Show then
+                Window:Show()
+            end
+        end)
+    end)
+end
+
+-- Notifica successo
+spawn(function()
+    wait(2)
+    pcall(function()
+        if Rayfield and Rayfield.Notify then
+            Rayfield:Notify({
+                Title = "GUI Caricata!",
+                Content = "Brainrot Heist pronto",
+                Duration = 3
+            })
+        end
+    end)
+end)
+
+print("🧠 BRAINROT HEIST CARICATO CON SUCCESSO!")
