@@ -37,7 +37,8 @@ local StealHelperEnabled = false
 local StealGUI = nil
 local AntiAFKEnabled = false
 local AutoCollectEnabled = false
-local ItemScanEnabled = false
+local FastStealEnabled = false
+local FastStealConnection = nil
 
 -- Utility Functions
 local function cleanupConnection(name)
@@ -116,9 +117,55 @@ if Player.Character then
    storeSpawnPosition()
 end
 
+-- ======= MODIFICA: Fast Steal System =======
+local function modifyPrompt(prompt)
+   prompt.HoldDuration = 0
+   prompt.RequiresLineOfSight = false
+   prompt.MaxActivationDistance = 150
+end
+
+local function scanAndModifyPrompts()
+   for _, obj in ipairs(Workspace:GetDescendants()) do
+      if obj:IsA("ProximityPrompt") then
+         modifyPrompt(obj)
+      end
+   end
+end
+-- ======= FINE MODIFICA =======
+
 -- Tab Main
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features")
+
+-- ======= MODIFICA: Fast Steal Toggle =======
+MainTab:CreateToggle({
+   Name = "⚡ Fast Steal (Switch)",
+   CurrentValue = false,
+   Flag = "FastSteal",
+   Callback = function(Value)
+      FastStealEnabled = Value
+      if Value then
+         -- Scan and modify existing prompts
+         scanAndModifyPrompts()
+         
+         -- Listen for new prompts
+         FastStealConnection = Workspace.DescendantAdded:Connect(function(descendant)
+            if descendant:IsA("ProximityPrompt") then
+               modifyPrompt(descendant)
+            end
+         end)
+         
+         notify("Fast Steal Enabled", "All proximity prompts modified: no hold required", 3)
+      else
+         if FastStealConnection then
+            FastStealConnection:Disconnect()
+            FastStealConnection = nil
+         end
+         notify("Fast Steal Disabled", "Proximity prompts are now normal", 3)
+      end
+   end,
+})
+-- ======= FINE MODIFICA =======
 
 -- Enhanced Air Jump
 local AirJumpToggle = MainTab:CreateToggle({
@@ -585,31 +632,6 @@ MiscTab:CreateToggle({
    end,
 })
 
-MiscTab:CreateToggle({
-   Name = "🔍 Auto Item Scanner",
-   CurrentValue = false,
-   Flag = "ItemScan",
-   Callback = function(Value)
-      ItemScanEnabled = Value
-      if Value then
-         notify("Item Scanner Enabled", "Scanning map for items...")
-         
-         task.spawn(function()
-            while ItemScanEnabled do
-               for _, obj in pairs(Workspace:GetDescendants()) do
-                  if obj:IsA("ProximityPrompt") then
-                     obj.HoldDuration = 0
-                     obj.RequiresLineOfSight = false
-                     obj.MaxActivationDistance = 50
-                  end
-               end
-               task.wait(1)
-            end
-         end)
-      end
-   end,
-})
-
 -- Shop Section
 local ShopSection = MiscTab:CreateSection("🛒 Shop Items")
 
@@ -688,14 +710,6 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
       VirtualInputManager:SendKeyEvent(false, randomAction, false, game)
    end
    
-   if StealHelperEnabled then
-      for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
-         prompt.HoldDuration = 0
-         prompt.RequiresLineOfSight = false
-         prompt.MaxActivationDistance = 150
-      end
-   end
-   
    if AutoCollectEnabled then
       for _, obj in pairs(Workspace:GetDescendants()) do
          if obj.Name:lower():find("money") or obj.Name:lower():find("coin") or obj.Name:lower():find("cash") then
@@ -723,6 +737,11 @@ local function cleanup()
    
    for _, highlight in pairs(ESPCache) do
       if highlight then highlight:Destroy() end
+   end
+   
+   if FastStealConnection then
+      FastStealConnection:Disconnect()
+      FastStealConnection = nil
    end
    
    local character = Player.Character
