@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "✨ Ultimate Combat Hub v3.0",
+    Name = "✨ Ultimate Combat Hub v3.1",
     LoadingTitle = "Loading Ultimate Hub...",
     LoadingSubtitle = "by OnlyRobloxScript",
     ConfigurationSaving = {
@@ -23,7 +23,7 @@ local Window = Rayfield:CreateWindow({
 -- Movable Teleport GUI
 local teleportGUI = Instance.new("ScreenGui")
 teleportGUI.Name = "TeleportGUI"
-teleportGUI.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+teleportGUI.Parent = game:GetService("CoreGui") -- Fix: Use CoreGui instead of PlayerGui
 
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 200, 0, 100)
@@ -104,6 +104,13 @@ MainTab:CreateButton({
 -- Movement Section
 local MovementSection = MainTab:CreateSection("Movement")
 local walkSpeed = 16
+local originalWalkSpeed = 16
+
+-- Save original walkspeed
+pcall(function()
+    originalWalkSpeed = game.Players.LocalPlayer.Character.Humanoid.WalkSpeed
+end)
+
 MainTab:CreateSlider({
     Name = "🏃‍♂️ Max Speed",
     Range = {16, 200},
@@ -113,9 +120,9 @@ MainTab:CreateSlider({
     Flag = "MaxSpeed",
     Callback = function(Value)
         walkSpeed = Value
-        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+        pcall(function()
             game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
-        end
+        end)
     end,
 })
 
@@ -134,9 +141,9 @@ MainTab:CreateToggle({
                 Image = 6022668888
             })
         else
-            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            pcall(function()
                 game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed
-            end
+            end)
         end
     end,
 })
@@ -201,6 +208,7 @@ CombatTab:CreateSection("Kill Aura")
 local killAuraActive = false
 local killAuraRange = 25
 local killAuraCooldown = 0.3
+local killAuraLoop
 
 CombatTab:CreateToggle({
     Name = "💀 Kill Aura",
@@ -208,12 +216,78 @@ CombatTab:CreateToggle({
     Flag = "KillAura",
     Callback = function(Value)
         killAuraActive = Value
-        Rayfield:Notify({
-            Title = Value and "Kill Aura Enabled" or "Kill Aura Disabled",
-            Content = Value and "Attacking nearby enemies" or "Combat system offline",
-            Duration = 3,
-            Image = 6022668888
-        })
+        if killAuraLoop then
+            killAuraLoop:Disconnect()
+            killAuraLoop = nil
+        end
+        
+        if Value then
+            killAuraLoop = game:GetService("RunService").Heartbeat:Connect(function()
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    if not player.Character then return end
+                    
+                    local character = player.Character
+                    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    
+                    if not humanoidRootPart or not humanoid or humanoid.Health <= 0 then return end
+                    
+                    -- Find best weapon in backpack
+                    local bestWeapon
+                    for _, tool in ipairs(player.Backpack:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            if not bestWeapon or (tool:FindFirstChild("Damage") and tool.Damage.Value > (bestWeapon.Damage and bestWeapon.Damage.Value or 0)) then
+                                bestWeapon = tool
+                            end
+                        end
+                    end
+                    
+                    if bestWeapon then
+                        -- Equip weapon
+                        if not player.Character:FindFirstChild(bestWeapon.Name) then
+                            humanoid:EquipTool(bestWeapon)
+                        end
+                        
+                        for _, target in ipairs(game.Players:GetPlayers()) do
+                            if target ~= player and target.Character then
+                                local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+                                local targetHumanoid = target.Character:FindFirstChildOfClass("Humanoid")
+                                
+                                if targetHRP and targetHumanoid and targetHumanoid.Health > 0 then
+                                    local distance = (humanoidRootPart.Position - targetHRP.Position).Magnitude
+                                    
+                                    if distance <= killAuraRange then
+                                        -- Face target
+                                        humanoidRootPart.CFrame = CFrame.new(
+                                            humanoidRootPart.Position,
+                                            targetHRP.Position
+                                        )
+                                        
+                                        -- Simulate attack
+                                        bestWeapon:Activate()
+                                        wait(killAuraCooldown)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end)
+            Rayfield:Notify({
+                Title = "Kill Aura Enabled",
+                Content = "Attacking nearby enemies",
+                Duration = 3,
+                Image = 6022668888
+            })
+        else
+            Rayfield:Notify({
+                Title = "Kill Aura Disabled",
+                Content = "Combat system offline",
+                Duration = 3,
+                Image = 6022668888
+            })
+        end
     end,
 })
 
@@ -241,62 +315,6 @@ CombatTab:CreateSlider({
     end,
 })
 
--- Weapon-based Kill Aura
-spawn(function()
-    while true do
-        if killAuraActive then
-            pcall(function()
-                local player = game.Players.LocalPlayer
-                local character = player.Character
-                local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-                
-                if humanoidRootPart then
-                    -- Find best weapon in backpack
-                    local bestWeapon
-                    for _, tool in ipairs(player.Backpack:GetChildren()) do
-                        if tool:IsA("Tool") then
-                            if not bestWeapon or tool:FindFirstChild("Damage") and tool.Damage.Value > (bestWeapon.Damage and bestWeapon.Damage.Value or 0) then
-                                bestWeapon = tool
-                            end
-                        end
-                    end
-                    
-                    if bestWeapon then
-                        -- Equip weapon
-                        player.Character.Humanoid:EquipTool(bestWeapon)
-                        
-                        for _, target in ipairs(game.Players:GetPlayers()) do
-                            if target ~= player and target.Character then
-                                local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
-                                local targetHumanoid = target.Character:FindFirstChildOfClass("Humanoid")
-                                
-                                if targetHRP and targetHumanoid and targetHumanoid.Health > 0 then
-                                    local distance = (humanoidRootPart.Position - targetHRP.Position).Magnitude
-                                    
-                                    if distance <= killAuraRange then
-                                        -- Face target
-                                        humanoidRootPart.CFrame = CFrame.new(
-                                            humanoidRootPart.Position,
-                                            targetHRP.Position
-                                        )
-                                        
-                                        -- Simulate attack
-                                        bestWeapon:Activate()
-                                        
-                                        -- Bypass cooldown
-                                        wait(killAuraCooldown)
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-        wait(0.1)
-    end
-end)
-
 -- Helper Tab
 local HelperTab = Window:CreateTab("🛠️ Helper", 6022668888)
 
@@ -316,26 +334,29 @@ HelperTab:CreateToggle({
     end,
 })
 
+local antiFreezeLoop
 HelperTab:CreateToggle({
     Name = "❄️ Anti Freeze",
     CurrentValue = false,
     Flag = "AntiFreeze",
     Callback = function(Value)
+        if antiFreezeLoop then
+            antiFreezeLoop:Disconnect()
+            antiFreezeLoop = nil
+        end
+        
         if Value then
-            spawn(function()
-                while HelperTab:Get("AntiFreeze").CurrentValue do
-                    pcall(function()
-                        local char = game.Players.LocalPlayer.Character
-                        if char then
-                            for _, v in ipairs(char:GetChildren()) do
-                                if v:IsA("BasePart") and v.Anchored then
-                                    v.Anchored = false
-                                end
+            antiFreezeLoop = game:GetService("RunService").Heartbeat:Connect(function()
+                pcall(function()
+                    local char = game.Players.LocalPlayer.Character
+                    if char then
+                        for _, v in ipairs(char:GetChildren()) do
+                            if v:IsA("BasePart") and v.Anchored then
+                                v.Anchored = false
                             end
                         end
-                        wait(0.5)
-                    end)
-                end
+                    end
+                end)
             end)
             Rayfield:Notify({
                 Title = "Anti Freeze Enabled",
@@ -354,14 +375,20 @@ HelperTab:CreateToggle({
     end,
 })
 
+local antiAFKConnection
 HelperTab:CreateToggle({
     Name = "⏱️ Anti AFK",
     CurrentValue = false,
     Flag = "AntiAFK",
     Callback = function(Value)
+        if antiAFKConnection then
+            antiAFKConnection:Disconnect()
+            antiAFKConnection = nil
+        end
+        
         if Value then
             local VirtualUser = game:GetService("VirtualUser")
-            game:GetService("Players").LocalPlayer.Idled:Connect(function()
+            antiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton2(Vector2.new())
             end)
@@ -392,11 +419,6 @@ HelperTab:CreateToggle({
     Callback = function(Value)
         infiniteJumpEnabled = Value
         if Value then
-            game:GetService("UserInputService").JumpRequest:Connect(function()
-                if infiniteJumpEnabled then
-                    game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-                end
-            end)
             Rayfield:Notify({
                 Title = "Infinite Jump Enabled",
                 Content = "Bypassing anti-cheat...",
@@ -416,12 +438,21 @@ HelperTab:CreateToggle({
 
 local flyEnabled = false
 local flySpeed = 50
+local flying = false
+local bodyVelocity
+
 HelperTab:CreateToggle({
     Name = "✈️ Fly (Press E to toggle)",
     CurrentValue = false,
     Flag = "Fly",
     Callback = function(Value)
         flyEnabled = Value
+        if not Value and bodyVelocity then
+            bodyVelocity:Destroy()
+            bodyVelocity = nil
+            flying = false
+        end
+        
         if Value then
             Rayfield:Notify({
                 Title = "Fly Enabled",
@@ -443,83 +474,56 @@ HelperTab:CreateToggle({
 -- Fly system setup
 local function setupFly()
     local player = game.Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-
-    local bodyVelocity = Instance.new("BodyVelocity")
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+    end
+    
+    bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
     bodyVelocity.Parent = character.HumanoidRootPart
-
-    local flying = false
-
-    game:GetService("UserInputService").InputBegan:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.E and flyEnabled then
-            flying = not flying
-            bodyVelocity.MaxForce = flying and Vector3.new(9e9, 9e9, 9e9) or Vector3.new(0, 0, 0)
-        end
-    end)
-
-    game:GetService("RunService").Heartbeat:Connect(function()
-        if flyEnabled and flying and character and character:FindFirstChild("HumanoidRootPart") then
-            local rootPart = character.HumanoidRootPart
-            local camera = workspace.CurrentCamera
-
-            local moveDirection = Vector3.new(0, 0, 0)
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
-                moveDirection = moveDirection + camera.CFrame.LookVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
-                moveDirection = moveDirection - camera.CFrame.LookVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
-                moveDirection = moveDirection + camera.CFrame.RightVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
-                moveDirection = moveDirection - camera.CFrame.RightVector
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
-                moveDirection = moveDirection + Vector3.new(0, 1, 0)
-            end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-                moveDirection = moveDirection + Vector3.new(0, -1, 0)
-            end
-
-            if moveDirection.Magnitude > 0 then
-                bodyVelocity.Velocity = moveDirection.Unit * flySpeed
-            else
-                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-            end
-        end
-    end)
 end
 
-if game.Players.LocalPlayer.Character then
-    setupFly()
-end
-game.Players.LocalPlayer.CharacterAdded:Connect(setupFly)
+-- Initialize fly on character load
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    character:WaitForChild("HumanoidRootPart")
+    if flyEnabled then
+        setupFly()
+    end
+end)
 
 -- ESP Tab
 local ESPTab = Window:CreateTab("👁️ ESP", 6022668888)
 
 local playersESP = {}
+local espConnection
+
 ESPTab:CreateToggle({
     Name = "👤 Player ESP",
     CurrentValue = false,
     Flag = "PlayerESP",
     Callback = function(Value)
+        if espConnection then
+            espConnection:Disconnect()
+            espConnection = nil
+        end
+        
         if Value then
+            -- Create ESP for existing players
             for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-                if player ~= game.Players.LocalPlayer and player.Character then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Name = player.Name .. "_ESP"
-                    highlight.OutlineColor = Color3.new(1, 0, 0)
-                    highlight.FillColor = Color3.new(1, 0, 0)
-                    highlight.FillTransparency = 0.5
-                    highlight.Parent = player.Character
-                    playersESP[player] = highlight
+                if player ~= game.Players.LocalPlayer then
+                    createESP(player)
                 end
             end
+            
+            -- Setup connections for new players
+            espConnection = game:GetService("Players").PlayerAdded:Connect(function(player)
+                createESP(player)
+            end)
+            
             Rayfield:Notify({
                 Title = "Player ESP Enabled",
                 Content = "Players highlighted in red",
@@ -527,10 +531,14 @@ ESPTab:CreateToggle({
                 Image = 6022668888
             })
         else
-            for _, highlight in pairs(playersESP) do
-                highlight:Destroy()
+            -- Remove all ESP
+            for player, highlight in pairs(playersESP) do
+                if highlight then
+                    highlight:Destroy()
+                end
             end
-            table.clear(playersESP)
+            playersESP = {}
+            
             Rayfield:Notify({
                 Title = "Player ESP Disabled",
                 Content = "Player highlights removed",
@@ -541,21 +549,33 @@ ESPTab:CreateToggle({
     end,
 })
 
--- Auto-Update ESP
-game:GetService("Players").PlayerAdded:Connect(function(player)
-    if ESPTab:Get("PlayerESP").CurrentValue then
-        player.CharacterAdded:Connect(function(char)
-            if playersESP[player] then playersESP[player]:Destroy() end
-            local highlight = Instance.new("Highlight")
-            highlight.Name = player.Name .. "_ESP"
-            highlight.OutlineColor = Color3.new(1, 0, 0)
-            highlight.FillColor = Color3.new(1, 0, 0)
-            highlight.FillTransparency = 0.5
-            highlight.Parent = char
-            playersESP[player] = highlight
-        end)
+function createESP(player)
+    if playersESP[player] then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = player.Name .. "_ESP"
+    highlight.OutlineColor = Color3.new(1, 0, 0)
+    highlight.FillColor = Color3.new(1, 0, 0)
+    highlight.FillTransparency = 0.5
+    playersESP[player] = highlight
+    
+    local function attachESP(character)
+        if character then
+            highlight.Parent = character
+            highlight.Adornee = character
+        end
     end
-end)
+    
+    if player.Character then
+        attachESP(player.Character)
+    end
+    
+    player.CharacterAdded:Connect(attachESP)
+    player.CharacterRemoving:Connect(function()
+        highlight.Adornee = nil
+        highlight.Parent = nil
+    end)
+end
 
 -- Buy Tab
 local BuyTab = Window:CreateTab("🛒 Buy", 6022668888)
@@ -576,36 +596,92 @@ PetsTab:CreateParagraph({
 -- Runtime Updates
 game:GetService("RunService").Heartbeat:Connect(function()
     -- Speed Boost
-    if speedBoostActive then
-        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed * 2
-            else
-                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = walkSpeed
+    pcall(function()
+        if speedBoostActive and game.Players.LocalPlayer.Character then
+            local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                    humanoid.WalkSpeed = walkSpeed * 2
+                else
+                    humanoid.WalkSpeed = walkSpeed
+                end
             end
         end
-    end
+    end)
     
     -- Anti Trap
     if HelperTab:Get("AntiTrap").CurrentValue then
         pcall(function()
-            local char = game.Players.LocalPlayer.Character
-            if char then
-                for _, part in ipairs(workspace:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide == false and part.Transparency > 0.5 then
-                        part.CanCollide = false
-                    end
+            for _, part in ipairs(workspace:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide == false and part.Transparency > 0.5 then
+                    part.CanCollide = false
                 end
             end
         end)
     end
+    
+    -- Infinite Jump
+    if infiniteJumpEnabled then
+        pcall(function()
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid:ChangeState("Jumping")
+                end
+            end
+        end)
+    end
+    
+    -- Fly Controls
+    pcall(function()
+        if flyEnabled and bodyVelocity and game.Players.LocalPlayer.Character then
+            local rootPart = game.Players.LocalPlayer.Character.HumanoidRootPart
+            local camera = workspace.CurrentCamera
+            
+            -- Toggle flight with E
+            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.E) then
+                flying = not flying
+                bodyVelocity.MaxForce = flying and Vector3.new(9e9, 9e9, 9e9) or Vector3.new(0, 0, 0)
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                wait(0.2)
+            end
+            
+            if flying then
+                local moveDirection = Vector3.new(0, 0, 0)
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                    moveDirection = moveDirection + camera.CFrame.LookVector
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                    moveDirection = moveDirection - camera.CFrame.LookVector
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+                    moveDirection = moveDirection + camera.CFrame.RightVector
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+                    moveDirection = moveDirection - camera.CFrame.RightVector
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                    moveDirection = moveDirection + Vector3.new(0, 1, 0)
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                    moveDirection = moveDirection + Vector3.new(0, -1, 0)
+                end
+                
+                if moveDirection.Magnitude > 0 then
+                    bodyVelocity.Velocity = moveDirection.Unit * flySpeed
+                else
+                    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                end
+            end
+        end
+    end)
 end)
 
 -- Initialize
 Rayfield:LoadConfiguration()
-Rayfield:SetWatermark("✨ Ultimate Combat Hub v3.0 | " .. os.date("%X"))
+Rayfield:SetWatermark("✨ Ultimate Combat Hub v3.1 | " .. os.date("%X"))
 Rayfield:SetWatermarkVisibility(true)
-Rayfield:SetKeybind(Enum.KeyCode.F4)
+Rayfield:SetKeybind(Enum.KeyCode.RightControl) -- Changed to RightControl to avoid conflicts
 Rayfield:Notify({
     Title = "Hub Loaded Successfully!",
     Content = "All features activated and bypassed",
@@ -613,4 +689,4 @@ Rayfield:Notify({
     Image = 6022668888
 })
 
-print("Ultimate Combat Hub loaded with all features!")
+print("Ultimate Combat Hub v3.1 loaded with all features!")
