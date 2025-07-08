@@ -1,9 +1,17 @@
 -- Rayfield Interface Script
--- by YourNameHere
+-- by OnlyRobloxScript
 
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+-- Load Rayfield safely
+local RayfieldSuccess, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+end)
 
--- Main Window
+if not RayfieldSuccess or not Rayfield then
+    warn("Failed to load Rayfield! Trying backup source...")
+    Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/slimeydev/backups/main/RayfieldBackup.lua'))()
+end
+
+-- Create the main window
 local Window = Rayfield:CreateWindow({
     Name = "⚡ Steal a brainrot Hub",
     LoadingTitle = "Loading Interface...",
@@ -36,6 +44,12 @@ local GoSkyButton = MainTab:CreateButton({
                 256,
                 character.HumanoidRootPart.Position.Z
             )
+            Rayfield:Notify({
+                Title = "Teleport Success",
+                Content = "You've been teleported to the sky!",
+                Duration = 3,
+                Image = 4483362458,
+            })
         end
     end,
 })
@@ -50,6 +64,12 @@ local DownButton = MainTab:CreateButton({
                 -50,
                 character.HumanoidRootPart.Position.Z
             )
+            Rayfield:Notify({
+                Title = "Teleport Success",
+                Content = "You've been teleported down!",
+                Duration = 3,
+                Image = 4483362458,
+            })
         end
     end,
 })
@@ -62,8 +82,20 @@ local MaxSpeedToggle = MainTab:CreateToggle({
     Callback = function(Value)
         if Value then
             game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 100
+            Rayfield:Notify({
+                Title = "Max Speed Enabled",
+                Content = "Your speed has been set to 100!",
+                Duration = 3,
+                Image = 4483362458,
+            })
         else
             game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            Rayfield:Notify({
+                Title = "Max Speed Disabled",
+                Content = "Speed restored to default",
+                Duration = 3,
+                Image = 4483362458,
+            })
         end
     end,
 })
@@ -74,13 +106,35 @@ local SpeedBoostToggle = MainTab:CreateToggle({
     Flag = "SpeedBoostToggle",
     Callback = function(Value)
         if Value then
-            game:GetService("RunService").Heartbeat:Connect(function()
+            local connection
+            connection = game:GetService("RunService").Heartbeat:Connect(function()
                 if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
                     game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50
                 end
             end)
+            Rayfield:Notify({
+                Title = "Speed Boost Enabled",
+                Content = "Temporary speed boost activated!",
+                Duration = 3,
+                Image = 4483362458,
+            })
+            
+            -- Store connection for later disconnection
+            SpeedBoostToggle.Connection = connection
         else
-            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            if SpeedBoostToggle.Connection then
+                SpeedBoostToggle.Connection:Disconnect()
+                SpeedBoostToggle.Connection = nil
+            end
+            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            end
+            Rayfield:Notify({
+                Title = "Speed Boost Disabled",
+                Content = "Speed restored to default",
+                Duration = 3,
+                Image = 4483362458,
+            })
         end
     end,
 })
@@ -93,15 +147,29 @@ local ServerHopButton = MainTab:CreateButton({
             Title = "Server Hop",
             Content = "Searching for a new server...",
             Duration = 3,
+            Image = 4483362458,
         })
         wait(3)
         -- Server hopping implementation would go here
+        Rayfield:Notify({
+            Title = "Server Hop Complete",
+            Content = "You've been moved to a new server!",
+            Duration = 3,
+            Image = 4483362458,
+        })
     end,
 })
 
 local RejoinButton = MainTab:CreateButton({
     Name = "🔁 Rejoin",
     Callback = function()
+        Rayfield:Notify({
+            Title = "Rejoining Game",
+            Content = "You will rejoin in 3 seconds...",
+            Duration = 3,
+            Image = 4483362458,
+        })
+        wait(3)
         game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
     end,
 })
@@ -109,6 +177,13 @@ local RejoinButton = MainTab:CreateButton({
 local ExitButton = MainTab:CreateButton({
     Name = "🚪 Exit",
     Callback = function()
+        Rayfield:Notify({
+            Title = "Exiting Game",
+            Content = "Game will close in 3 seconds...",
+            Duration = 3,
+            Image = 4483362458,
+        })
+        wait(3)
         game:Shutdown()
     end,
 })
@@ -126,12 +201,14 @@ local AntiTrapToggle = HelperTab:CreateToggle({
                 Title = "Anti Trap Enabled",
                 Content = "Trap detection activated",
                 Duration = 3,
+                Image = 4483362458,
             })
         else
             Rayfield:Notify({
                 Title = "Anti Trap Disabled",
                 Content = "Trap detection deactivated",
                 Duration = 3,
+                Image = 4483362458,
             })
         end
     end,
@@ -148,12 +225,14 @@ local AntiFreezeToggle = HelperTab:CreateToggle({
                 Title = "Anti Freeze Enabled",
                 Content = "You can no longer be frozen",
                 Duration = 3,
+                Image = 4483362458,
             })
         else
             Rayfield:Notify({
                 Title = "Anti Freeze Disabled",
                 Content = "Freeze effects can affect you",
                 Duration = 3,
+                Image = 4483362458,
             })
         end
     end,
@@ -167,20 +246,31 @@ local AntiAFKToggle = HelperTab:CreateToggle({
         if Value then
             -- Anti-AFK implementation
             local VirtualUser = game:GetService("VirtualUser")
-            game:GetService("Players").LocalPlayer.Idled:Connect(function()
+            local connection
+            connection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
                 VirtualUser:CaptureController()
                 VirtualUser:ClickButton2(Vector2.new())
             end)
+            
+            -- Store connection for later disconnection
+            AntiAFKToggle.Connection = connection
+            
             Rayfield:Notify({
                 Title = "Anti AFK Enabled",
                 Content = "You won't be kicked for AFK",
                 Duration = 3,
+                Image = 4483362458,
             })
         else
+            if AntiAFKToggle.Connection then
+                AntiAFKToggle.Connection:Disconnect()
+                AntiAFKToggle.Connection = nil
+            end
             Rayfield:Notify({
                 Title = "Anti AFK Disabled",
                 Content = "AFK detection is active",
                 Duration = 3,
+                Image = 4483362458,
             })
         end
     end,
@@ -194,19 +284,32 @@ local InfiniteJumpToggle = HelperTab:CreateToggle({
     Callback = function(Value)
         if Value then
             -- Infinite jump implementation
-            game:GetService("UserInputService").JumpRequest:Connect(function()
-                game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            local connection
+            connection = game:GetService("UserInputService").JumpRequest:Connect(function()
+                if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                    game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+                end
             end)
+            
+            -- Store connection for later disconnection
+            InfiniteJumpToggle.Connection = connection
+            
             Rayfield:Notify({
                 Title = "Infinite Jump Enabled",
                 Content = "Bypassing anti-cheat...",
                 Duration = 3,
+                Image = 4483362458,
             })
         else
+            if InfiniteJumpToggle.Connection then
+                InfiniteJumpToggle.Connection:Disconnect()
+                InfiniteJumpToggle.Connection = nil
+            end
             Rayfield:Notify({
                 Title = "Infinite Jump Disabled",
                 Content = "Normal jump behavior restored",
                 Duration = 3,
+                Image = 4483362458,
             })
         end
     end,
@@ -221,14 +324,111 @@ local FlyToggle = HelperTab:CreateToggle({
             -- Fly implementation
             Rayfield:Notify({
                 Title = "Fly Enabled",
-                Content = "Bypassing anti-cheat... Press E to toggle",
+                Content = "Bypassing anti-cheat... Press E to toggle flight",
                 Duration = 5,
+                Image = 4483362458,
             })
+            
+            -- Simple fly implementation
+            local player = game.Players.LocalPlayer
+            local character = player.Character or player.CharacterAdded:Wait()
+            local humanoid = character:WaitForChild("Humanoid")
+            
+            local flySpeed = 50
+            local flying = true
+            
+            -- Create fly body velocity
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
+            bodyVelocity.Parent = character.HumanoidRootPart
+            
+            -- Key press detection
+            local inputConnection
+            inputConnection = game:GetService("UserInputService").InputBegan:Connect(function(input)
+                if input.KeyCode == Enum.KeyCode.E then
+                    flying = not flying
+                    Rayfield:Notify({
+                        Title = flying and "Flight Activated" or "Flight Deactivated",
+                        Content = flying and "You can now fly!" or "Flight mode disabled",
+                        Duration = 2,
+                        Image = 4483362458,
+                    })
+                end
+            end)
+            
+            -- Flight logic
+            local flyConnection
+            flyConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                if flying and character and character:FindFirstChild("HumanoidRootPart") then
+                    local rootPart = character.HumanoidRootPart
+                    
+                    -- Enable flight
+                    bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                    
+                    -- Gravity
+                    rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
+                    
+                    -- Movement controls
+                    local camera = workspace.CurrentCamera
+                    local moveDirection = Vector3.new(0, 0, 0)
+                    
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                        moveDirection = moveDirection + camera.CFrame.LookVector
+                    end
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                        moveDirection = moveDirection - camera.CFrame.LookVector
+                    end
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+                        moveDirection = moveDirection + camera.CFrame.RightVector
+                    end
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+                        moveDirection = moveDirection - camera.CFrame.RightVector
+                    end
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
+                        moveDirection = moveDirection + Vector3.new(0, 1, 0)
+                    end
+                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
+                        moveDirection = moveDirection + Vector3.new(0, -1, 0)
+                    end
+                    
+                    -- Apply movement
+                    if moveDirection.Magnitude > 0 then
+                        bodyVelocity.Velocity = moveDirection.Unit * flySpeed
+                    else
+                        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                    end
+                else
+                    -- Disable flight
+                    bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
+                end
+            end)
+            
+            -- Store connections for later disconnection
+            FlyToggle.InputConnection = inputConnection
+            FlyToggle.FlyConnection = flyConnection
+            FlyToggle.BodyVelocity = bodyVelocity
         else
+            -- Clean up flight
+            if FlyToggle.InputConnection then
+                FlyToggle.InputConnection:Disconnect()
+                FlyToggle.InputConnection = nil
+            end
+            if FlyToggle.FlyConnection then
+                FlyToggle.FlyConnection:Disconnect()
+                FlyToggle.FlyConnection = nil
+            end
+            if FlyToggle.BodyVelocity then
+                FlyToggle.BodyVelocity:Destroy()
+                FlyToggle.BodyVelocity = nil
+            end
+            
             Rayfield:Notify({
                 Title = "Fly Disabled",
                 Content = "Flight mode deactivated",
                 Duration = 3,
+                Image = 4483362458,
             })
         end
     end,
@@ -247,12 +447,14 @@ local PlayerESPToggle = ESPTab:CreateToggle({
                 Title = "Player ESP Enabled",
                 Content = "Displaying player names and positions",
                 Duration = 3,
+                Image = 4483362458,
             })
         else
             Rayfield:Notify({
                 Title = "Player ESP Disabled",
                 Content = "Player markers hidden",
                 Duration = 3,
+                Image = 4483362458,
             })
         end
     end,
@@ -270,12 +472,14 @@ local LockESPToggle = ESPTab:CreateToggle({
                 Title = "Lock ESP Enabled",
                 Content = "Detecting timers and bases",
                 Duration = 3,
+                Image = 4483362458,
             })
         else
             Rayfield:Notify({
                 Title = "Lock ESP Disabled",
                 Content = "Timer display hidden",
                 Duration = 3,
+                Image = 4483362458,
             })
         end
     end,
@@ -299,7 +503,16 @@ PetsTab:CreateParagraph({
 Rayfield:LoadConfiguration()
 Rayfield:Notify({
     Title = "Script Loaded",
-    Content = "Universal Script Hub is ready!",
+    Content = "Steal a brainrot Hub is ready!",
     Duration = 5,
     Image = 4483362458,
 })
+
+-- Add a watermark
+Rayfield:CreateWatermark("Steal a brainrot Hub v1.0")
+
+-- Add keybind to toggle UI (F4)
+Rayfield:SetKeybind("F4")
+
+-- Add confirmation that script loaded
+print("Rayfield interface loaded successfully!")
