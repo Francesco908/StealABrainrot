@@ -1,15 +1,5 @@
--- Brainrot Universal Steal Script
--- Loading message
-local success, err = pcall(function()
-    game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
-        Text = "[STEAL] Brainrot Script Loading...",
-        Color = Color3.new(1, 0.5, 0),
-        Font = Enum.Font.SourceSansBold,
-        FontSize = Enum.FontSize.Size24
-    })
-end)
-
--- Multiple Rayfield loading methods
+-- Steal a Brainrot Universal Script with Enhanced Features
+-- Fixed Rayfield loading with multiple sources
 local Rayfield
 pcall(function()
     Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -24,7 +14,7 @@ end
 if not Rayfield then return end
 
 -- Wait for game
-repeat task.wait(0.1) until game:IsLoaded()
+repeat wait(0.1) until game:IsLoaded()
 
 -- Services
 local Players = game:GetService("Players")
@@ -33,17 +23,21 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variables
+local basePosition = Vector3.new(0, 10, 0)
+local originalSpeed = 16
 local godMode = false
 local antiRagdoll = false
+local autoWalk = false
 local skyWidget = nil
 local skyWidgetVisible = false
 local skyWidgetMinimized = false
 local leaveGui = nil
 local killAuraActive = false
-local killAuraDistance = 50
+local killAuraDistance = 50 -- Default distance
 local killAuraConnection = nil
 local intentionalKick = false
 local flyEnabled = false
@@ -55,7 +49,6 @@ local boostActive = false
 local infiniteJump = false
 local jumpCooldown = false
 local targetPlayers = {"Tralalero Tralala", "La Vacca Saturno Saturnita"}
-local wallsRemoved = false
 
 -- Anti-kick system
 local function antiKick()
@@ -115,49 +108,30 @@ local function setupInfiniteJump()
             if char and char:FindFirstChild("Humanoid") then
                 char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 jumpCooldown = true
-                task.wait(0.1)
+                wait(0.1)
                 jumpCooldown = false
             end
         end
     end)
 end
 
--- Permanent Wall Removal (works after death)
+-- Remove ALL Walls and Lasers
 local function removeWalls()
-    if wallsRemoved then return end
-    wallsRemoved = true
-    
-    local function removeWallsNow()
+    pcall(function()
+        -- Remove lasers
         for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and (obj.Name:lower():find("laser") or obj.Name:lower():find("wall")) then
+            if obj:IsA("BasePart") and (obj.Name:lower():find("laser") or obj.Name:lower():find("laserhitbox")) then
                 obj:Destroy()
             end
         end
-    end
-    
-    -- Remove immediately
-    removeWallsNow()
-    
-    -- Keep removing as new walls appear
-    local connection
-    connection = Workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("BasePart") and (obj.Name:lower():find("laser") or obj.Name:lower():find("wall")) then
-            obj:Destroy()
-        end
+        
+        Rayfield:Notify({
+            Title = "Walls Removed",
+            Content = "All lasers removed!",
+            Duration = 3,
+            Image = 4483362458
+        })
     end)
-    
-    -- Reconnect after character respawn
-    LocalPlayer.CharacterAdded:Connect(function()
-        task.wait(1)
-        removeWallsNow()
-    end)
-    
-    Rayfield:Notify({
-        Title = "Walls Removed",
-        Content = "All walls permanently removed!",
-        Duration = 3,
-        Image = 4483362458
-    })
 end
 
 -- ESP Functions with target search
@@ -243,6 +217,46 @@ local function toggleESP()
     end
 end
 
+-- Teleport Up function
+local function teleportUp()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 265, 0))
+        end
+    end)
+end
+
+-- Teleport Down function
+local function teleportDown()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos - Vector3.new(0, 50, 0))
+        end
+    end)
+end
+
+-- Teleport to Base (high above)
+local function teleportToBase()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local targetPos = basePosition + Vector3.new(0, 265, 0)
+            char.HumanoidRootPart.CFrame = CFrame.new(targetPos)
+            
+            Rayfield:Notify({
+                Title = "Base Teleport",
+                Content = "Teleported above base! Use DOWN to land.",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    end)
+end
+
 -- Enhanced Kill Aura with configurable distance
 local function startKillAura()
     if killAuraActive then return end
@@ -289,15 +303,17 @@ local function startKillAura()
                         local lookDirection = Vector3.new(targetDirection.X, 0, targetDirection.Z)
                         char.HumanoidRootPart.CFrame = CFrame.lookAt(char.HumanoidRootPart.Position, char.HumanoidRootPart.Position + lookDirection)
                         
-                        -- Equip and activate tool (instant activation)
+                        -- Equip and activate tool
                         if tool.Parent == LocalPlayer.Backpack then
                             char.Humanoid:EquipTool(tool)
                         end
                         
                         if tool:FindFirstChild("Handle") then
                             tool:Activate()
-                            task.wait(0.05) -- Minimal delay
                         end
+                        
+                        -- Small delay between attacks
+                        wait(0.05)
                     end
                 end
             end
@@ -313,28 +329,27 @@ local function stopKillAura()
     killAuraActive = false
 end
 
--- Create Sky Widget (fixed version)
-local function createSkyWidget()
-    if skyWidget then
-        skyWidget:Destroy()
-        skyWidget = nil
+-- Create Leave GUI with Rejoin option
+local function createLeaveGui()
+    if leaveGui then
+        leaveGui:Destroy()
     end
     
-    skyWidget = Instance.new("ScreenGui")
-    skyWidget.Name = "SkyWidget"
-    skyWidget.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    skyWidget.ResetOnSpawn = false
-    skyWidget.Enabled = true
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "LeaveGui"
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ResetOnSpawn = false
+    leaveGui = screenGui
     
     -- Main Frame
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 200, 0, 150)
-    mainFrame.Position = UDim2.new(0.5, -100, 0.1, 0)
+    mainFrame.Size = UDim2.new(0, 200, 0, 180) -- Increased height
+    mainFrame.Position = UDim2.new(0.5, -100, 0.5, -90)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = skyWidget
+    mainFrame.Parent = screenGui
     mainFrame.Active = true
     mainFrame.Draggable = true
     
@@ -362,11 +377,28 @@ local function createSkyWidget()
     title.Size = UDim2.new(1, -60, 1, 0)
     title.Position = UDim2.new(0, 10, 0, 0)
     title.BackgroundTransparency = 1
-    title.Text = "SKY CONTROLS"
+    title.Text = "SERVER OPTIONS"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextSize = 14
     title.Font = Enum.Font.GothamBold
     title.Parent = header
+    
+    -- Minimize Button
+    local minimizeButton = Instance.new("TextButton")
+    minimizeButton.Name = "MinimizeButton"
+    minimizeButton.Size = UDim2.new(0, 20, 0, 20)
+    minimizeButton.Position = UDim2.new(1, -50, 0.5, -10)
+    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 180, 40)
+    minimizeButton.Text = "-"
+    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeButton.TextSize = 14
+    minimizeButton.Font = Enum.Font.GothamBold
+    minimizeButton.BorderSizePixel = 0
+    minimizeButton.Parent = header
+    
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = UDim.new(0, 10)
+    minimizeCorner.Parent = minimizeButton
     
     -- Close Button
     local closeButton = Instance.new("TextButton")
@@ -385,7 +417,7 @@ local function createSkyWidget()
     closeCorner.CornerRadius = UDim.new(0, 10)
     closeCorner.Parent = closeButton
     
-    -- Content
+    -- Content Frame
     local contentFrame = Instance.new("Frame")
     contentFrame.Name = "ContentFrame"
     contentFrame.Size = UDim2.new(1, 0, 1, -30)
@@ -393,68 +425,97 @@ local function createSkyWidget()
     contentFrame.BackgroundTransparency = 1
     contentFrame.Parent = mainFrame
     
-    -- Up Button
-    local upButton = Instance.new("TextButton")
-    upButton.Name = "UpButton"
-    upButton.Size = UDim2.new(0, 180, 0, 30)
-    upButton.Position = UDim2.new(0.5, -90, 0, 20)
-    upButton.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
-    upButton.Text = "⬆️ UP"
-    upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    upButton.TextSize = 14
-    upButton.Font = Enum.Font.GothamBold
-    upButton.BorderSizePixel = 0
-    upButton.Parent = contentFrame
+    -- Leave Button
+    local leaveButton = Instance.new("TextButton")
+    leaveButton.Name = "LeaveButton"
+    leaveButton.Size = UDim2.new(0, 180, 0, 30)
+    leaveButton.Position = UDim2.new(0.5, -90, 0, 20)
+    leaveButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+    leaveButton.Text = "🚪 LEAVE GAME"
+    leaveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    leaveButton.TextSize = 14
+    leaveButton.Font = Enum.Font.GothamBold
+    leaveButton.BorderSizePixel = 0
+    leaveButton.Parent = contentFrame
     
-    local upCorner = Instance.new("UICorner")
-    upCorner.CornerRadius = UDim.new(0, 8)
-    upCorner.Parent = upButton
+    local leaveCorner = Instance.new("UICorner")
+    leaveCorner.CornerRadius = UDim.new(0, 8)
+    leaveCorner.Parent = leaveButton
     
-    -- Down Button
-    local downButton = Instance.new("TextButton")
-    downButton.Name = "DownButton"
-    downButton.Size = UDim2.new(0, 180, 0, 30)
-    downButton.Position = UDim2.new(0.5, -90, 0, 60)
-    downButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
-    downButton.Text = "⬇️ DOWN"
-    downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downButton.TextSize = 14
-    downButton.Font = Enum.Font.GothamBold
-    downButton.BorderSizePixel = 0
-    downButton.Parent = contentFrame
+    -- Server Hop Button
+    local hopButton = Instance.new("TextButton")
+    hopButton.Name = "HopButton"
+    hopButton.Size = UDim2.new(0, 180, 0, 30)
+    hopButton.Position = UDim2.new(0.5, -90, 0, 60)
+    hopButton.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
+    hopButton.Text = "🔄 SERVER HOP"
+    hopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    hopButton.TextSize = 14
+    hopButton.Font = Enum.Font.GothamBold
+    hopButton.BorderSizePixel = 0
+    hopButton.Parent = contentFrame
     
-    local downCorner = Instance.new("UICorner")
-    downCorner.CornerRadius = UDim.new(0, 8)
-    downCorner.Parent = downButton
+    local hopCorner = Instance.new("UICorner")
+    hopCorner.CornerRadius = UDim.new(0, 8)
+    hopCorner.Parent = hopButton
+    
+    -- Rejoin Button
+    local rejoinButton = Instance.new("TextButton")
+    rejoinButton.Name = "RejoinButton"
+    rejoinButton.Size = UDim2.new(0, 180, 0, 30)
+    rejoinButton.Position = UDim2.new(0.5, -90, 0, 100)
+    rejoinButton.BackgroundColor3 = Color3.fromRGB(100, 180, 100)
+    rejoinButton.Text = "🔁 REJOIN SERVER"
+    rejoinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rejoinButton.TextSize = 14
+    rejoinButton.Font = Enum.Font.GothamBold
+    rejoinButton.BorderSizePixel = 0
+    rejoinButton.Parent = contentFrame
+    
+    local rejoinCorner = Instance.new("UICorner")
+    rejoinCorner.CornerRadius = UDim.new(0, 8)
+    rejoinCorner.Parent = rejoinButton
+    
+    -- Minimize functionality
+    local function toggleMinimize()
+        if contentFrame.Visible then
+            contentFrame.Visible = false
+            mainFrame.Size = UDim2.new(0, 200, 0, 30)
+            minimizeButton.Text = "+"
+        else
+            contentFrame.Visible = true
+            mainFrame.Size = UDim2.new(0, 200, 0, 180)
+            minimizeButton.Text = "-"
+        end
+    end
     
     -- Button connections
+    minimizeButton.MouseButton1Click:Connect(toggleMinimize)
+    
     closeButton.MouseButton1Click:Connect(function()
-        skyWidget:Destroy()
-        skyWidget = nil
+        leaveGui:Destroy()
+        leaveGui = nil
     end)
     
-    upButton.MouseButton1Click:Connect(function()
+    leaveButton.MouseButton1Click:Connect(function()
+        intentionalKick = true
+        LocalPlayer:Kick("Left the game")
+    end)
+    
+    hopButton.MouseButton1Click:Connect(function()
         pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0, 50, 0)
-            end
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
         end)
     end)
     
-    downButton.MouseButton1Click:Connect(function()
+    rejoinButton.MouseButton1Click:Connect(function()
         pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame - Vector3.new(0, 50, 0)
-            end
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
         end)
     end)
-    
-    skyWidgetVisible = true
 end
 
--- Create Boost GUI (87% boost, works even when carrying brainrot)
+-- Create Boost GUI (87% boost)
 local function createBoostGui()
     if boostGui then
         boostGui:Destroy()
@@ -499,59 +560,133 @@ local function createBoostGui()
     boostCorner.CornerRadius = UDim.new(0, 8)
     boostCorner.Parent = boostButton
     
-    -- Boost connection that works even when carrying brainrot
-    local function updateBoost()
+    boostButton.MouseButton1Click:Connect(function()
+        boostActive = not boostActive
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             if boostActive then
-                char.Humanoid.WalkSpeed = 16 * 1.87 -- 87% boost
+                char.Humanoid.WalkSpeed = originalSpeed * 1.87 -- 87% boost
                 boostButton.Text = "BOOST: ON"
                 boostButton.BackgroundColor3 = Color3.fromRGB(200, 120, 70)
             else
-                char.Humanoid.WalkSpeed = 16
+                char.Humanoid.WalkSpeed = originalSpeed
                 boostButton.Text = "BOOST: OFF"
                 boostButton.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
             end
         end
-    end
-    
-    -- Keep updating even when carrying items
-    local boostConnection
-    boostConnection = RunService.Heartbeat:Connect(function()
-        pcall(updateBoost)
-    end)
-    
-    boostButton.MouseButton1Click:Connect(function()
-        boostActive = not boostActive
-        updateBoost()
-    end)
-    
-    -- Clean up when GUI is destroyed
-    boostGui.Destroying:Connect(function()
-        boostConnection:Disconnect()
     end)
 end
 
--- Character setup
-local function setupCharacter()
-    repeat task.wait(0.1) until LocalPlayer.Character
-    repeat task.wait(0.1) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+-- Create Sky GUI
+local function createSkyWidget()
+    if skyWidget then
+        skyWidget:Destroy()
+        skyWidget = nil
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "SkyWidget"
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.ResetOnSpawn = false
+    skyWidget = screenGui
+
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 200, 0, 150)
+    mainFrame.Position = UDim2.new(0.5, -100, 0, 20)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.Active = true
+    mainFrame.Draggable = true
     
-    -- Reapply ESP if needed
-    if espEnabled then
-        for _, player in pairs(Players:GetPlayers()) do
-            if player.Character then
-                createESP(player)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = mainFrame
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.Position = UDim2.new(0, 0, 0, 0)
+    title.BackgroundColor3 = Color3.fromRGB(50, 20, 30)
+    title.BackgroundTransparency = 0.2
+    title.Text = "SKY CONTROLS"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 14
+    title.Font = Enum.Font.GothamBold
+    title.Parent = mainFrame
+    
+    -- Buttons
+    local buttons = {
+        {Name = "Day", Position = UDim2.new(0.5, -85, 0, 40)},
+        {Name = "Night", Position = UDim2.new(0.5, -85, 0, 80)},
+        {Name = "Space", Position = UDim2.new(0.5, -85, 0, 120)}
+    }
+    
+    local skyboxes = {
+        Day = {
+            SkyboxBk = "rbxassetid://271042516",
+            SkyboxDn = "rbxassetid://271077243",
+            SkyboxFt = "rbxassetid://271042556",
+            SkyboxLf = "rbxassetid://271042310",
+            SkyboxRt = "rbxassetid://271042467",
+            SkyboxUp = "rbxassetid://271077958"
+        },
+        Night = {
+            SkyboxBk = "rbxassetid://12064107",
+            SkyboxDn = "rbxassetid://12064152",
+            SkyboxFt = "rbxassetid://12064121",
+            SkyboxLf = "rbxassetid://12063984",
+            SkyboxRt = "rbxassetid://12064115",
+            SkyboxUp = "rbxassetid://12064131"
+        },
+        Space = {
+            SkyboxBk = "rbxassetid://159454299",
+            SkyboxDn = "rbxassetid://159454296",
+            SkyboxFt = "rbxassetid://159454293",
+            SkyboxLf = "rbxassetid://159454293",
+            SkyboxRt = "rbxassetid://159454293",
+            SkyboxUp = "rbxassetid://159454290"
+        }
+    }
+    
+    for _, btn in ipairs(buttons) do
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(0, 170, 0, 30)
+        button.Position = btn.Position
+        button.BackgroundColor3 = Color3.fromRGB(70, 120, 200)
+        button.Text = btn.Name
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        button.TextSize = 14
+        button.Font = Enum.Font.GothamBold
+        button.BorderSizePixel = 0
+        button.Parent = mainFrame
+        
+        local buttonCorner = Instance.new("UICorner")
+        buttonCorner.CornerRadius = UDim.new(0, 8)
+        buttonCorner.Parent = button
+        
+        button.MouseButton1Click:Connect(function()
+            for property, value in pairs(skyboxes[btn.Name]) do
+                game.Lighting.Sky[property] = value
             end
-        end
+        end)
     end
     
-    -- Reapply boost if needed
+    skyWidgetVisible = true
+end
+
+-- Character setup with speed persistence
+local function setupCharacter()
+    repeat wait(0.1) until LocalPlayer.Character
+    repeat wait(0.1) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    basePosition = LocalPlayer.Character.HumanoidRootPart.Position
+    
+    -- Reapply boost if active
     if boostActive then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.WalkSpeed = 16 * 1.87
-        end
+        LocalPlayer.Character.Humanoid.WalkSpeed = originalSpeed * 1.87
     end
 end
 
@@ -568,9 +703,9 @@ setupInfiniteJump()
 
 -- Create UI with multiple tabs
 local Window = Rayfield:CreateWindow({
-    Name = "Brainrot Steal Hub",
-    LoadingTitle = "Loading Steal Script...",
-    LoadingSubtitle = "Instant steal features",
+    Name = "Brainrot Hub Pro",
+    LoadingTitle = "Steal a Brainrot Script",
+    LoadingSubtitle = "Admin tools for everyone",
     ConfigurationSaving = {Enabled = false},
     Discord = {Enabled = false},
     KeySystem = false
@@ -595,14 +730,14 @@ local BoostTab = Window:CreateTab("Boost", 4483362458)
 MainTab:CreateSection("Utilities")
 
 MainTab:CreateButton({
-    Name = "Remove All Walls (Permanent)",
+    Name = "Remove Walls",
     Callback = function()
         removeWalls()
     end
 })
 
 MainTab:CreateToggle({
-    Name = "Base Protection Bypass",
+    Name = "Block Base Protection",
     Default = true,
     Callback = function(value)
         Rayfield:Notify({
@@ -630,26 +765,28 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Instant Kill Aura (No Hold)",
+    Name = "Kill Aura",
     Default = false,
     Callback = function(value)
-        if value then
-            startKillAura()
-            Rayfield:Notify({
-                Title = "Kill Aura",
-                Content = "Activated - Distance: " .. killAuraDistance .. " studs",
-                Duration = 1.5,
-                Image = 4483362458
-            })
-        else
-            stopKillAura()
-            Rayfield:Notify({
-                Title = "Kill Aura",
-                Content = "Deactivated",
-                Duration = 1.5,
-                Image = 4483362458
-            })
-        end
+        pcall(function()
+            if value then
+                startKillAura()
+                Rayfield:Notify({
+                    Title = "Kill Aura",
+                    Content = "Activated - Distance: " .. killAuraDistance .. " studs",
+                    Duration = 1.5,
+                    Image = 4483362458
+                })
+            else
+                stopKillAura()
+                Rayfield:Notify({
+                    Title = "Kill Aura",
+                    Content = "Deactivated",
+                    Duration = 1.5,
+                    Image = 4483362458
+                })
+            end
+        end)
     end
 })
 
@@ -713,7 +850,7 @@ ESPTab:CreateColorPicker({
 })
 
 ESPTab:CreateButton({
-    Name = "Find Target Players",
+    Name = "Find Brainrot Players",
     Callback = function()
         local found = false
         for _, playerName in ipairs(targetPlayers) do
@@ -721,7 +858,7 @@ ESPTab:CreateButton({
             if player then
                 found = true
                 Rayfield:Notify({
-                    Title = "Target Found!",
+                    Title = "Player Found!",
                     Content = playerName .. " is in the server",
                     Duration = 5,
                     Image = 4483362458
@@ -734,8 +871,8 @@ ESPTab:CreateButton({
         
         if not found then
             Rayfield:Notify({
-                Title = "Targets Not Found",
-                Content = "No targets found, server hop?",
+                Title = "Players Not Found",
+                Content = "No Brainrot found, use Server Hop?",
                 Duration = 6,
                 Image = 4483362458,
                 Actions = {
@@ -757,29 +894,36 @@ ESPTab:CreateButton({
 
 -- GUI Tab Features
 GUITab:CreateButton({
-    Name = "Sky Controls GUI",
+    Name = "Sky GUI",
     Callback = function()
-        createSkyWidget()
-        Rayfield:Notify({
-            Title = "Sky GUI",
-            Content = "Sky controls activated!",
-            Duration = 2,
-            Image = 4483362458
-        })
+        pcall(function()
+            createSkyWidget()
+        end)
+    end
+})
+
+GUITab:CreateButton({
+    Name = "Leave GUI",
+    Callback = function()
+        pcall(function()
+            createLeaveGui()
+        end)
     end
 })
 
 -- Boost Tab Features
 BoostTab:CreateButton({
-    Name = "Enable Speed Boost Overlay",
+    Name = "Activate Speed Boost Overlay",
     Callback = function()
-        createBoostGui()
-        Rayfield:Notify({
-            Title = "Boost Overlay",
-            Content = "Boost overlay activated (87%)!",
-            Duration = 2,
-            Image = 4483362458
-        })
+        pcall(function()
+            createBoostGui()
+            Rayfield:Notify({
+                Title = "Boost Overlay",
+                Content = "Boost overlay activated (87%)!",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end)
     end
 })
 
@@ -791,18 +935,43 @@ BoostTab:CreateToggle({
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             if boostActive then
-                char.Humanoid.WalkSpeed = 16 * 1.87
+                char.Humanoid.WalkSpeed = originalSpeed * 1.87
             else
-                char.Humanoid.WalkSpeed = 16
+                char.Humanoid.WalkSpeed = originalSpeed
             end
         end
     end
 })
 
+-- Instant Steal Feature (Click instead of Hold)
+local function setupInstantSteal()
+    local function modifyStealPrompt()
+        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+            if v:IsA("RemoteEvent") and v.Name == "StealBrainrot" then
+                v.OnClientEvent:Connect(function()
+                    v:FireServer()
+                end)
+            end
+        end
+    end
+
+    -- Try to modify immediately
+    pcall(modifyStealPrompt)
+    
+    -- Listen for new remote events
+    ReplicatedStorage.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("RemoteEvent") and descendant.Name == "StealBrainrot" then
+            pcall(modifyStealPrompt)
+        end
+    end)
+end
+
+setupInstantSteal()
+
 -- Success notification
 Rayfield:Notify({
-    Title = "Brainrot Steal Script Loaded",
-    Content = "All features activated! Instant steal ready!",
+    Title = "Brainrot Hub Pro Loaded",
+    Content = "All features activated!",
     Duration = 3,
     Image = 4483362458
 })
