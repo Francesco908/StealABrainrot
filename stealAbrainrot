@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "🔧 Mobile Admin Tools Pro",
-   LoadingTitle = "Loading enhanced tools...",
-   LoadingSubtitle = "Ultra Optimized Edition",
+   Name = "🔧 Created by OnlyRobloxScript",
+   LoadingTitle = "Loading smart man with glasses...",
+   LoadingSubtitle = "Ecloud hub by OnlyRobloxScript",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "MobileToolsProConfig",
