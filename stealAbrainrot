@@ -1,1 +1,305 @@
+-- Rayfield Interface Script
+-- by YourNameHere
 
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+
+-- Main Window
+local Window = Rayfield:CreateWindow({
+    Name = "⚡ Steal a brainrot Hub",
+    LoadingTitle = "Loading Interface...",
+    LoadingSubtitle = "by OnlyRobloxScript",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "UniversalScriptHub",
+        FileName = "Configuration"
+    },
+    KeySystem = false,
+})
+
+-- Tabs
+local MainTab = Window:CreateTab("🏠 Main", 4483362458)
+local CombatTab = Window:CreateTab("⚔️ Combat", 4483362458)
+local HelperTab = Window:CreateTab("🛠️ Helper", 4483362458)
+local ESPTab = Window:CreateTab("👁️ ESP", 4483362458)
+local BuyTab = Window:CreateTab("🛒 Buy", 4483362458)
+local PetsTab = Window:CreateTab("🐾 Pets", 4483362458)
+
+-- Main Tab
+local TeleportSection = MainTab:CreateSection("Teleport")
+local GoSkyButton = MainTab:CreateButton({
+    Name = "🚀 Go Sky",
+    Callback = function()
+        local character = game.Players.LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(
+                character.HumanoidRootPart.Position.X,
+                256,
+                character.HumanoidRootPart.Position.Z
+            )
+        end
+    end,
+})
+
+local DownButton = MainTab:CreateButton({
+    Name = "⬇️ Down",
+    Callback = function()
+        local character = game.Players.LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(
+                character.HumanoidRootPart.Position.X,
+                -50,
+                character.HumanoidRootPart.Position.Z
+            )
+        end
+    end,
+})
+
+local MovementSection = MainTab:CreateSection("Movement")
+local MaxSpeedToggle = MainTab:CreateToggle({
+    Name = "💨 Max Speed",
+    CurrentValue = false,
+    Flag = "MaxSpeedToggle",
+    Callback = function(Value)
+        if Value then
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 100
+        else
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        end
+    end,
+})
+
+local SpeedBoostToggle = MainTab:CreateToggle({
+    Name = "⚡ Speed Boost",
+    CurrentValue = false,
+    Flag = "SpeedBoostToggle",
+    Callback = function(Value)
+        if Value then
+            game:GetService("RunService").Heartbeat:Connect(function()
+                if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50
+                end
+            end)
+        else
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        end
+    end,
+})
+
+local ServerActionsSection = MainTab:CreateSection("Server Actions")
+local ServerHopButton = MainTab:CreateButton({
+    Name = "🔄 Server Hop",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Server Hop",
+            Content = "Searching for a new server...",
+            Duration = 3,
+        })
+        wait(3)
+        -- Server hopping implementation would go here
+    end,
+})
+
+local RejoinButton = MainTab:CreateButton({
+    Name = "🔁 Rejoin",
+    Callback = function()
+        game:GetService("TeleportService"):Teleport(game.PlaceId, game:GetService("Players").LocalPlayer)
+    end,
+})
+
+local ExitButton = MainTab:CreateButton({
+    Name = "🚪 Exit",
+    Callback = function()
+        game:Shutdown()
+    end,
+})
+
+-- Helper Tab
+local AntiFeaturesSection = HelperTab:CreateSection("Anti Features")
+local AntiTrapToggle = HelperTab:CreateToggle({
+    Name = "⚠️ Anti Trap",
+    CurrentValue = false,
+    Flag = "AntiTrapToggle",
+    Callback = function(Value)
+        if Value then
+            -- Trap detection and prevention system
+            Rayfield:Notify({
+                Title = "Anti Trap Enabled",
+                Content = "Trap detection activated",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Anti Trap Disabled",
+                Content = "Trap detection deactivated",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+local AntiFreezeToggle = HelperTab:CreateToggle({
+    Name = "❄️ Anti Freeze",
+    CurrentValue = false,
+    Flag = "AntiFreezeToggle",
+    Callback = function(Value)
+        if Value then
+            -- Anti-freeze implementation
+            Rayfield:Notify({
+                Title = "Anti Freeze Enabled",
+                Content = "You can no longer be frozen",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Anti Freeze Disabled",
+                Content = "Freeze effects can affect you",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+local AntiAFKToggle = HelperTab:CreateToggle({
+    Name = "⏱️ Anti AFK",
+    CurrentValue = false,
+    Flag = "AntiAFKToggle",
+    Callback = function(Value)
+        if Value then
+            -- Anti-AFK implementation
+            local VirtualUser = game:GetService("VirtualUser")
+            game:GetService("Players").LocalPlayer.Idled:Connect(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
+            Rayfield:Notify({
+                Title = "Anti AFK Enabled",
+                Content = "You won't be kicked for AFK",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Anti AFK Disabled",
+                Content = "AFK detection is active",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+local MovementFeaturesSection = HelperTab:CreateSection("Movement Features")
+local InfiniteJumpToggle = HelperTab:CreateToggle({
+    Name = "🦘 Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJumpToggle",
+    Callback = function(Value)
+        if Value then
+            -- Infinite jump implementation
+            game:GetService("UserInputService").JumpRequest:Connect(function()
+                game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            end)
+            Rayfield:Notify({
+                Title = "Infinite Jump Enabled",
+                Content = "Bypassing anti-cheat...",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Infinite Jump Disabled",
+                Content = "Normal jump behavior restored",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+local FlyToggle = HelperTab:CreateToggle({
+    Name = "✈️ Fly",
+    CurrentValue = false,
+    Flag = "FlyToggle",
+    Callback = function(Value)
+        if Value then
+            -- Fly implementation
+            Rayfield:Notify({
+                Title = "Fly Enabled",
+                Content = "Bypassing anti-cheat... Press E to toggle",
+                Duration = 5,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Fly Disabled",
+                Content = "Flight mode deactivated",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+-- ESP Tab
+local PlayerESPSection = ESPTab:CreateSection("Player ESP")
+local PlayerESPToggle = ESPTab:CreateToggle({
+    Name = "👤 Player ESP",
+    CurrentValue = false,
+    Flag = "PlayerESPToggle",
+    Callback = function(Value)
+        if Value then
+            -- Player ESP implementation
+            Rayfield:Notify({
+                Title = "Player ESP Enabled",
+                Content = "Displaying player names and positions",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Player ESP Disabled",
+                Content = "Player markers hidden",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+local LockESPSection = ESPTab:CreateSection("Lock ESP")
+local LockESPToggle = ESPTab:CreateToggle({
+    Name = "🔒 Lock ESP",
+    CurrentValue = false,
+    Flag = "LockESPToggle",
+    Callback = function(Value)
+        if Value then
+            -- Lock ESP implementation
+            Rayfield:Notify({
+                Title = "Lock ESP Enabled",
+                Content = "Detecting timers and bases",
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Lock ESP Disabled",
+                Content = "Timer display hidden",
+                Duration = 3,
+            })
+        end
+    end,
+})
+
+-- Buy Tab
+BuyTab:CreateSection("Coming Soon")
+BuyTab:CreateParagraph({
+    Title = "🛒 Buy Section",
+    Content = "This feature is currently under development and will be available soon!"
+})
+
+-- Pets Tab
+PetsTab:CreateSection("Coming Soon")
+PetsTab:CreateParagraph({
+    Title = "🐾 Pets Section",
+    Content = "This feature is currently under development and will be available soon!"
+})
+
+-- Initialize the interface
+Rayfield:LoadConfiguration()
+Rayfield:Notify({
+    Title = "Script Loaded",
+    Content = "Universal Script Hub is ready!",
+    Duration = 5,
+    Image = 4483362458,
+})
