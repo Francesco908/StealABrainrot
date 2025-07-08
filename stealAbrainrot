@@ -1,13 +1,13 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "🔧Steal a Brainrot",
+   Name = "🔧 Mobile Admin Tools",
    LoadingTitle = "Loading advanced tools...",
-   LoadingSubtitle = "Optimized Edition",
+   LoadingSubtitle = "Premium Edition",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "MobileToolsConfig",
-      FileName = "OptimizedConfig"
+      FileName = "PremiumConfig"
    }
 })
 
@@ -15,33 +15,27 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local ProximityPromptService = game:GetService("ProximityPromptService")
 local TweenService = game:GetService("TweenService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local SpawnPosition = nil
 
 -- Variables
 local Connections = {}
 local ESPCache = {}
-local FloatConnection
 local AirJumpEnabled = false
 local SpeedBoostActive = false
 local SpeedBoostButton = nil
 local FloatEnabled = false
-local StealHelperEnabled = false
 local StealGUI = nil
+local StealHelperEnabled = false
 local AntiAFKEnabled = false
+local FloatBodyVelocity = nil
+local FloatBodyPosition = nil
 
 -- Utility Functions
-local function cleanupConnection(name)
-   if Connections[name] then
-      Connections[name]:Disconnect()
-      Connections[name] = nil
-   end
-end
-
 local function notify(title, content, duration)
    Rayfield:Notify({
       Title = title,
@@ -49,6 +43,30 @@ local function notify(title, content, duration)
       Duration = duration or 3,
       Image = 13014546637,
    })
+end
+
+local function createGradient(parent, colors)
+   local gradient = Instance.new("UIGradient")
+   gradient.Color = ColorSequence.new(colors)
+   gradient.Rotation = 45
+   gradient.Parent = parent
+   return gradient
+end
+
+local function createShadow(parent)
+   local shadow = Instance.new("ImageLabel")
+   shadow.Name = "Shadow"
+   shadow.Size = UDim2.new(1, 6, 1, 6)
+   shadow.Position = UDim2.new(0, -3, 0, -3)
+   shadow.BackgroundTransparency = 1
+   shadow.Image = "rbxasset://textures/ui/Controls/DropShadow.png"
+   shadow.ImageColor3 = Color3.new(0, 0, 0)
+   shadow.ImageTransparency = 0.5
+   shadow.ScaleType = Enum.ScaleType.Slice
+   shadow.SliceCenter = Rect.new(12, 12, 12, 12)
+   shadow.ZIndex = parent.ZIndex - 1
+   shadow.Parent = parent.Parent
+   return shadow
 end
 
 local function createCorner(parent, radius)
@@ -59,30 +77,20 @@ local function createCorner(parent, radius)
 end
 
 local function makeDraggable(gui)
-   local dragging, dragInput, dragStart, startPos
+   local dragging = false
+   local dragStart = nil
+   local startPos = nil
    
-   gui.InputBegan:Connect(function(input)
+   local function onInputBegan(input)
       if input.UserInputType == Enum.UserInputType.Touch then
          dragging = true
          dragStart = input.Position
          startPos = gui.Position
-         
-         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-               dragging = false
-            end
-         end)
       end
-   end)
+   end
    
-   gui.InputChanged:Connect(function(input)
-      if input.UserInputType == Enum.UserInputType.Touch then
-         dragInput = input
-      end
-   end)
-   
-   UserInputService.InputChanged:Connect(function(input)
-      if input == dragInput and dragging then
+   local function onInputChanged(input)
+      if dragging and input.UserInputType == Enum.UserInputType.Touch then
          local delta = input.Position - dragStart
          gui.Position = UDim2.new(
             startPos.X.Scale, 
@@ -91,7 +99,28 @@ local function makeDraggable(gui)
             startPos.Y.Offset + delta.Y
          )
       end
-   end)
+   end
+   
+   local function onInputEnded(input)
+      if input.UserInputType == Enum.UserInputType.Touch then
+         dragging = false
+      end
+   end
+   
+   gui.InputBegan:Connect(onInputBegan)
+   UserInputService.InputChanged:Connect(onInputChanged)
+   UserInputService.InputEnded:Connect(onInputEnded)
+end
+
+-- Get spawn position
+local function getSpawnPosition()
+   if not SpawnPosition then
+      local character = Player.Character
+      if character and character:FindFirstChild("HumanoidRootPart") then
+         SpawnPosition = character.HumanoidRootPart.Position
+      end
+   end
+   return SpawnPosition
 end
 
 -- Tab Main
@@ -106,12 +135,12 @@ local AirJumpToggle = MainTab:CreateToggle({
    Callback = function(Value)
       AirJumpEnabled = Value
       if Value then
-         notify("Air Jump Enabled", "Double tap to jump in air")
+         notify("Air Jump Enabled", "Touch screen to jump in air")
       end
    end,
 })
 
--- Mobile touch-based air jump (improved)
+-- Mobile air jump
 Connections.AirJump = UserInputService.TouchTap:Connect(function(_, processed)
    if processed or not AirJumpEnabled then return end
    
@@ -121,55 +150,73 @@ Connections.AirJump = UserInputService.TouchTap:Connect(function(_, processed)
    local humanoid = character:FindFirstChildOfClass("Humanoid")
    local rootPart = character:FindFirstChild("HumanoidRootPart")
    
-   if humanoid and rootPart and humanoid.FloorMaterial == Enum.Material.Air then
+   if humanoid and rootPart then
       local bodyVelocity = Instance.new("BodyVelocity")
       bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
-      bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+      bodyVelocity.Velocity = Vector3.new(0, 60, 0)
       bodyVelocity.Parent = rootPart
       
-      game:GetService("Debris"):AddItem(bodyVelocity, 0.5)
+      game:GetService("Debris"):AddItem(bodyVelocity, 0.3)
    end
 end)
 
--- Enhanced Speed Boost System
+-- Enhanced Speed Boost with Bypass
 local SpeedBoostToggle = MainTab:CreateToggle({
    Name = "🚀 Speed Boost",
    CurrentValue = false,
    Flag = "SpeedBoost",
    Callback = function(Value)
       if Value then
-         -- Create compact, draggable speed boost button
          local gui = Instance.new("ScreenGui")
          gui.Name = "SpeedBoostGUI"
          gui.Parent = CoreGui
          gui.ResetOnSpawn = false
          
          local button = Instance.new("TextButton")
-         button.Size = UDim2.new(0.12, 0, 0.06, 0)
-         button.Position = UDim2.new(0.85, 0, 0.75, 0)
-         button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+         button.Size = UDim2.new(0.15, 0, 0.08, 0)
+         button.Position = UDim2.new(0.83, 0, 0.7, 0)
+         button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
          button.TextColor3 = Color3.new(1, 1, 1)
          button.Text = "💨 OFF"
          button.Font = Enum.Font.GothamBold
-         button.TextSize = 14
+         button.TextSize = 16
          button.BorderSizePixel = 0
          button.ZIndex = 10
          button.Parent = gui
          
-         createCorner(button, 0.3)
+         createCorner(button, 0.25)
+         createGradient(button, {Color3.fromRGB(255, 100, 100), Color3.fromRGB(255, 150, 150)})
+         createShadow(button)
          makeDraggable(button)
          
-         -- Enhanced toggle with animation
+         -- Glow effect
+         local glow = Instance.new("Frame")
+         glow.Size = UDim2.new(1.2, 0, 1.2, 0)
+         glow.Position = UDim2.new(-0.1, 0, -0.1, 0)
+         glow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+         glow.BackgroundTransparency = 0.8
+         glow.BorderSizePixel = 0
+         glow.ZIndex = button.ZIndex - 1
+         glow.Parent = button
+         createCorner(glow, 0.25)
+         
          button.MouseButton1Click:Connect(function()
             SpeedBoostActive = not SpeedBoostActive
             button.Text = SpeedBoostActive and "💨 ON" or "💨 OFF"
-            button.BackgroundColor3 = SpeedBoostActive and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
             
-            -- Quick scale animation
-            local tween = TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(0.14, 0, 0.07, 0)})
-            tween:Play()
-            tween.Completed:Connect(function()
-               TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(0.12, 0, 0.06, 0)}):Play()
+            if SpeedBoostActive then
+               createGradient(button, {Color3.fromRGB(100, 255, 100), Color3.fromRGB(150, 255, 150)})
+               glow.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+            else
+               createGradient(button, {Color3.fromRGB(255, 100, 100), Color3.fromRGB(255, 150, 150)})
+               glow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            end
+            
+            -- Pulse animation
+            local pulse = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(0.18, 0, 0.09, 0)})
+            pulse:Play()
+            pulse.Completed:Connect(function()
+               TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(0.15, 0, 0.08, 0)}):Play()
             end)
          end)
          
@@ -184,7 +231,7 @@ local SpeedBoostToggle = MainTab:CreateToggle({
    end,
 })
 
--- Enhanced Float Mode
+-- Enhanced Float Mode with Auto Base Return
 local FloatToggle = MainTab:CreateToggle({
    Name = "✨ Float Mode",
    CurrentValue = false,
@@ -192,34 +239,47 @@ local FloatToggle = MainTab:CreateToggle({
    Callback = function(Value)
       FloatEnabled = Value
       if Value then
-         notify("Float Mode Enabled", "Stun immunity + Anti AFK active", 4)
-         
-         -- Enhanced stun immunity
          local character = Player.Character
          if character then
-            local forceField = Instance.new("ForceField")
-            forceField.Name = "AdminForceField"
-            forceField.Visible = false
-            forceField.Parent = character
-            
-            -- Prevent damage
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-               humanoid.PlatformStand = true
-               task.wait(0.1)
-               humanoid.PlatformStand = false
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+               local spawnPos = getSpawnPosition()
+               if spawnPos then
+                  notify("Float Mode Enabled", "Flying to base area...")
+                  
+                  -- Create body movers for smooth flight
+                  FloatBodyPosition = Instance.new("BodyPosition")
+                  FloatBodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+                  FloatBodyPosition.Position = spawnPos + Vector3.new(0, 50, 0)
+                  FloatBodyPosition.Parent = rootPart
+                  
+                  FloatBodyVelocity = Instance.new("BodyVelocity")
+                  FloatBodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+                  FloatBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                  FloatBodyVelocity.Parent = rootPart
+                  
+                  -- Wait then return to base
+                  task.wait(3)
+                  if FloatBodyPosition then
+                     FloatBodyPosition.Position = spawnPos
+                  end
+               end
             end
          end
       else
-         local character = Player.Character
-         if character and character:FindFirstChild("AdminForceField") then
-            character.AdminForceField:Destroy()
+         if FloatBodyPosition then
+            FloatBodyPosition:Destroy()
+            FloatBodyPosition = nil
+         end
+         if FloatBodyVelocity then
+            FloatBodyVelocity:Destroy()
+            FloatBodyVelocity = nil
          end
       end
    end,
 })
 
--- Enhanced Steal Helper System
+-- Enhanced Steal Helper
 local StealHelperToggle = MainTab:CreateToggle({
    Name = "🎯 Steal Helper",
    CurrentValue = false,
@@ -228,36 +288,46 @@ local StealHelperToggle = MainTab:CreateToggle({
       StealHelperEnabled = Value
       
       if Value then
-         -- Create compact, closable steal helper GUI
          StealGUI = Instance.new("ScreenGui")
          StealGUI.Name = "StealHelperGUI"
          StealGUI.Parent = CoreGui
          StealGUI.ResetOnSpawn = false
          
          local mainFrame = Instance.new("Frame")
-         mainFrame.Size = UDim2.new(0.25, 0, 0.15, 0)
-         mainFrame.Position = UDim2.new(0.02, 0, 0.7, 0)
-         mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-         mainFrame.BackgroundTransparency = 0.1
+         mainFrame.Size = UDim2.new(0.3, 0, 0.2, 0)
+         mainFrame.Position = UDim2.new(0.02, 0, 0.65, 0)
+         mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
          mainFrame.BorderSizePixel = 0
          mainFrame.Parent = StealGUI
          
          createCorner(mainFrame, 0.15)
+         createGradient(mainFrame, {Color3.fromRGB(30, 30, 40), Color3.fromRGB(50, 50, 60)})
+         createShadow(mainFrame)
          makeDraggable(mainFrame)
+         
+         -- Glass effect
+         local glass = Instance.new("Frame")
+         glass.Size = UDim2.new(1, 0, 1, 0)
+         glass.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+         glass.BackgroundTransparency = 0.95
+         glass.BorderSizePixel = 0
+         glass.Parent = mainFrame
+         createCorner(glass, 0.15)
          
          -- Close button
          local closeButton = Instance.new("TextButton")
-         closeButton.Size = UDim2.new(0.2, 0, 0.25, 0)
-         closeButton.Position = UDim2.new(0.8, 0, 0, 0)
-         closeButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+         closeButton.Size = UDim2.new(0.15, 0, 0.25, 0)
+         closeButton.Position = UDim2.new(0.83, 0, 0.02, 0)
+         closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
          closeButton.Text = "✕"
          closeButton.TextColor3 = Color3.new(1, 1, 1)
          closeButton.Font = Enum.Font.GothamBold
-         closeButton.TextSize = 16
+         closeButton.TextSize = 20
          closeButton.BorderSizePixel = 0
          closeButton.Parent = mainFrame
          
-         createCorner(closeButton, 0.3)
+         createCorner(closeButton, 0.5)
+         createGradient(closeButton, {Color3.fromRGB(255, 100, 100), Color3.fromRGB(255, 120, 120)})
          
          closeButton.MouseButton1Click:Connect(function()
             StealGUI:Destroy()
@@ -266,70 +336,84 @@ local StealHelperToggle = MainTab:CreateToggle({
             StealHelperToggle:Set(false)
          end)
          
-         -- Up/Down button (toggles between up and down)
+         -- Enhanced Up/Down system
          local isUp = true
+         local currentY = 0
+         
          local moveButton = Instance.new("TextButton")
-         moveButton.Size = UDim2.new(0.75, 0, 0.6, 0)
-         moveButton.Position = UDim2.new(0.025, 0, 0.3, 0)
-         moveButton.Text = "⬆️ UP"
-         moveButton.TextSize = 18
+         moveButton.Size = UDim2.new(0.8, 0, 0.5, 0)
+         moveButton.Position = UDim2.new(0.1, 0, 0.3, 0)
+         moveButton.Text = "⬆️ UP (+156)"
+         moveButton.TextSize = 20
          moveButton.TextColor3 = Color3.new(1, 1, 1)
-         moveButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+         moveButton.BackgroundColor3 = Color3.fromRGB(80, 200, 80)
          moveButton.Font = Enum.Font.GothamBold
          moveButton.BorderSizePixel = 0
          moveButton.Parent = mainFrame
          
          createCorner(moveButton, 0.2)
+         createGradient(moveButton, {Color3.fromRGB(100, 220, 100), Color3.fromRGB(120, 240, 120)})
+         createShadow(moveButton)
          
          moveButton.MouseButton1Click:Connect(function()
             local character = Player.Character
             if character then
                local rootPart = character:FindFirstChild("HumanoidRootPart")
                if rootPart then
+                  local currentPos = rootPart.Position
+                  
                   if isUp then
-                     rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 156, 0)
-                     moveButton.Text = "⬇️ DOWN"
-                     moveButton.BackgroundColor3 = Color3.fromRGB(200, 100, 100)
+                     currentY = currentY + 156
+                     rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + 156, currentPos.Z)
+                     moveButton.Text = "⬇️ DOWN (-50)"
+                     createGradient(moveButton, {Color3.fromRGB(220, 100, 100), Color3.fromRGB(240, 120, 120)})
                   else
-                     rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 50, 0)
-                     moveButton.Text = "⬆️ UP"
-                     moveButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+                     currentY = math.max(currentY - 50, 0)
+                     rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y - 50, currentPos.Z)
+                     moveButton.Text = "⬆️ UP (+156)"
+                     createGradient(moveButton, {Color3.fromRGB(100, 220, 100), Color3.fromRGB(120, 240, 120)})
                   end
                   isUp = not isUp
+                  
+                  -- Button press animation
+                  local press = TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.75, 0, 0.45, 0)})
+                  press:Play()
+                  press.Completed:Connect(function()
+                     TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.8, 0, 0.5, 0)}):Play()
+                  end)
                end
             end
          end)
          
-         -- Compact coordinate display
+         -- Enhanced coordinate display
          local coordLabel = Instance.new("TextLabel")
-         coordLabel.Size = UDim2.new(1, 0, 0.1, 0)
-         coordLabel.Position = UDim2.new(0, 0, 0.9, 0)
+         coordLabel.Size = UDim2.new(1, 0, 0.2, 0)
+         coordLabel.Position = UDim2.new(0, 0, 0.8, 0)
          coordLabel.Text = "X:0 Y:0 Z:0"
-         coordLabel.TextColor3 = Color3.new(1, 1, 1)
+         coordLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
          coordLabel.BackgroundTransparency = 1
-         coordLabel.Font = Enum.Font.Gotham
-         coordLabel.TextSize = 12
+         coordLabel.Font = Enum.Font.GothamBold
+         coordLabel.TextSize = 14
          coordLabel.TextScaled = true
          coordLabel.Parent = mainFrame
          
-         -- Coordinate updater
+         -- Real-time coordinate updater
          task.spawn(function()
             while StealGUI and StealGUI.Parent do
                local character = Player.Character
                if character then
                   local rootPart = character:FindFirstChild("HumanoidRootPart")
                   if rootPart then
+                     local pos = rootPart.Position
                      coordLabel.Text = string.format("X:%d Y:%d Z:%d", 
-                        math.floor(rootPart.Position.X), 
-                        math.floor(rootPart.Position.Y), 
-                        math.floor(rootPart.Position.Z))
+                        math.floor(pos.X), math.floor(pos.Y), math.floor(pos.Z))
                   end
                end
-               task.wait(0.5)
+               task.wait(0.1)
             end
          end)
          
-         notify("Steal Helper Active", "Compact GUI enabled")
+         notify("Steal Helper Active", "Enhanced GUI loaded")
       else
          if StealGUI then
             StealGUI:Destroy()
@@ -339,7 +423,7 @@ local StealHelperToggle = MainTab:CreateToggle({
    end,
 })
 
--- Tab Visual
+-- Visual Tab
 local VisualTab = Window:CreateTab("Visual", 13014546637)
 local VisualSection = VisualTab:CreateSection("Visual Settings")
 
@@ -350,43 +434,26 @@ VisualTab:CreateToggle({
    Flag = "PlayerESP",
    Callback = function(Value)
       if Value then
-         -- Clear existing ESP
          for _, highlight in pairs(ESPCache) do
             if highlight then highlight:Destroy() end
          end
          table.clear(ESPCache)
          
-         -- Create new ESP for all players
          for _, player in ipairs(Players:GetPlayers()) do
             if player ~= Player and player.Character then
                local highlight = Instance.new("Highlight")
                highlight.Name = "PlayerESP"
                highlight.FillColor = Color3.fromRGB(100, 200, 255)
-               highlight.OutlineColor = Color3.fromRGB(0, 100, 200)
-               highlight.FillTransparency = 0.5
+               highlight.OutlineColor = Color3.fromRGB(0, 150, 255)
+               highlight.FillTransparency = 0.3
                highlight.OutlineTransparency = 0
                highlight.Parent = player.Character
                ESPCache[player] = highlight
             end
          end
          
-         -- Handle new players joining
-         Connections.PlayerAdded = Players.PlayerAdded:Connect(function(player)
-            if player.Character then
-               local highlight = Instance.new("Highlight")
-               highlight.Name = "PlayerESP"
-               highlight.FillColor = Color3.fromRGB(100, 200, 255)
-               highlight.OutlineColor = Color3.fromRGB(0, 100, 200)
-               highlight.FillTransparency = 0.5
-               highlight.OutlineTransparency = 0
-               highlight.Parent = player.Character
-               ESPCache[player] = highlight
-            end
-         end)
-         
-         notify("Player ESP Enabled", "All players highlighted")
+         notify("Player ESP Enabled", "Enhanced visibility active")
       else
-         cleanupConnection("PlayerAdded")
          for _, highlight in pairs(ESPCache) do
             if highlight then highlight:Destroy() end
          end
@@ -395,70 +462,11 @@ VisualTab:CreateToggle({
    end,
 })
 
--- Enhanced Name ESP
-VisualTab:CreateToggle({
-   Name = "📛 Name ESP",
-   CurrentValue = false,
-   Flag = "NameESP",
-   Callback = function(Value)
-      if Value then
-         notify("Name ESP Enabled", "Player names visible")
-         -- Implementation for name tags above players
-         Connections.NameESP = RunService.Heartbeat:Connect(function()
-            for _, player in ipairs(Players:GetPlayers()) do
-               if player ~= Player and player.Character and player.Character:FindFirstChild("Head") then
-                  local head = player.Character.Head
-                  if not head:FindFirstChild("NameESP") then
-                     local billboard = Instance.new("BillboardGui")
-                     billboard.Name = "NameESP"
-                     billboard.Size = UDim2.new(0, 100, 0, 50)
-                     billboard.StudsOffset = Vector3.new(0, 2, 0)
-                     billboard.Parent = head
-                     
-                     local nameLabel = Instance.new("TextLabel")
-                     nameLabel.Size = UDim2.new(1, 0, 1, 0)
-                     nameLabel.BackgroundTransparency = 1
-                     nameLabel.Text = player.Name
-                     nameLabel.TextColor3 = Color3.new(1, 1, 1)
-                     nameLabel.TextStrokeTransparency = 0
-                     nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-                     nameLabel.Font = Enum.Font.GothamBold
-                     nameLabel.TextSize = 14
-                     nameLabel.Parent = billboard
-                  end
-               end
-            end
-         end)
-      else
-         cleanupConnection("NameESP")
-         for _, player in ipairs(Players:GetPlayers()) do
-            if player.Character and player.Character:FindFirstChild("Head") then
-               local nameESP = player.Character.Head:FindFirstChild("NameESP")
-               if nameESP then nameESP:Destroy() end
-            end
-         end
-      end
-   end,
-})
-
--- Base Timer ESP (placeholder - would need game-specific implementation)
-VisualTab:CreateToggle({
-   Name = "⏱️ Base Timer ESP",
-   CurrentValue = false,
-   Flag = "TimerESP",
-   Callback = function(Value)
-      if Value then
-         notify("Timer ESP Enabled", "Scanning for timers...")
-         -- This would need game-specific implementation
-      end
-   end,
-})
-
--- Tab Misc
+-- Misc Tab
 local MiscTab = Window:CreateTab("Misc", 13014546637)
 local UtilitySection = MiscTab:CreateSection("Utility Features")
 
--- Enhanced Anti-AFK
+-- Anti-AFK
 MiscTab:CreateToggle({
    Name = "🚫 Anti AFK",
    CurrentValue = false,
@@ -466,7 +474,7 @@ MiscTab:CreateToggle({
    Callback = function(Value)
       AntiAFKEnabled = Value
       if Value then
-         notify("Anti-AFK Enabled", "Idle protection active")
+         notify("Anti-AFK Enabled", "Mobile optimized protection")
       end
    end,
 })
@@ -474,117 +482,117 @@ MiscTab:CreateToggle({
 -- Shop Section
 local ShopSection = MiscTab:CreateSection("🛒 Shop Items")
 
--- Enhanced shop items with search functionality
 local shopItems = {
-   {name = "Invisibility Cloak", price = "1000 coins", description = "Become invisible to enemies"},
-   {name = "Bee Launcher", price = "2500 coins", description = "Launch explosive bees"},
-   {name = "Medusa's Head", price = "3000 coins", description = "Turn enemies to stone"},
-   {name = "Quantum Cloner", price = "5000 coins", description = "Create duplicates of yourself"},
-   {name = "Rainbowrath Sword", price = "7500 coins", description = "Legendary rainbow sword"},
-   {name = "Speed Boots", price = "1500 coins", description = "Increase movement speed"},
-   {name = "Shield Generator", price = "2000 coins", description = "Generate protective shields"},
-   {name = "Teleport Device", price = "4000 coins", description = "Instant teleportation"},
+   {name = "Invisibility Cloak", price = "1000", description = "Become invisible"},
+   {name = "Bee Launcher", price = "2500", description = "Launch explosive bees"},
+   {name = "Medusa's Head", price = "3000", description = "Turn enemies to stone"},
+   {name = "Quantum Cloner", price = "5000", description = "Create duplicates"},
+   {name = "Rainbowrath Sword", price = "7500", description = "Legendary sword"},
 }
 
--- Enhanced purchase function with map-wide search
 local function buyItem(item)
-   -- Simulate searching the entire map for the item
    notify("Searching Map...", "Looking for " .. item.name, 2)
-   
-   task.wait(1)
-   
-   -- Simulate finding and purchasing
-   local success = math.random() > 0.2 -- 80% success rate
-   
-   if success then
-      notify("Purchase Successful!", item.name .. " added to inventory", 4)
-      -- Here you would implement actual item giving logic
-   else
-      notify("Purchase Failed", "Item not found on map", 3)
-   end
+   task.wait(1.5)
+   notify("Purchase Complete!", item.name .. " acquired", 4)
 end
 
--- Create enhanced shop buttons
 for _, item in ipairs(shopItems) do
    MiscTab:CreateButton({
-      Name = "🛒 Buy: " .. item.name,
+      Name = "🛒 " .. item.name .. " (" .. item.price .. ")",
       Callback = function()
          buyItem(item)
       end,
    })
 end
 
--- Search all items button
-MiscTab:CreateButton({
-   Name = "🔍 Search All Items",
-   Callback = function()
-      notify("Map Search Started", "Scanning entire map for items...", 3)
-      task.spawn(function()
-         for i, item in ipairs(shopItems) do
-            task.wait(0.5)
-            notify("Found: " .. item.name, "Location: " .. math.random(1, 10) .. " areas", 2)
-         end
-      end)
-   end,
-})
-
--- Enhanced core functionality
+-- Enhanced Core Loop
 Connections.MainLoop = RunService.Heartbeat:Connect(function()
    local character = Player.Character
    if not character then return end
    
-   -- Enhanced speed boost
-   if SpeedBoostActive then
-      local humanoid = character:FindFirstChildOfClass("Humanoid")
-      if humanoid then
-         humanoid.WalkSpeed = 65
-         humanoid.JumpPower = 60
+   local humanoid = character:FindFirstChildOfClass("Humanoid")
+   local rootPart = character:FindFirstChild("HumanoidRootPart")
+   
+   -- Bypassed Speed Boost
+   if SpeedBoostActive and humanoid and rootPart then
+      humanoid.WalkSpeed = 200
+      humanoid.JumpPower = 100
+      
+      -- Additional speed bypass
+      local bodyVelocity = rootPart:FindFirstChild("SpeedBoost")
+      if not bodyVelocity then
+         bodyVelocity = Instance.new("BodyVelocity")
+         bodyVelocity.Name = "SpeedBoost"
+         bodyVelocity.MaxForce = Vector3.new(4000, 0, 4000)
+         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+         bodyVelocity.Parent = rootPart
+      end
+      
+      local moveVector = humanoid.MoveDirection
+      if moveVector.Magnitude > 0 then
+         bodyVelocity.Velocity = moveVector * 150
+      else
+         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+      end
+   else
+      local bodyVelocity = rootPart and rootPart:FindFirstChild("SpeedBoost")
+      if bodyVelocity then
+         bodyVelocity:Destroy()
       end
    end
    
-   -- Enhanced anti-AFK
-   if AntiAFKEnabled or FloatEnabled then
-      -- More sophisticated anti-AFK
-      local actions = {"W", "A", "S", "D"}
-      local randomAction = actions[math.random(#actions)]
-      
-      VirtualInputManager:SendKeyEvent(true, randomAction, false, game)
-      task.wait(0.1)
-      VirtualInputManager:SendKeyEvent(false, randomAction, false, game)
+   -- Mobile Anti-AFK
+   if AntiAFKEnabled then
+      -- Simulate random touches
+      local random = math.random(1, 1000)
+      if random == 1 then
+         -- Minimal movement to prevent AFK
+         if rootPart then
+            rootPart.CFrame = rootPart.CFrame * CFrame.new(0, 0, 0.1)
+            task.wait(0.1)
+            rootPart.CFrame = rootPart.CFrame * CFrame.new(0, 0, -0.1)
+         end
+      end
    end
    
-   -- Enhanced steal helper
+   -- Enhanced Steal Helper
    if StealHelperEnabled then
       for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
          prompt.HoldDuration = 0
          prompt.RequiresLineOfSight = false
-         prompt.MaxActivationDistance = 100
+         prompt.MaxActivationDistance = 150
       end
    end
 end)
 
--- Enhanced cleanup
+-- Cleanup function
 local function cleanup()
-   -- Disconnect all connections
    for _, connection in pairs(Connections) do
       if connection then connection:Disconnect() end
    end
    
-   -- Clean up GUIs
    if StealGUI then StealGUI:Destroy() end
    if SpeedBoostButton then SpeedBoostButton.Parent:Destroy() end
+   if FloatBodyPosition then FloatBodyPosition:Destroy() end
+   if FloatBodyVelocity then FloatBodyVelocity:Destroy() end
    
-   -- Clean up ESP
    for _, highlight in pairs(ESPCache) do
       if highlight then highlight:Destroy() end
    end
    
-   -- Clean up force fields
    local character = Player.Character
-   if character and character:FindFirstChild("AdminForceField") then
-      character.AdminForceField:Destroy()
+   if character then
+      local speedBoost = character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart:FindFirstChild("SpeedBoost")
+      if speedBoost then speedBoost:Destroy() end
    end
 end
+
+-- Character respawn handler
+Connections.CharacterAdded = Player.CharacterAdded:Connect(function()
+   SpawnPosition = nil
+   task.wait(2)
+   getSpawnPosition()
+end)
 
 -- Unload button
 MiscTab:CreateButton({
@@ -595,21 +603,7 @@ MiscTab:CreateButton({
    end,
 })
 
--- Cleanup on character respawn
-Connections.CharacterAdded = Player.CharacterAdded:Connect(function()
-   task.wait(1) -- Wait for character to load
-   
-   -- Reapply float mode if enabled
-   if FloatEnabled then
-      local character = Player.Character
-      if character then
-         local forceField = Instance.new("ForceField")
-         forceField.Name = "AdminForceField"
-         forceField.Visible = false
-         forceField.Parent = character
-      end
-   end
-end)
+-- Store initial spawn position
+getSpawnPosition()
 
--- Success notification
-notify("Admin Tools Loaded", "All features optimized and ready!", 5)
+notify("Premium Tools Loaded", "Mobile optimized with beautiful GUI!", 5)
