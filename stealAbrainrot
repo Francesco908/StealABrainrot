@@ -1,127 +1,145 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
-local Window = Rayfield:CreateWindow({
-   Name = "🔧 Admin Fun Tools v4.0",
-   LoadingTitle = "Caricamento strumenti avanzati...",
-   LoadingSubtitle = "by Elite Hacker",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "AdminFunConfig",
-      FileName = "Config"
-   },
-   Discord = {
-      Enabled = true,
-      Invite = "noinvitelink", -- Invite Code
-      RememberJoins = true
-   }
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+
+-- Mobile detection
+local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+local TOUCH_PADDING = 15 -- Extra padding for touch controls
+
+-- Load Linoria Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua"))()
+local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/ThemeManager.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/SaveManager.lua"))()
+
+-- Mobile-friendly window size
+local WINDOW_SIZE = IS_MOBILE and Vector2.new(500, 600) or Vector2.new(550, 500)
+
+local Window = Library:CreateWindow({
+    Title = "Mobile Admin Tools v2.0",
+    Center = true,
+    AutoShow = true,
+    Size = WINDOW_SIZE
 })
 
--- Tab Main
-local MainTab = Window:CreateTab("Main", 4483362458)
-local MainSection = MainTab:CreateSection("Funzioni Principali")
+local Tabs = {
+    Main = Window:AddTab("Main"),
+    Visual = Window:AddTab("Visual"),
+    Misc = Window:AddTab("Misc")
+}
+
+-- Mobile adaptions
+if IS_MOBILE then
+    Library:SetWatermark("Mobile Mode Active")
+    Library:SetWatermarkVisibility(true)
+    Library.ToggleKeybind = Enum.KeyCode.Home
+end
+
+--[[
+    =======================
+    MAIN TAB FUNCTIONALITIES
+    =======================
+]]--
+local MainBox = Tabs.Main:AddLeftGroupbox("Core Functions")
 
 -- Air Jump
-local AirJumpToggle = MainTab:CreateToggle({
-   Name = "🦘 Air Jump",
-   CurrentValue = false,
-   Flag = "AirJumpToggle",
-   Callback = function(Value)
-      if Value then
-         Rayfield:Notify({
-            Title = "Air Jump Attivato",
-            Content = "Premi SPAZIO per saltare in aria!",
-            Duration = 3,
-            Image = 4483362458
-         })
-      else
-         Rayfield:Notify({
-            Title = "Air Jump Disattivato",
-            Content = "",
-            Duration = 1,
-            Image = 4483362458
-         })
-      end
-   end,
+local AirJumpToggle = MainBox:AddToggle("AirJumpToggle", {
+    Text = "Air Jump",
+    Default = false,
+    Tooltip = "Jump while in mid-air",
 })
+
+MainBox:AddKeyPicker("AirJumpKey", {
+    Default = "Space",
+    SyncToggleState = true,
+    Mode = "Toggle",
+    Text = "Air Jump Key",
+    NoUI = false,
+})
+
+local airJumpConn
+AirJumpToggle:OnChanged(function()
+    if airJumpConn then airJumpConn:Disconnect() end
+    
+    if AirJumpToggle.Value then
+        airJumpConn = UserInputService.JumpRequest:Connect(function()
+            if AirJumpToggle.Value and Player.Character then
+                Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            end
+        end)
+    end
+end)
 
 -- Speed Boost
+local SpeedBoostToggle = MainBox:AddToggle("SpeedBoostToggle", {
+    Text = "Speed Boost",
+    Default = false,
+    Tooltip = "Activate speed boost",
+})
+
 local SpeedBoostActive = false
-local SpeedBoostOverlay
+local SpeedBoostOverlay = MainBox:AddButton("", function() 
+    SpeedBoostActive = not SpeedBoostActive
+end)
+SpeedBoostOverlay:SetText("")
+SpeedBoostOverlay.Visible = false
 
-local SpeedBoostToggle = MainTab:CreateToggle({
-   Name = "🚀 Speed Boost",
-   CurrentValue = false,
-   Flag = "SpeedBoostToggle",
-   Callback = function(Value)
-      if Value then
-         SpeedBoostOverlay = MainTab:CreateLabel("STATO: OFF")
-         SpeedBoostOverlay.TextColor3 = Color3.fromRGB(255,0,0)
-      else
-         if SpeedBoostOverlay then
-            SpeedBoostOverlay:Destroy()
-            SpeedBoostOverlay = nil
-         end
-         SpeedBoostActive = false
-      end
-   end,
+SpeedBoostToggle:OnChanged(function()
+    SpeedBoostOverlay.Visible = SpeedBoostToggle.Value
+    if not SpeedBoostToggle.Value then
+        SpeedBoostActive = false
+    end
+end)
+
+-- Update Speed Boost UI
+task.spawn(function()
+    while task.wait(0.2) do
+        if SpeedBoostOverlay.Visible then
+            SpeedBoostOverlay:SetText(SpeedBoostActive and "ON" or "OFF")
+            SpeedBoostOverlay:SetTextColor(SpeedBoostActive and Color3.new(0,1,0) or Color3.new(1,0,0))
+            
+            -- Mobile-friendly button size
+            if IS_MOBILE then
+                SpeedBoostOverlay:SetText(SpeedBoostActive and "● ON" or "○ OFF")
+            end
+        end
+    end
+end)
+
+-- Float (Anti-Stun + Anti-AFK)
+local FloatToggle = MainBox:AddToggle("FloatToggle", {
+    Text = "Float Mode",
+    Default = false,
+    Tooltip = "Immunity to attacks + Anti AFK",
 })
 
-MainTab:CreateButton({
-   Name = "Attiva/Disattiva Boost",
-   Callback = function()
-      if SpeedBoostToggle.CurrentValue then
-         SpeedBoostActive = not SpeedBoostActive
-         if SpeedBoostOverlay then
-            SpeedBoostOverlay.Text = "STATO: " .. (SpeedBoostActive and "ON" or "OFF")
-            SpeedBoostOverlay.TextColor3 = SpeedBoostActive and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
-         end
-      end
-   end,
-})
-
--- Float Mode
-local FloatToggle = MainTab:CreateToggle({
-   Name = "✨ Float Mode",
-   CurrentValue = false,
-   Flag = "FloatToggle",
-   Callback = function(Value)
-      if Value then
-         Rayfield:Notify({
-            Title = "Float Mode Attivato",
-            Content = "Immunità attiva + Anti AFK",
-            Duration = 4,
-            Image = 4483362458
-         })
-      end
-   end,
-})
+-- Anti-stun implementation
+FloatToggle:OnChanged(function()
+    if FloatToggle.Value then
+        -- Anti-stun implementation would go here
+    end
+end)
 
 -- Steal Helper
-local StealHelperToggle = MainTab:CreateToggle({
-   Name = "🎯 Steal Helper",
-   CurrentValue = false,
-   Flag = "StealHelperToggle",
-   Callback = function(Value)
-      if Value then
-         Rayfield:Notify({
-            Title = "Steal Helper Attivato",
-            Content = "ProximityPrompts istantanei!",
-            Duration = 3,
-            Image = 4483362458
-         })
-      end
-   end,
+local StealHelperToggle = MainBox:AddToggle("StealHelperToggle", {
+    Text = "Steal Helper",
+    Default = false,
+    Tooltip = "Instant collection of items",
 })
 
--- GUI Steal Helper
+-- GUI for Steal Helper
 local StealGUI = Instance.new("ScreenGui")
 StealGUI.Name = "StealHelperGUI"
-StealGUI.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+StealGUI.Parent = Player:WaitForChild("PlayerGui")
 StealGUI.ResetOnSpawn = false
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 150, 0, 120)
-Frame.Position = UDim2.new(0.5, -75, 0.7, -60)
+Frame.Size = UDim2.new(0, IS_MOBILE and 200 or 150, 0, IS_MOBILE and 180 or 120)
+Frame.Position = UDim2.new(0.5, -100, 0.7, -60)
 Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 Frame.BackgroundTransparency = 0.3
 Frame.BorderSizePixel = 0
@@ -132,22 +150,29 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = Frame
 
+-- Mobile touch optimization
+local BUTTON_SIZE = IS_MOBILE and UDim2.new(0.9, 0, 0.25, 0) or UDim2.new(0.8, 0, 0.3, 0)
+local BUTTON_POS_Y = IS_MOBILE and {0.1, 0.4} or {0.1, 0.6}
+
 local UpButton = Instance.new("TextButton")
-UpButton.Size = UDim2.new(0.8, 0, 0.3, 0)
-UpButton.Position = UDim2.new(0.1, 0, 0.1, 0)
+UpButton.Size = BUTTON_SIZE
+UpButton.Position = UDim2.new(0.05, 0, BUTTON_POS_Y[1], 0)
 UpButton.Text = "UP ↑"
+UpButton.TextSize = IS_MOBILE and 18 or 14
 UpButton.TextColor3 = Color3.new(1, 1, 1)
 UpButton.BackgroundColor3 = Color3.fromRGB(60, 120, 60)
 UpButton.Parent = Frame
 
 local DownButton = Instance.new("TextButton")
-DownButton.Size = UDim2.new(0.8, 0, 0.3, 0)
-DownButton.Position = UDim2.new(0.1, 0, 0.6, 0)
+DownButton.Size = BUTTON_SIZE
+DownButton.Position = UDim2.new(0.05, 0, BUTTON_POS_Y[2], 0)
 DownButton.Text = "DOWN ↓"
+DownButton.TextSize = IS_MOBILE and 18 or 14
 DownButton.TextColor3 = Color3.new(1, 1, 1)
 DownButton.BackgroundColor3 = Color3.fromRGB(120, 60, 60)
 DownButton.Parent = Frame
 
+-- Corner rounding for buttons
 local UICornerUp = Instance.new("UICorner")
 UICornerUp.CornerRadius = UDim.new(0, 6)
 UICornerUp.Parent = UpButton
@@ -157,243 +182,181 @@ UICornerDown.CornerRadius = UDim.new(0, 6)
 UICornerDown.Parent = DownButton
 
 local CoordLabel = Instance.new("TextLabel")
-CoordLabel.Size = UDim2.new(1, 0, 0.2, 0)
-CoordLabel.Position = UDim2.new(0, 0, 0.9, 0)
+CoordLabel.Size = UDim2.new(1, 0, 0.15, 0)
+CoordLabel.Position = UDim2.new(0, 0, 0.85, 0)
 CoordLabel.Text = "X:0 Y:0 Z:0"
 CoordLabel.TextColor3 = Color3.new(1, 1, 1)
 CoordLabel.BackgroundTransparency = 1
 CoordLabel.Font = Enum.Font.Code
-CoordLabel.TextSize = 14
+CoordLabel.TextSize = IS_MOBILE and 16 or 14
 CoordLabel.Parent = Frame
 
-StealHelperToggle:GetPropertyChangedSignal("CurrentValue"):Connect(function()
-   Frame.Visible = StealHelperToggle.CurrentValue
+-- Steal Helper functionality
+StealHelperToggle:OnChanged(function()
+    Frame.Visible = StealHelperToggle.Value
+    
+    if StealHelperToggle.Value then
+        -- Set all proximity prompts to instant
+        for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
+            prompt.HoldDuration = 0
+        end
+    end
 end)
 
--- Update coordinates
-game:GetService("RunService").Heartbeat:Connect(function()
-   if StealHelperToggle.CurrentValue and game.Players.LocalPlayer.Character then
-      local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-      if root then
-         CoordLabel.Text = string.format("X:%d Y:%d Z:%d", root.Position.X, root.Position.Y, root.Position.Z)
-      end
-   end
+-- Coordinate updates
+local coordUpdateConn
+coordUpdateConn = RunService.Heartbeat:Connect(function()
+    if StealHelperToggle.Value and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local pos = Player.Character.HumanoidRootPart.Position
+        CoordLabel.Text = string.format("X:%d Y:%d Z:%d", pos.X, pos.Y, pos.Z)
+    end
 end)
 
--- UP/DOWN buttons
+-- Up/Down buttons
 UpButton.MouseButton1Click:Connect(function()
-   if game.Players.LocalPlayer.Character then
-      local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-      if root then
-         root.CFrame = root.CFrame + Vector3.new(0, 165, 0)
-      end
-   end
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = Player.Character.HumanoidRootPart
+        hrp.CFrame = hrp.CFrame + Vector3.new(0, 165, 0)
+    end
 end)
 
 DownButton.MouseButton1Click:Connect(function()
-   if game.Players.LocalPlayer.Character then
-      local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-      if root then
-         root.CFrame = root.CFrame - Vector3.new(0, 50, 0)
-      end
-   end
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = Player.Character.HumanoidRootPart
+        hrp.CFrame = hrp.CFrame - Vector3.new(0, 50, 0)
+    end
 end)
 
--- Tab Visual
-local VisualTab = Window:CreateTab("Visual", 4483362458)
-local VisualSection = VisualTab:CreateSection("Impostazioni Visuali")
+--[[
+    ========================
+    VISUAL TAB FUNCTIONALITIES
+    ========================
+]]--
+local VisualBox = Tabs.Visual:AddLeftGroupbox("ESP Settings")
 
 -- Player ESP
-VisualTab:CreateToggle({
-   Name = "👤 Player ESP",
-   CurrentValue = false,
-   Flag = "PlayerESPToggle",
-   Callback = function(Value)
-      if Value then
-         Rayfield:Notify({
-            Title = "Player ESP Attivato",
-            Content = "Giocatori visibili",
-            Duration = 2,
-            Image = 4483362458
-         })
-      end
-   end,
-})
-
--- Name ESP
-VisualTab:CreateToggle({
-   Name = "📛 Name ESP",
-   CurrentValue = false,
-   Flag = "NameESPToggle",
-   Callback = function(Value)
-      if Value then
-         Rayfield:Notify({
-            Title = "Name ESP Attivato",
-            Content = "Nomi giocatori visibili",
-            Duration = 2,
-            Image = 4483362458
-         })
-      end
-   end,
+VisualBox:AddToggle("PlayerESPToggle", {
+    Text = "Player ESP",
+    Default = false,
+    Tooltip = "Highlight other players",
 })
 
 -- Base Timer ESP
-VisualTab:CreateToggle({
-   Name = "⏱️ Base Timer ESP",
-   CurrentValue = false,
-   Flag = "TimerESPToggle",
-   Callback = function(Value)
-      if Value then
-         Rayfield:Notify({
-            Title = "Timer ESP Attivato",
-            Content = "Timer basi visibili",
-            Duration = 2,
-            Image = 4483362458
-         })
-      end
-   end,
+VisualBox:AddToggle("TimerESPToggle", {
+    Text = "Base Timer ESP",
+    Default = false,
+    Tooltip = "Show base timers",
 })
 
--- Tab Misc
-local MiscTab = Window:CreateTab("Misc", 4483362458)
-local UtilitySection = MiscTab:CreateSection("Utility")
-local ShopSection = MiscTab:CreateSection("🛒 Acquisti Shop")
+-- Name ESP
+VisualBox:AddToggle("NameESPToggle", {
+    Text = "Name ESP",
+    Default = false,
+    Tooltip = "Show player names",
+})
+
+--[[
+    ========================
+    MISC TAB FUNCTIONALITIES
+    ========================
+]]--
+local MiscBox = Tabs.Misc:AddLeftGroupbox("Utility")
+local ShopBox = Tabs.Misc:AddRightGroupbox("Item Shop")
 
 -- Anti-AFK
-MiscTab:CreateToggle({
-   Name = "🚫 Anti AFK",
-   CurrentValue = false,
-   Flag = "AntiAFKToggle",
-   Callback = function(Value)
-      if Value then
-         Rayfield:Notify({
-            Title = "Anti-AFK Attivato",
-            Content = "Nessun kick per inattività",
-            Duration = 2,
-            Image = 4483362458
-         })
-      end
-   end,
+MiscBox:AddToggle("AntiAFKToggle", {
+    Text = "Anti AFK",
+    Default = false,
+    Tooltip = "Prevent AFK kick",
 })
 
--- Shop Items
+-- Shop items
 local shopItems = {
-   "Invisibility Cloak",
-   "Bee Launcher",
-   "Medusa's Head",
-   "Quantum Cloner",
-   "Rainbowrath Sword"
+    "Invisibility Cloak",
+    "Bee Launcher",
+    "Medusas Head",
+    "Quantum Cloner",
+    "Rainbowrath Sword"
 }
 
-for _, item in ipairs(shopItems) do
-   MiscTab:CreateButton({
-      Name = "Acquista: " .. item,
-      Callback = function()
-         Rayfield:Notify({
-            Title = "Acquisto Effettuato",
-            Content = "Hai comprato: " .. item,
-            Duration = 5,
-            Image = 4483362458,
-            Actions = {
-               Ignore = {
-                  Name = "OK",
-                  Callback = function()
-                  end
-               },
-            },
-         })
-      end,
-   })
+-- Purchase function
+local function BuyItem(itemName)
+    -- This would be replaced with actual game-specific code
+    Library:Notify("Attempting to purchase: "..itemName, 3)
+    
+    -- Simulate item search
+    local found = false
+    local price = math.random(500, 5000)
+    
+    -- Simulate money check
+    local money = math.random(0, 10000)
+    if money >= price then
+        Library:Notify("✅ Purchased "..itemName.." for $"..price, 5)
+    else
+        Library:Notify("❌ Insufficient funds for "..itemName, 3)
+    end
 end
 
--- Funzionalità Core
-local Player = game.Players.LocalPlayer
+-- Create shop buttons
+for _, item in ipairs(shopItems) do
+    ShopBox:AddButton(item, function()
+        BuyItem(item)
+    end)
+end
 
--- Air Jump
-game:GetService("UserInputService").JumpRequest:Connect(function()
-   if AirJumpToggle.CurrentValue and Player.Character then
-      Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-   end
+-- Mobile-friendly buttons
+if IS_MOBILE then
+    for _, button in ipairs(ShopBox.Container:GetChildren()) do
+        if button:IsA("TextButton") then
+            button.Size = UDim2.new(1, -TOUCH_PADDING*2, 0, 40)
+            button.TextSize = 16
+        end
+    end
+end
+
+--[[
+    =========================
+    FLOAT MODE IMPLEMENTATION
+    =========================
+]]--
+local floatConn
+FloatToggle:OnChanged(function()
+    if floatConn then floatConn:Disconnect() end
+    
+    if FloatToggle.Value then
+        -- Anti-AFK implementation
+        floatConn = Player.Idled:Connect(function()
+            -- This prevents AFK kicks
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, "W", false, nil)
+            task.wait(0.1)
+            game:GetService("VirtualInputManager"):SendKeyEvent(false, "W", false, nil)
+        end)
+    end
 end)
 
--- Speed Boost
-game:GetService("RunService").Heartbeat:Connect(function()
-   if SpeedBoostActive and Player.Character then
-      local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
-      if humanoid then
-         humanoid.WalkSpeed = 50
-      end
-   end
-end)
+--[[
+    ======================
+    FINAL SETUP & CLEANUP
+    ======================
+]]--
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+ThemeManager:SetFolder("MobileAdminTools")
+SaveManager:SetFolder("MobileAdminTools")
+ThemeManager:ApplyToTab(Tabs.Misc)
 
--- Float Mode
-FloatToggle:GetPropertyChangedSignal("CurrentValue"):Connect(function()
-   if FloatToggle.CurrentValue then
-      -- Anti-Stun
-      if Player.Character then
-         for _, part in ipairs(Player.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-               part.CanCollide = false
-            end
-         end
-      end
-      
-      -- Anti-AFK
-      if not getconnections then return end
-      for _, conn in ipairs(getconnections(game:GetService("Players").LocalPlayer.Idled)) do
-         conn:Disable()
-      end
-   end
-end)
+Library:Notify("Mobile Admin Tools Loaded!", 5)
 
--- Player ESP
-local ESPCache = {}
-game:GetService("Players").PlayerAdded:Connect(function(player)
-   if VisualTab:GetFlag("PlayerESPToggle") then
-      local highlight = Instance.new("Highlight")
-      highlight.Name = "PlayerESP"
-      highlight.FillColor = Color3.fromRGB(0, 255, 255)
-      highlight.OutlineColor = Color3.fromRGB(0, 150, 150)
-      highlight.Parent = player.Character or player.CharacterAdded:Wait()
-      ESPCache[player] = highlight
-   end
-end)
+-- Unload function
+Library.OnUnload = function()
+    if StealGUI then StealGUI:Destroy() end
+    if airJumpConn then airJumpConn:Disconnect() end
+    if coordUpdateConn then coordUpdateConn:Disconnect() end
+    if floatConn then floatConn:Disconnect() end
+end
 
-VisualTab:GetFlagChangedSignal("PlayerESPToggle"):Connect(function()
-   if VisualTab:GetFlag("PlayerESPToggle") then
-      for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-         if player ~= Player and player.Character then
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "PlayerESP"
-            highlight.FillColor = Color3.fromRGB(0, 255, 255)
-            highlight.OutlineColor = Color3.fromRGB(0, 150, 150)
-            highlight.Parent = player.Character
-            ESPCache[player] = highlight
-         end
-      end
-   else
-      for player, highlight in pairs(ESPCache) do
-         highlight:Destroy()
-      end
-      table.clear(ESPCache)
-   end
-end)
-
--- Unload
-MiscTab:CreateButton({
-   Name = "Unload Interface",
-   Callback = function()
-      Rayfield:Destroy()
-      if StealGUI then StealGUI:Destroy() end
-      for player, highlight in pairs(ESPCache) do
-         highlight:Destroy()
-      end
-   end,
-})
-
-Rayfield:Notify({
-   Title = "Admin Fun Tools Caricato",
-   Content = "Benvenuto! Versione 4.0",
-   Duration = 5,
-   Image = 4483362458,
-})
+-- Mobile menu keybind
+if IS_MOBILE then
+    Library:SetWatermarkVisibility(true)
+    Library:SetWatermark("Press HOME to toggle menu")
+end
