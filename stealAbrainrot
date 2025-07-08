@@ -1,138 +1,136 @@
--- Installa Rayfield: https://github.com/shlexware/Rayfield
+-- Carica Rayfield
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
--- Variabile per tenere traccia dei Brainrot rubati
+-- Variabili
 local BrainrotRubati = 0
 
--- Finestra principale
-local FinestraPrincipale = Rayfield:CreateWindow({
-	Name = "BRAINROT HEIST",
-	LoadingTitle = "Caricamento...",
-	LoadingSubtitle = "by il tuo username",
-	ConfigurationSaving = {
-		Enabled = false
-	},
-	KeySystem = false
+-- Crea finestra
+local Window = Rayfield:CreateWindow({
+    Name = "BRAINROT HEIST",
+    LoadingTitle = "Caricamento...",
+    LoadingSubtitle = "by il tuo username",
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = nil,
+        FileName = "BrainrotHeist"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = false
+    },
+    KeySystem = false
 })
 
--- Sezione "Instant Steal" nella finestra
-local SezioneSteal = FinestraPrincipale:CreateSection("Instant Steal")
+-- Crea tab
+local MainTab = Window:CreateTab("🍑 BRAINROT STEALER", 4483362458)
 
--- Etichetta contatore
-local Contatore = FinestraPrincipale:CreateLabel("Brainrot Rubati: 0")
+-- Sezione steal
+local StealSection = MainTab:CreateSection("Instant Steal")
 
--- Variabile per controllare se il mouse è premuto
-local MousePremuto = false
-
--- Pulsante per rubare
-local PulsanteRubare = FinestraPrincipale:CreateButton({
-	Name = "🔓 Tieni premuto per rubare",
-	Callback = function()
-		-- Questa funzione viene chiamata quando il pulsante viene cliccato
-		RubaBrainrot()
-	end,
-})
+-- Contatore
+local CounterLabel = MainTab:CreateLabel("Brainrot Rubati: 0")
 
 -- Funzione per rubare
-function RubaBrainrot()
-	BrainrotRubati = BrainrotRubati + 1
-	Contatore:Set("Brainrot Rubati: "..BrainrotRubati)
-	
-	-- Messaggio in chat per feedback
-	game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
-		Text = "Brainrot rubato! Totale: "..BrainrotRubati;
-		Color = Color3.fromRGB(0, 255, 0);
-		Font = Enum.Font.GothamBold;
-		FontSize = Enum.FontSize.Size18;
-	})
+local function StealBrainrot()
+    BrainrotRubati = BrainrotRubati + 1
+    CounterLabel:Set("Brainrot Rubati: " .. BrainrotRubati)
+    
+    -- Notifica
+    Rayfield:Notify({
+        Title = "Brainrot Rubato!",
+        Content = "Totale: " .. BrainrotRubati,
+        Duration = 1,
+        Image = 4483362458
+    })
 end
 
--- Sistema per il click continuo (hold)
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-
--- Connessione per rilevare quando il mouse viene premuto
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 and not gameProcessed then
-		MousePremuto = true
-		
-		-- Avvia il loop per rubare continuamente
-		spawn(function()
-			while MousePremuto do
-				task.wait(0.1) -- Ruba ogni 0.1 secondi
-				RubaBrainrot()
-			end
-		end)
-	end
-end)
-
--- Connessione per rilevare quando il mouse viene rilasciato
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		MousePremuto = false
-	end
-end)
-
--- Sezione Admin Commands
-local SezioneAdmin = FinestraPrincipale:CreateSection("Admin Commands")
-
--- Pulsante per resettare il contatore
-FinestraPrincipale:CreateButton({
-	Name = "🔄 Reset Contatore",
-	Callback = function()
-		BrainrotRubati = 0
-		Contatore:Set("Brainrot Rubati: 0")
-		game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
-			Text = "Contatore resettato!";
-			Color = Color3.fromRGB(255, 255, 0);
-			Font = Enum.Font.GothamBold;
-			FontSize = Enum.FontSize.Size18;
-		})
-	end,
+-- Pulsante per rubare ISTANTANEO
+MainTab:CreateButton({
+    Name = "🔓 RUBA BRAINROT (ISTANTANEO)",
+    Callback = function()
+        StealBrainrot()
+    end,
 })
 
--- Slider per impostare il contatore manualmente
-FinestraPrincipale:CreateSlider({
-	Name = "Imposta Brainrot",
-	Range = {0, 10000},
-	Increment = 1,
-	Suffix = "Brainrot",
-	CurrentValue = 0,
-	Flag = "BrainrotSlider",
-	Callback = function(Value)
-		BrainrotRubati = Value
-		Contatore:Set("Brainrot Rubati: "..BrainrotRubati)
-	end,
+-- Sezione Admin
+local AdminSection = MainTab:CreateSection("Admin Commands")
+
+-- Auto steal con velocità regolabile
+local AutoStealSpeed = 0.1
+local AutoStealEnabled = false
+
+MainTab:CreateSlider({
+    Name = "Velocità Auto Steal",
+    Range = {0.01, 2},
+    Increment = 0.01,
+    Suffix = "sec",
+    CurrentValue = 0.1,
+    Flag = "AutoStealSpeed",
+    Callback = function(Value)
+        AutoStealSpeed = Value
+    end,
 })
 
--- Sezione Settings
-local SezioneSettings = FinestraPrincipale:CreateSection("Settings")
-
--- Toggle per auto-steal
-local AutoSteal = false
-FinestraPrincipale:CreateToggle({
-	Name = "Auto Steal",
-	CurrentValue = false,
-	Flag = "AutoStealToggle",
-	Callback = function(Value)
-		AutoSteal = Value
-		if AutoSteal then
-			spawn(function()
-				while AutoSteal do
-					task.wait(0.5) -- Auto-steal ogni 0.5 secondi
-					RubaBrainrot()
-				end
-			end)
-		end
-	end,
+MainTab:CreateToggle({
+    Name = "🔥 AUTO STEAL",
+    CurrentValue = false,
+    Flag = "AutoStealToggle",
+    Callback = function(Value)
+        AutoStealEnabled = Value
+        if AutoStealEnabled then
+            spawn(function()
+                while AutoStealEnabled do
+                    wait(AutoStealSpeed)
+                    StealBrainrot()
+                end
+            end)
+        end
+    end,
 })
 
--- Pulsante per chiudere la GUI
-FinestraPrincipale:CreateButton({
-	Name = "❌ Chiudi GUI",
-	Callback = function()
-		Rayfield:Destroy()
-	end,
+-- Slider per impostare brainrot manualmente
+MainTab:CreateSlider({
+    Name = "Imposta Brainrot Manualmente",
+    Range = {0, 999999},
+    Increment = 1,
+    Suffix = "Brainrot",
+    CurrentValue = 0,
+    Flag = "ManualBrainrot",
+    Callback = function(Value)
+        BrainrotRubati = Value
+        CounterLabel:Set("Brainrot Rubati: " .. BrainrotRubati)
+    end,
 })
 
-print("Brainrot Heist GUI caricata con successo!")
+-- Reset button
+MainTab:CreateButton({
+    Name = "🔄 RESET CONTATORE",
+    Callback = function()
+        BrainrotRubati = 0
+        CounterLabel:Set("Brainrot Rubati: 0")
+        Rayfield:Notify({
+            Title = "Reset Completato!",
+            Content = "Contatore azzerato",
+            Duration = 2,
+            Image = 4483362458
+        })
+    end,
+})
+
+-- Mega steal button
+MainTab:CreateButton({
+    Name = "💥 MEGA STEAL (+100)",
+    Callback = function()
+        BrainrotRubati = BrainrotRubati + 100
+        CounterLabel:Set("Brainrot Rubati: " .. BrainrotRubati)
+        Rayfield:Notify({
+            Title = "MEGA STEAL!",
+            Content = "+100 Brainrot rubati!",
+            Duration = 2,
+            Image = 4483362458
+        })
+    end,
+})
+
+print("🍑 BRAINROT HEIST GUI caricata con successo!")
