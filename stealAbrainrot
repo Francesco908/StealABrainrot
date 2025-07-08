@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "🔧 Created by OnlyRobloxScript",
-   LoadingTitle = "Loading smart man with glasses...",
-   LoadingSubtitle = "Ecloud hub by OnlyRobloxScript",
+   Name = "🔧 Mobile Admin Tools Pro",
+   LoadingTitle = "Loading enhanced tools...",
+   LoadingSubtitle = "Ultra Optimized Edition",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "MobileToolsProConfig",
@@ -20,6 +20,7 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
 
 local Player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -121,11 +122,14 @@ if Player.Character then
    storeSpawnPosition()
 end
 
--- ======= MODIFICA: Fast Steal System =======
+-- ======= FIXED Fast Steal System =======
 local function modifyPrompt(prompt)
-   prompt.HoldDuration = 0
-   prompt.RequiresLineOfSight = false
-   prompt.MaxActivationDistance = 150
+   -- FIX: Only modify if it's not a UI element
+   if not prompt:IsDescendantOf(game:GetService("CoreGui")) then
+      prompt.HoldDuration = 0
+      prompt.RequiresLineOfSight = false
+      prompt.MaxActivationDistance = 150
+   end
 end
 
 local function scanAndModifyPrompts()
@@ -135,7 +139,7 @@ local function scanAndModifyPrompts()
       end
    end
 end
--- ======= FINE MODIFICA =======
+-- ======= FINE FIX =======
 
 -- ======= KILL AURA SYSTEM =======
 local function startKillAura()
@@ -214,7 +218,7 @@ end
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features")
 
--- ======= MODIFICA: Fast Steal Toggle =======
+-- ======= FIXED Fast Steal Toggle =======
 MainTab:CreateToggle({
    Name = "⚡ Fast Steal (Switch)",
    CurrentValue = false,
@@ -242,7 +246,7 @@ MainTab:CreateToggle({
       end
    end,
 })
--- ======= FINE MODIFICA =======
+-- ======= FINE FIX =======
 
 -- Enhanced Air Jump
 local AirJumpToggle = MainTab:CreateToggle({
@@ -774,6 +778,58 @@ MiscTab:CreateButton({
       end)
    end,
 })
+
+-- ======= NEW SERVER TAB =======
+local ServerTab = Window:CreateTab("Server", 13014546637)
+local ServerSection = ServerTab:CreateSection("Server Controls")
+
+ServerTab:CreateButton({
+   Name = "🚪 Leave Server",
+   Callback = function()
+      Player:Kick("Left server via script")
+      notify("Server Left", "You've left the server", 3)
+   end
+})
+
+ServerTab:CreateButton({
+   Name = "🔄 Rejoin Server",
+   Callback = function()
+      TeleportService:Teleport(game.PlaceId, Player)
+      notify("Rejoining Server", "Attempting to rejoin the same server...", 3)
+   end
+})
+
+ServerTab:CreateButton({
+   Name = "🚀 Server Hop",
+   Callback = function()
+      local function findNewServer()
+         local servers = {}
+         local success, result = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+         end)
+         
+         if success and result and result.data then
+            for _, server in ipairs(result.data) do
+               if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                  table.insert(servers, server)
+               end
+            end
+         end
+         return servers
+      end
+      
+      local servers = findNewServer()
+      if #servers > 0 then
+         local randomServer = servers[math.random(1, #servers)]
+         TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer.id, Player)
+         notify("Server Hopping", "Joining a new server...", 3)
+      else
+         TeleportService:Teleport(game.PlaceId, Player)
+         notify("Server Hop", "No servers found, rejoining...", 3)
+      end
+   end
+})
+-- ======= END SERVER TAB =======
 
 -- Enhanced main loop
 Connections.MainLoop = RunService.Heartbeat:Connect(function()
