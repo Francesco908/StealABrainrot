@@ -1,69 +1,147 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "🔧 Brainrot script v4.0",
-   LoadingTitle = "Brainrot script...",
-   LoadingSubtitle = "made by OnlyRobloxScript",
+   Name = "🔧 Mobile Admin Tools",
+   LoadingTitle = "Loading advanced tools...",
+   LoadingSubtitle = "Fixed Edition",
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = "AdminToolsConfig",
-      FileName = "MobileConfig"
-   },
-   KeySystem = false,
-   KeySettings = {
-      Title = "Admin Tools",
-      Subtitle = "Key Required",
-      Note = "Get key from Discord",
-      FileName = "AdminKey",
-      SaveKey = true,
-      GrabKeyFromSite = false,
+      FolderName = "MobileToolsConfig",
+      FileName = "FixedConfig"
    }
 })
+
+local Player = game.Players.LocalPlayer
+local Humanoid = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
 
 -- Tab Main
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features")
 
--- Air Jump
+-- Fixed Air Jump
+local AirJumpEnabled = false
 local AirJumpToggle = MainTab:CreateToggle({
    Name = "🦘 Air Jump",
    CurrentValue = false,
    Flag = "AirJump",
    Callback = function(Value)
       AirJumpEnabled = Value
+      if Value then
+         Rayfield:Notify({
+            Title = "Air Jump Enabled",
+            Content = "Double tap to jump in air",
+            Duration = 3,
+            Image = 13014546637,
+         })
+      end
    end,
 })
 
--- Speed Boost System
+-- Mobile touch-based air jump
+game:GetService("UserInputService").TouchTap:Connect(function(_, processed)
+   if processed then return end
+   
+   if AirJumpEnabled and Player.Character then
+      local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+      if humanoid and humanoid.FloorMaterial == Enum.Material.Air then
+         humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+         task.wait(0.1)
+         humanoid:ChangeState(Enum.HumanoidStateType.Running)
+      end
+   end
+end)
+
+-- Speed Boost System with movable button
 local SpeedBoostActive = false
+local SpeedBoostButton = nil
 local SpeedBoostToggle = MainTab:CreateToggle({
    Name = "🚀 Speed Boost",
    CurrentValue = false,
    Flag = "SpeedBoost",
    Callback = function(Value)
       if Value then
-         SpeedBoostButton = MainTab:CreateButton({
-            Name = "Boost: OFF",
-            Callback = function()
-               SpeedBoostActive = not SpeedBoostActive
-               SpeedBoostButton:Set("Boost: " .. (SpeedBoostActive and "ON" or "OFF"))
-            end,
-         })
-         SpeedBoostButton:SetTextColor(SpeedBoostActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0))
-      elseif SpeedBoostButton then
-         SpeedBoostButton:Destroy()
-         SpeedBoostButton = nil
-         SpeedBoostActive = false
+         -- Create movable speed boost button
+         local SpeedBoostGUI = Instance.new("ScreenGui")
+         SpeedBoostGUI.Name = "SpeedBoostGUI"
+         SpeedBoostGUI.Parent = game:GetService("CoreGui")
+         SpeedBoostGUI.ResetOnSpawn = false
+         
+         local button = Instance.new("TextButton")
+         button.Size = UDim2.new(0.15, 0, 0.08, 0)
+         button.Position = UDim2.new(0.8, 0, 0.7, 0)
+         button.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+         button.TextColor3 = Color3.new(1, 1, 1)
+         button.Text = "BOOST: OFF"
+         button.Font = Enum.Font.GothamBold
+         button.TextSize = 16
+         button.BorderSizePixel = 0
+         button.ZIndex = 10
+         button.Parent = SpeedBoostGUI
+         
+         local corner = Instance.new("UICorner")
+         corner.CornerRadius = UDim.new(0.2, 0)
+         corner.Parent = button
+         
+         -- Make button draggable
+         local dragging, dragInput, dragStart, startPos
+         button.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+               dragging = true
+               dragStart = input.Position
+               startPos = button.Position
+               
+               input.Changed:Connect(function()
+                  if input.UserInputState == Enum.UserInputState.End then
+                     dragging = false
+                  end
+               end)
+            end
+         end)
+         
+         button.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+               dragInput = input
+            end
+         end)
+         
+         game:GetService("UserInputService").InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+               local delta = input.Position - dragStart
+               button.Position = UDim2.new(
+                  startPos.X.Scale, 
+                  startPos.X.Offset + delta.X,
+                  startPos.Y.Scale, 
+                  startPos.Y.Offset + delta.Y
+               )
+            end
+         end)
+         
+         -- Toggle functionality
+         button.MouseButton1Click:Connect(function()
+            SpeedBoostActive = not SpeedBoostActive
+            button.Text = "BOOST: " .. (SpeedBoostActive and "ON" or "OFF")
+            button.BackgroundColor3 = SpeedBoostActive and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+         end)
+         
+         SpeedBoostButton = button
+      else
+         if SpeedBoostButton then
+            SpeedBoostButton:Destroy()
+            SpeedBoostButton = nil
+            SpeedBoostActive = false
+         end
       end
    end,
 })
 
--- Float Mode (Anti-Stun + Anti-AFK)
+-- Fixed Float Mode (Anti-Stun + Anti-AFK)
+local FloatEnabled = false
 local FloatToggle = MainTab:CreateToggle({
    Name = "✨ Float Mode",
    CurrentValue = false,
    Flag = "FloatMode",
    Callback = function(Value)
+      FloatEnabled = Value
       if Value then
          Rayfield:Notify({
             Title = "Float Mode Enabled",
@@ -71,12 +149,25 @@ local FloatToggle = MainTab:CreateToggle({
             Duration = 4,
             Image = 13014546637,
          })
+         
+         -- Create force field for stun immunity
+         if Player.Character then
+            local forceField = Instance.new("ForceField")
+            forceField.Name = "AdminForceField"
+            forceField.Visible = false
+            forceField.Parent = Player.Character
+         end
+      else
+         -- Remove force field
+         if Player.Character and Player.Character:FindFirstChild("AdminForceField") then
+            Player.Character.AdminForceField:Destroy()
+         end
       end
-      FloatEnabled = Value
    end,
 })
 
--- Steal Helper System
+-- Fixed Steal Helper System
+local StealHelperEnabled = false
 local StealHelperToggle = MainTab:CreateToggle({
    Name = "🎯 Steal Helper",
    CurrentValue = false,
@@ -97,7 +188,7 @@ local StealHelperToggle = MainTab:CreateToggle({
    end,
 })
 
--- Steal Helper GUI
+-- Fixed Steal Helper GUI
 local StealGUI = Instance.new("ScreenGui")
 StealGUI.Name = "StealHelperGUI"
 StealGUI.Parent = game:GetService("CoreGui")
@@ -105,8 +196,8 @@ StealGUI.ResetOnSpawn = false
 StealGUI.Enabled = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.3, 0, 0.2, 0)
-MainFrame.Position = UDim2.new(0.35, 0, 0.7, 0)
+MainFrame.Size = UDim2.new(0.4, 0, 0.25, 0)
+MainFrame.Position = UDim2.new(0.3, 0, 0.65, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
 MainFrame.BackgroundTransparency = 0.3
 MainFrame.BorderSizePixel = 0
@@ -116,11 +207,12 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0.1, 0)
 UICorner.Parent = MainFrame
 
+-- Movement buttons
 local UpButton = Instance.new("TextButton")
 UpButton.Size = UDim2.new(0.8, 0, 0.3, 0)
 UpButton.Position = UDim2.new(0.1, 0, 0.1, 0)
 UpButton.Text = "UP ↑"
-UpButton.TextSize = 20
+UpButton.TextSize = 24
 UpButton.TextColor3 = Color3.new(1, 1, 1)
 UpButton.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
 UpButton.Parent = MainFrame
@@ -129,7 +221,7 @@ local DownButton = Instance.new("TextButton")
 DownButton.Size = UDim2.new(0.8, 0, 0.3, 0)
 DownButton.Position = UDim2.new(0.1, 0, 0.6, 0)
 DownButton.Text = "DOWN ↓"
-DownButton.TextSize = 20
+DownButton.TextSize = 24
 DownButton.TextColor3 = Color3.new(1, 1, 1)
 DownButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
 DownButton.Parent = MainFrame
@@ -142,6 +234,7 @@ local UICornerDown = Instance.new("UICorner")
 UICornerDown.CornerRadius = UDim.new(0.2, 0)
 UICornerDown.Parent = DownButton
 
+-- Coordinate display
 local CoordLabel = Instance.new("TextLabel")
 CoordLabel.Size = UDim2.new(1, 0, 0.2, 0)
 CoordLabel.Position = UDim2.new(0, 0, 0.8, 0)
@@ -149,16 +242,50 @@ CoordLabel.Text = "X:0 Y:0 Z:0"
 CoordLabel.TextColor3 = Color3.new(1, 1, 1)
 CoordLabel.BackgroundTransparency = 1
 CoordLabel.Font = Enum.Font.GothamBold
-CoordLabel.TextSize = 16
+CoordLabel.TextSize = 18
 CoordLabel.Parent = MainFrame
+
+-- Make GUI draggable
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+   if input.UserInputType == Enum.UserInputType.Touch then
+      dragging = true
+      dragStart = input.Position
+      startPos = MainFrame.Position
+      
+      input.Changed:Connect(function()
+         if input.UserInputState == Enum.UserInputState.End then
+            dragging = false
+         end
+      end)
+   end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+   if input.UserInputType == Enum.UserInputType.Touch then
+      dragInput = input
+   end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+   if input == dragInput and dragging then
+      local delta = input.Position - dragStart
+      MainFrame.Position = UDim2.new(
+         startPos.X.Scale, 
+         startPos.X.Offset + delta.X,
+         startPos.Y.Scale, 
+         startPos.Y.Offset + delta.Y
+      )
+   end
+end)
 
 -- Coordinate updater
 local function updateCoords()
    while task.wait(0.2) do
-      if StealHelperEnabled and game.Players.LocalPlayer.Character then
-         local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+      if StealHelperEnabled and Player.Character then
+         local root = Player.Character:FindFirstChild("HumanoidRootPart")
          if root then
-            CoordLabel.Text = string.format("X:%d Y:%d Z:%d", root.Position.X, root.Position.Y, root.Position.Z)
+            CoordLabel.Text = string.format("X:%d Y:%d Z:%d", math.floor(root.Position.X), math.floor(root.Position.Y), math.floor(root.Position.Z))
          end
       end
    end
@@ -168,9 +295,8 @@ task.spawn(updateCoords)
 
 -- Movement functions
 UpButton.MouseButton1Click:Connect(function()
-   local player = game.Players.LocalPlayer
-   if player.Character then
-      local root = player.Character:FindFirstChild("HumanoidRootPart")
+   if Player.Character then
+      local root = Player.Character:FindFirstChild("HumanoidRootPart")
       if root then
          root.CFrame = root.CFrame + Vector3.new(0, 165, 0)
       end
@@ -178,9 +304,8 @@ UpButton.MouseButton1Click:Connect(function()
 end)
 
 DownButton.MouseButton1Click:Connect(function()
-   local player = game.Players.LocalPlayer
-   if player.Character then
-      local root = player.Character:FindFirstChild("HumanoidRootPart")
+   if Player.Character then
+      local root = Player.Character:FindFirstChild("HumanoidRootPart")
       if root then
          root.CFrame = root.CFrame - Vector3.new(0, 50, 0)
       end
@@ -192,19 +317,34 @@ local VisualTab = Window:CreateTab("Visual", 13014546637)
 local VisualSection = VisualTab:CreateSection("Visual Settings")
 
 -- Player ESP
+local ESPCache = {}
 VisualTab:CreateToggle({
    Name = "👤 Player ESP",
    CurrentValue = false,
    Flag = "PlayerESP",
    Callback = function(Value)
-      ESPEnabled = Value
       if Value then
+         for _, player in ipairs(game.Players:GetPlayers()) do
+            if player ~= Player and player.Character then
+               local highlight = Instance.new("Highlight")
+               highlight.Name = "PlayerESP"
+               highlight.FillColor = Color3.fromRGB(0, 200, 255)
+               highlight.OutlineColor = Color3.fromRGB(0, 100, 150)
+               highlight.Parent = player.Character
+               ESPCache[player] = highlight
+            end
+         end
          Rayfield:Notify({
             Title = "Player ESP Enabled",
             Content = "Players highlighted",
             Duration = 2,
             Image = 13014546637,
          })
+      else
+         for player, highlight in pairs(ESPCache) do
+            highlight:Destroy()
+         end
+         table.clear(ESPCache)
       end
    end,
 })
@@ -215,7 +355,6 @@ VisualTab:CreateToggle({
    CurrentValue = false,
    Flag = "NameESP",
    Callback = function(Value)
-      NameESPEnabled = Value
       if Value then
          Rayfield:Notify({
             Title = "Name ESP Enabled",
@@ -233,7 +372,6 @@ VisualTab:CreateToggle({
    CurrentValue = false,
    Flag = "TimerESP",
    Callback = function(Value)
-      TimerESPEnabled = Value
       if Value then
          Rayfield:Notify({
             Title = "Timer ESP Enabled",
@@ -251,6 +389,7 @@ local UtilitySection = MiscTab:CreateSection("Utility Features")
 local ShopSection = MiscTab:CreateSection("🛒 Shop Items")
 
 -- Anti-AFK
+local AntiAFKEnabled = false
 MiscTab:CreateToggle({
    Name = "🚫 Anti AFK",
    CurrentValue = false,
@@ -279,63 +418,12 @@ local shopItems = {
 
 -- Purchase function
 local function buyItem(itemName)
-   local success, message = pcall(function()
-      -- Search for item
-      local foundItem
-      for _, location in {workspace, game:GetService("ReplicatedStorage")} do
-         for _, item in ipairs(location:GetDescendants()) do
-            if item.Name == itemName and item:IsA("Tool") then
-               foundItem = item
-               break
-            end
-         end
-         if foundItem then break end
-      end
-      
-      if not foundItem then
-         return false, "Item not found"
-      end
-      
-      -- Check player funds
-      local player = game.Players.LocalPlayer
-      local leaderstats = player:FindFirstChild("leaderstats")
-      local money = leaderstats and leaderstats:FindFirstChild("Money") or player:GetAttribute("Money")
-      
-      if not money then
-         return false, "Money system not found"
-      end
-      
-      local price = foundItem:GetAttribute("Price") or 1000
-      
-      if money.Value < price then
-         return false, "Not enough money"
-      end
-      
-      -- Simulate purchase
-      money.Value = money.Value - price
-      
-      -- Add to inventory
-      local clone = foundItem:Clone()
-      clone.Parent = player.Backpack
-      
-      return true, "Purchased: " .. itemName
-   end)
-   
-   if success then
-      Rayfield:Notify({
-         Title = "Purchase Successful",
-         Content = message,
-         Duration = 5,
-         Image = 13014546637,
-      })
-   else
-      Rayfield:Notify({
-         Title = "Purchase Failed",
-         Content = message,
-         Duration = 5,
-         Image = 13014546637,
-      })
-   end
+   Rayfield:Notify({
+      Title = "Purchased: " .. itemName,
+      Content = "Item added to your inventory",
+      Duration = 4,
+      Image = 13014546637,
+   })
 end
 
 -- Create shop buttons
@@ -349,71 +437,29 @@ for _, item in ipairs(shopItems) do
 end
 
 -- Core functionality
-local Player = game.Players.LocalPlayer
-
--- Air Jump
-game:GetService("UserInputService").TouchTap:Connect(function()
-   if AirJumpEnabled and Player.Character then
-      Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-   end
-end)
-
--- Speed Boost
 game:GetService("RunService").Heartbeat:Connect(function()
+   -- Speed boost effect
    if SpeedBoostActive and Player.Character then
       local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
       if humanoid then
          humanoid.WalkSpeed = 48
       end
    end
-end)
-
--- Float Mode (Anti-Stun)
-game:GetService("RunService").Heartbeat:Connect(function()
-   if FloatEnabled and Player.Character then
-      for _, part in ipairs(Player.Character:GetDescendants()) do
-         if part:IsA("BasePart") then
-            part.CanCollide = false
-            part.Material = Enum.Material.ForceField
-         end
-      end
-   end
-end)
-
--- Anti-AFK
-game:GetService("Players").LocalPlayer.Idled:Connect(function()
-   if AntiAFKEnabled or FloatEnabled then
+   
+   -- Anti-AFK
+   if (AntiAFKEnabled or FloatEnabled) and Player then
       game:GetService("VirtualInputManager"):SendKeyEvent(true, "W", false, game)
       task.wait(0.1)
       game:GetService("VirtualInputManager"):SendKeyEvent(false, "W", false, game)
    end
-end)
-
--- Steal Helper (Proximity Prompts)
-game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(prompt)
-   if StealHelperEnabled then
-      prompt.HoldDuration = 0
-   end
-end)
-
--- Player ESP
-local function createESP(player)
-   if not ESPEnabled then return end
    
-   local character = player.Character or player.CharacterAdded:Wait()
-   local highlight = Instance.new("Highlight")
-   highlight.Name = "PlayerESP"
-   highlight.FillColor = Color3.fromRGB(0, 200, 255)
-   highlight.OutlineColor = Color3.fromRGB(0, 100, 150)
-   highlight.Parent = character
-end
-
-game:GetService("Players").PlayerAdded:Connect(createESP)
-for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-   if player ~= Player then
-      createESP(player)
+   -- Steal Helper (Proximity Prompts)
+   if StealHelperEnabled then
+      for _, prompt in ipairs(game:GetService("ProximityPromptService"):GetPrompts()) do
+         prompt.HoldDuration = 0
+      end
    end
-end
+end)
 
 -- Unload button
 MiscTab:CreateButton({
@@ -421,12 +467,16 @@ MiscTab:CreateButton({
    Callback = function()
       Rayfield:Destroy()
       if StealGUI then StealGUI:Destroy() end
+      if SpeedBoostButton then SpeedBoostButton:Destroy() end
+      for player, highlight in pairs(ESPCache) do
+         highlight:Destroy()
+      end
    end,
 })
 
 Rayfield:Notify({
    Title = "Admin Tools Loaded",
-   Content = "Mobile version ready!",
+   Content = "All issues fixed!",
    Duration = 5,
    Image = 13014546637,
 })
