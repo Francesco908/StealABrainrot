@@ -1,21 +1,21 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "🔧 Admin Tools v4.0",
-   LoadingTitle = "Loading advanced tools...",
-   LoadingSubtitle = "Mobile Edition",
+   Name = "🔧 Brainrot script v4.0",
+   LoadingTitle = "Brainrot script...",
+   LoadingSubtitle = "made by OnlyRobloxScript",
    ConfigurationSaving = {
       Enabled = true,
       FolderName = "AdminToolsConfig",
       FileName = "MobileConfig"
    },
-   KeySystem = true,
+   KeySystem = false,
    KeySettings = {
       Title = "Admin Tools",
       Subtitle = "Key Required",
       Note = "Get key from Discord",
       FileName = "AdminKey",
-      SaveKey = false,
+      SaveKey = true,
       GrabKeyFromSite = false,
    }
 })
