@@ -36,6 +36,7 @@ local skyWidgetVisible = false
 local skyWidgetMinimized = false
 local leaveGui = nil
 local killAuraActive = false
+local killAuraDistance = 50 -- Default distance
 local killAuraConnection = nil
 local intentionalKick = false
 local flyEnabled = false
@@ -44,6 +45,9 @@ local espEnabled = false
 local espObjects = {}
 local boostGui = nil
 local boostActive = false
+local infiniteJump = false
+local jumpCooldown = false
+local targetPlayers = {"Tralalero Tralala", "La Vacca Saturno Saturnita"}
 
 -- Anti-kick system
 local function antiKick()
@@ -60,20 +64,67 @@ local function antiKick()
     setreadonly(mt, true)
 end
 
--- Remove Walls function
-local function removeWalls()
-    pcall(function()
-        -- Remove lasers
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj.Name:lower():find("laser") or obj.Name:lower():find("laserhitbox") then
-                obj:Destroy()
+-- Enhanced God Mode with anti-ragdoll (Vecchia versione)
+local function toggleGodMode()
+    godMode = not godMode
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if godMode then
+        char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        
+        char.Humanoid.StateChanged:Connect(function(_, newState)
+            if newState == Enum.HumanoidStateType.Dead then
+                char.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end)
+        
+        Rayfield:Notify({
+            Title = "God Mode Attivato",
+            Content = "Vecchia versione attivata!",
+            Duration = 3,
+            Image = 4483362458
+        })
+    else
+        char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
+        char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        
+        Rayfield:Notify({
+            Title = "God Mode Disattivato",
+            Content = "Protezione rimossa",
+            Duration = 3,
+            Image = 4483362458
+        })
+    end
+end
+
+-- Infinite Jump with bypass
+local function setupInfiniteJump()
+    UserInputService.JumpRequest:Connect(function()
+        if infiniteJump and not jumpCooldown then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                jumpCooldown = true
+                wait(0.1)
+                jumpCooldown = false
             end
         end
+    end)
+end
+
+-- Remove Walls function (evita la tua base)
+local function removeWalls()
+    pcall(function()
+        local playerPosition = LocalPlayer.Character.HumanoidRootPart.Position
+        local safeRadius = 50 -- Studs
         
-        -- Remove from DEX if available
-        if game:GetService("CoreGui"):FindFirstChild("DEX") then
-            for _, obj in pairs(game:GetService("CoreGui").DEX:GetDescendants()) do
-                if obj.Name:lower():find("laser") or obj.Name:lower():find("laserhitbox") then
+        -- Remove lasers
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and (obj.Name:lower():find("laser") or obj.Name:lower():find("laserhitbox")) then
+                -- Skip walls near player's position
+                if (playerPosition - obj.Position).Magnitude > safeRadius then
                     obj:Destroy()
                 end
             end
@@ -81,72 +132,26 @@ local function removeWalls()
         
         Rayfield:Notify({
             Title = "Walls Removed",
-            Content = "All lasers and hitboxes deleted!",
+            Content = "Lasers removed except near your base!",
             Duration = 3,
             Image = 4483362458
         })
     end)
 end
 
--- Enhanced God Mode with anti-ragdoll
-local function toggleGodMode()
-    godMode = not godMode
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    if godMode then
-        for _, part in pairs(char:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-                part.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
-            end
-        end
-        
-        if char:FindFirstChild("Humanoid") then
-            char.Humanoid.MaxHealth = math.huge
-            char.Humanoid.Health = math.huge
-            
-            -- Anti-ragdoll
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
-            
-            char.Humanoid.StateChanged:Connect(function(_, newState)
-                if newState == Enum.HumanoidStateType.FallingDown or 
-                   newState == Enum.HumanoidStateType.Ragdoll then
-                    char.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                end
-            end)
-        end
-    else
-        for _, part in pairs(char:GetChildren()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                part.CanCollide = true
-                part.CustomPhysicalProperties = nil
-            end
-        end
-        
-        if char:FindFirstChild("Humanoid") then
-            char.Humanoid.MaxHealth = 100
-            char.Humanoid.Health = 100
-            
-            -- Re-enable states
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
-            char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
-        end
-    end
-end
-
--- ESP Functions
+-- ESP Functions with target search
 local function createESP(player)
     if not player.Character then return end
     
     local char = player.Character
     local highlight = Instance.new("Highlight")
     highlight.Name = "ESP_" .. player.Name
+    
+    -- Check if player is in target list
+    local isTarget = table.find(targetPlayers, player.Name)
+    
     highlight.Adornee = char
-    highlight.OutlineColor = player == LocalPlayer and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+    highlight.OutlineColor = isTarget and Color3.new(1, 0, 1) or (player == LocalPlayer and Color3.new(0, 1, 0) or Color3.new(1, 0, 0))
     highlight.FillColor = Color3.new(0, 0, 0, 0)
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -166,8 +171,8 @@ local function createESP(player)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
-    label.Text = player.Name
-    label.TextColor3 = player == LocalPlayer and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+    label.Text = player.Name .. (isTarget and " (TARGET)" or "")
+    label.TextColor3 = isTarget and Color3.new(1, 0, 1) or (player == LocalPlayer and Color3.new(0, 1, 0) or Color3.new(1, 0, 0))
     label.TextSize = 14
     label.Font = Enum.Font.GothamBold
     label.Parent = billboard
@@ -217,30 +222,6 @@ local function toggleESP()
     end
 end
 
--- Natural walk teleport (115% speed for bypass)
-local function naturalWalk(targetPosition)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    
-    local hrp = char.HumanoidRootPart
-    local humanoid = char.Humanoid
-    local startPos = hrp.Position
-    local distance = (startPos - targetPosition).Magnitude
-    
-    -- Calculate time for 115% normal walk speed (faster for bypass)
-    local walkTime = distance / (originalSpeed * 1.15)
-    
-    -- Create smooth tween
-    local tweenInfo = TweenInfo.new(
-        walkTime,
-        Enum.EasingStyle.Linear,
-        Enum.EasingDirection.InOut
-    )
-    
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPosition)})
-    tween:Play()
-end
-
 -- Teleport Up function
 local function teleportUp()
     pcall(function()
@@ -281,7 +262,7 @@ local function teleportToBase()
     end)
 end
 
--- Enhanced Kill Aura with 360-degree detection
+-- Enhanced Kill Aura with configurable distance
 local function startKillAura()
     if killAuraActive then return end
     killAuraActive = true
@@ -303,7 +284,7 @@ local function startKillAura()
                 for _, player in pairs(Players:GetPlayers()) do
                     if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         local distance = (player.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
-                        if distance < 20 then -- Increased range for 360 coverage
+                        if distance < killAuraDistance then
                             table.insert(nearbyPlayers, {player = player, distance = distance})
                         end
                     end
@@ -314,16 +295,16 @@ local function startKillAura()
                     return a.distance < b.distance
                 end)
                 
-                -- Attack closest players (up to 3 at once for multi-directional coverage)
+                -- Attack closest players
                 for i = 1, math.min(#nearbyPlayers, 3) do
                     local targetPlayer = nearbyPlayers[i].player
                     local targetChar = targetPlayer.Character
                     
                     if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-                        -- Calculate direction vectors for 360-degree coverage
+                        -- Calculate direction vectors
                         local targetDirection = (targetChar.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Unit
                         
-                        -- Rotate character to face target for better hit detection
+                        -- Rotate character to face target
                         local lookDirection = Vector3.new(targetDirection.X, 0, targetDirection.Z)
                         char.HumanoidRootPart.CFrame = CFrame.lookAt(char.HumanoidRootPart.Position, char.HumanoidRootPart.Position + lookDirection)
                         
@@ -353,7 +334,7 @@ local function stopKillAura()
     killAuraActive = false
 end
 
--- Create Leave GUI
+-- Create Leave GUI with Rejoin option
 local function createLeaveGui()
     if leaveGui then
         leaveGui:Destroy()
@@ -368,8 +349,8 @@ local function createLeaveGui()
     -- Main Frame
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 200, 0, 150)
-    mainFrame.Position = UDim2.new(0.5, -100, 0.5, -75)
+    mainFrame.Size = UDim2.new(0, 200, 0, 180) -- Increased height
+    mainFrame.Position = UDim2.new(0.5, -100, 0.5, -90)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
@@ -483,6 +464,23 @@ local function createLeaveGui()
     hopCorner.CornerRadius = UDim.new(0, 8)
     hopCorner.Parent = hopButton
     
+    -- Rejoin Button
+    local rejoinButton = Instance.new("TextButton")
+    rejoinButton.Name = "RejoinButton"
+    rejoinButton.Size = UDim2.new(0, 180, 0, 30)
+    rejoinButton.Position = UDim2.new(0.5, -90, 0, 100)
+    rejoinButton.BackgroundColor3 = Color3.fromRGB(100, 180, 100)
+    rejoinButton.Text = "🔁 REJOIN SERVER"
+    rejoinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rejoinButton.TextSize = 14
+    rejoinButton.Font = Enum.Font.GothamBold
+    rejoinButton.BorderSizePixel = 0
+    rejoinButton.Parent = contentFrame
+    
+    local rejoinCorner = Instance.new("UICorner")
+    rejoinCorner.CornerRadius = UDim.new(0, 8)
+    rejoinCorner.Parent = rejoinButton
+    
     -- Minimize functionality
     local function toggleMinimize()
         if contentFrame.Visible then
@@ -491,7 +489,7 @@ local function createLeaveGui()
             minimizeButton.Text = "+"
         else
             contentFrame.Visible = true
-            mainFrame.Size = UDim2.new(0, 200, 0, 150)
+            mainFrame.Size = UDim2.new(0, 200, 0, 180)
             minimizeButton.Text = "-"
         end
     end
@@ -514,218 +512,15 @@ local function createLeaveGui()
             TeleportService:Teleport(game.PlaceId, LocalPlayer)
         end)
     end)
-end
-
--- Create Sky Widget with TP to Base button
-local function createSkyWidget()
-    if skyWidget then
-        skyWidget:Destroy()
-    end
     
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "SkyWidget"
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    screenGui.ResetOnSpawn = false
-    skyWidget = screenGui
-    
-    -- Main Frame
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 180, 0, 190)
-    mainFrame.Position = UDim2.new(0.5, -90, 0.3, -95)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-    mainFrame.BackgroundTransparency = 0.1
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = mainFrame
-    
-    -- Header
-    local header = Instance.new("Frame")
-    header.Name = "Header"
-    header.Size = UDim2.new(1, 0, 0, 30)
-    header.Position = UDim2.new(0, 0, 0, 0)
-    header.BackgroundColor3 = Color3.fromRGB(45, 30, 60)
-    header.BackgroundTransparency = 0.2
-    header.BorderSizePixel = 0
-    header.Parent = mainFrame
-    
-    local headerCorner = Instance.new("UICorner")
-    headerCorner.CornerRadius = UDim.new(0, 12)
-    headerCorner.Parent = header
-    
-    -- Title
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, -60, 1, 0)
-    title.Position = UDim2.new(0, 10, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "SKY CONTROL"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 14
-    title.Font = Enum.Font.GothamBold
-    title.Parent = header
-    
-    -- Minimize Button
-    local minimizeButton = Instance.new("TextButton")
-    minimizeButton.Name = "MinimizeButton"
-    minimizeButton.Size = UDim2.new(0, 20, 0, 20)
-    minimizeButton.Position = UDim2.new(1, -50, 0.5, -10)
-    minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 180, 40)
-    minimizeButton.Text = "-"
-    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    minimizeButton.TextSize = 14
-    minimizeButton.Font = Enum.Font.GothamBold
-    minimizeButton.BorderSizePixel = 0
-    minimizeButton.Parent = header
-    
-    local minimizeCorner = Instance.new("UICorner")
-    minimizeCorner.CornerRadius = UDim.new(0, 10)
-    minimizeCorner.Parent = minimizeButton
-    
-    -- Close Button
-    local closeButton = Instance.new("TextButton")
-    closeButton.Name = "CloseButton"
-    closeButton.Size = UDim2.new(0, 20, 0, 20)
-    closeButton.Position = UDim2.new(1, -25, 0.5, -10)
-    closeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-    closeButton.Text = "✕"
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.TextSize = 14
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.BorderSizePixel = 0
-    closeButton.Parent = header
-    
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 10)
-    closeCorner.Parent = closeButton
-    
-    -- Content Frame
-    local contentFrame = Instance.new("Frame")
-    contentFrame.Name = "ContentFrame"
-    contentFrame.Size = UDim2.new(1, 0, 1, -30)
-    contentFrame.Position = UDim2.new(0, 0, 0, 30)
-    contentFrame.BackgroundTransparency = 1
-    contentFrame.Parent = mainFrame
-    
-    -- Up Button
-    local upButton = Instance.new("TextButton")
-    upButton.Name = "UpButton"
-    upButton.Size = UDim2.new(0, 160, 0, 30)
-    upButton.Position = UDim2.new(0.5, -80, 0, 20)
-    upButton.BackgroundColor3 = Color3.fromRGB(60, 180, 100)
-    upButton.Text = "↑ UP ↑"
-    upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    upButton.TextSize = 14
-    upButton.Font = Enum.Font.GothamBold
-    upButton.BorderSizePixel = 0
-    upButton.Parent = contentFrame
-    
-    local upCorner = Instance.new("UICorner")
-    upCorner.CornerRadius = UDim.new(0, 8)
-    upCorner.Parent = upButton
-    
-    -- Down Button
-    local downButton = Instance.new("TextButton")
-    downButton.Name = "DownButton"
-    downButton.Size = UDim2.new(0, 160, 0, 30)
-    downButton.Position = UDim2.new(0.5, -80, 0, 60)
-    downButton.BackgroundColor3 = Color3.fromRGB(180, 80, 80)
-    downButton.Text = "↓ DOWN ↓"
-    downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downButton.TextSize = 14
-    downButton.Font = Enum.Font.GothamBold
-    downButton.BorderSizePixel = 0
-    downButton.Parent = contentFrame
-    
-    local downCorner = Instance.new("UICorner")
-    downCorner.CornerRadius = UDim.new(0, 8)
-    downCorner.Parent = downButton
-    
-    -- TP to Base Button
-    local tpBaseButton = Instance.new("TextButton")
-    tpBaseButton.Name = "TpBaseButton"
-    tpBaseButton.Size = UDim2.new(0, 160, 0, 30)
-    tpBaseButton.Position = UDim2.new(0.5, -80, 0, 100)
-    tpBaseButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
-    tpBaseButton.Text = "TP TO BASE"
-    tpBaseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tpBaseButton.TextSize = 14
-    tpBaseButton.Font = Enum.Font.GothamBold
-    tpBaseButton.BorderSizePixel = 0
-    tpBaseButton.Parent = contentFrame
-    
-    local tpBaseCorner = Instance.new("UICorner")
-    tpBaseCorner.CornerRadius = UDim.new(0, 8)
-    tpBaseCorner.Parent = tpBaseButton
-    
-    -- Set Position Button
-    local setPositionButton = Instance.new("TextButton")
-    setPositionButton.Name = "SetPositionButton"
-    setPositionButton.Size = UDim2.new(0, 160, 0, 30)
-    setPositionButton.Position = UDim2.new(0.5, -80, 0, 140)
-    setPositionButton.BackgroundColor3 = Color3.fromRGB(150, 100, 200)
-    setPositionButton.Text = "📍 SET CURRENT POS"
-    setPositionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    setPositionButton.TextSize = 12
-    setPositionButton.Font = Enum.Font.GothamBold
-    setPositionButton.BorderSizePixel = 0
-    setPositionButton.Parent = contentFrame
-    
-    local setPositionCorner = Instance.new("UICorner")
-    setPositionCorner.CornerRadius = UDim.new(0, 8)
-    setPositionCorner.Parent = setPositionButton
-    
-    -- Minimize functionality
-    local function toggleMinimize()
-        skyWidgetMinimized = not skyWidgetMinimized
-        if skyWidgetMinimized then
-            contentFrame.Visible = false
-            mainFrame.Size = UDim2.new(0, 180, 0, 30)
-            minimizeButton.Text = "+"
-        else
-            contentFrame.Visible = true
-            mainFrame.Size = UDim2.new(0, 180, 0, 190)
-            minimizeButton.Text = "-"
-        end
-    end
-    
-    -- Button connections
-    minimizeButton.MouseButton1Click:Connect(toggleMinimize)
-    
-    closeButton.MouseButton1Click:Connect(function()
-        skyWidget:Destroy()
-        skyWidget = nil
-        skyWidgetVisible = false
-    end)
-    
-    upButton.MouseButton1Click:Connect(teleportUp)
-    downButton.MouseButton1Click:Connect(teleportDown)
-    tpBaseButton.MouseButton1Click:Connect(teleportToBase)
-    
-    setPositionButton.MouseButton1Click:Connect(function()
+    rejoinButton.MouseButton1Click:Connect(function()
         pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                basePosition = char.HumanoidRootPart.Position
-                Rayfield:Notify({
-                    Title = "Position Set",
-                    Content = "Current position saved as base!",
-                    Duration = 2,
-                    Image = 4483362458
-                })
-            end
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
         end)
     end)
-    
-    skyWidgetVisible = true
 end
 
--- Create Boost GUI (non-minimizable, non-closable)
+-- Create Boost GUI (87% boost)
 local function createBoostGui()
     if boostGui then
         boostGui:Destroy()
@@ -775,7 +570,7 @@ local function createBoostGui()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             if boostActive then
-                char.Humanoid.WalkSpeed = originalSpeed * 1.7
+                char.Humanoid.WalkSpeed = originalSpeed * 1.87 -- 87% boost
                 boostButton.Text = "BOOST: ON"
                 boostButton.BackgroundColor3 = Color3.fromRGB(200, 120, 70)
             else
@@ -801,6 +596,9 @@ LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
 -- Initialize anti-kick
 pcall(antiKick)
+
+-- Setup infinite jump
+setupInfiniteJump()
 
 -- Create UI with multiple tabs
 local Window = Rayfield:CreateWindow({
@@ -871,6 +669,26 @@ MainTab:CreateInput({
     end
 })
 
+MainTab:CreateButton({
+    Name = "Remove Walls",
+    Callback = function()
+        removeWalls()
+    end
+})
+
+MainTab:CreateToggle({
+    Name = "Block Base Protection",
+    Default = true,
+    Callback = function(value)
+        Rayfield:Notify({
+            Title = "Base Protection",
+            Content = value and "ON - Base protetta" or "OFF - Base vulnerabile",
+            Duration = 2,
+            Image = 4483362458
+        })
+    end
+})
+
 -- Combat Tab Features
 CombatTab:CreateToggle({
     Name = "God Mode (No Hit/No Fall)",
@@ -887,7 +705,7 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateToggle({
-    Name = "Kill Aura 360°",
+    Name = "Kill Aura",
     Default = false,
     Callback = function(value)
         pcall(function()
@@ -895,7 +713,7 @@ CombatTab:CreateToggle({
                 startKillAura()
                 Rayfield:Notify({
                     Title = "Kill Aura",
-                    Content = "Activated",
+                    Content = "Attivata - Distanza: " .. killAuraDistance .. " studs",
                     Duration = 1.5,
                     Image = 4483362458
                 })
@@ -903,7 +721,7 @@ CombatTab:CreateToggle({
                 stopKillAura()
                 Rayfield:Notify({
                     Title = "Kill Aura",
-                    Content = "Deactivated",
+                    Content = "Disattivata",
                     Duration = 1.5,
                     Image = 4483362458
                 })
@@ -912,10 +730,29 @@ CombatTab:CreateToggle({
     end
 })
 
-CombatTab:CreateButton({
-    Name = "Remove Walls",
-    Callback = function()
-        removeWalls()
+CombatTab:CreateSlider({
+    Name = "Kill Aura Distance",
+    Range = {10, 100},
+    Increment = 5,
+    Suffix = "studs",
+    CurrentValue = 50,
+    Flag = "KillAuraDistance",
+    Callback = function(Value)
+        killAuraDistance = Value
+    end,
+})
+
+CombatTab:CreateToggle({
+    Name = "Infinite Jump",
+    Default = false,
+    Callback = function(value)
+        infiniteJump = value
+        Rayfield:Notify({
+            Title = "Infinite Jump",
+            Content = value and "ON - Salti infiniti attivi" or "OFF",
+            Duration = 2,
+            Image = 4483362458
+        })
     end
 })
 
@@ -927,7 +764,7 @@ ESPTab:CreateToggle({
         toggleESP()
         Rayfield:Notify({
             Title = "ESP",
-            Content = value and "Activated" or "Deactivated",
+            Content = value and "Attivato" or "Disattivato",
             Duration = 1.5,
             Image = 4483362458
         })
@@ -948,6 +785,49 @@ ESPTab:CreateColorPicker({
                     end
                 end
             end
+        end
+    end
+})
+
+ESPTab:CreateButton({
+    Name = "Find Brainrot Players",
+    Callback = function()
+        local found = false
+        for _, playerName in ipairs(targetPlayers) do
+            local player = Players:FindFirstChild(playerName)
+            if player then
+                found = true
+                Rayfield:Notify({
+                    Title = "Player Trovato!",
+                    Content = playerName .. " è nel server",
+                    Duration = 5,
+                    Image = 4483362458
+                })
+                if espEnabled then
+                    createESP(player)
+                end
+            end
+        end
+        
+        if not found then
+            Rayfield:Notify({
+                Title = "Player Non Trovati",
+                Content = "Nessun Brainrot trovato, usare Server Hop?",
+                Duration = 6,
+                Image = 4483362458,
+                Actions = {
+                    Ignore = {
+                        Name = "Later",
+                        Callback = function() end
+                    },
+                    ServerHop = {
+                        Name = "Hop Now",
+                        Callback = function()
+                            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+                        end
+                    }
+                }
+            })
         end
     end
 })
@@ -975,13 +855,13 @@ GUITab:CreateButton({
 
 -- Boost Tab Features
 BoostTab:CreateButton({
-    Name = "Activate Speed Boost",
+    Name = "Attiva Speed Boost Overlay",
     Callback = function()
         pcall(function()
             createBoostGui()
             Rayfield:Notify({
                 Title = "Boost Overlay",
-                Content = "Boost overlay activated!",
+                Content = "Boost overlay attivato (87%)!",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -990,14 +870,14 @@ BoostTab:CreateButton({
 })
 
 BoostTab:CreateToggle({
-    Name = "Permanent 70% Boost",
+    Name = "Permanent 87% Boost",
     Default = false,
     Callback = function(value)
         boostActive = value
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
             if boostActive then
-                char.Humanoid.WalkSpeed = originalSpeed * 1.7
+                char.Humanoid.WalkSpeed = originalSpeed * 1.87
             else
                 char.Humanoid.WalkSpeed = originalSpeed
             end
@@ -1007,8 +887,8 @@ BoostTab:CreateToggle({
 
 -- Success notification
 Rayfield:Notify({
-    Title = "Brainrot Hub Pro Loaded",
-    Content = "All features activated!",
+    Title = "Brainrot Hub Pro Caricato",
+    Content = "Tutte le funzionalità attivate!",
     Duration = 3,
     Image = 4483362458
 })
