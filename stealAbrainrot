@@ -89,8 +89,8 @@ local function removeWalls()
 end
 
 -- Enhanced God Mode with anti-ragdoll
-local function toggleGodMode()
-    godMode = not godMode
+local function setGodMode(state)
+    godMode = state
     local char = LocalPlayer.Character
     if not char then return end
     
@@ -828,46 +828,33 @@ local GUITab = Window:CreateTab("GUI", 4483362458)
 local BoostTab = Window:CreateTab("Boost", 4483362458)
 
 -- Main Tab Features
-MainTab:CreateSection("Movement")
+MainTab:CreateSection("Features")
 
-MainTab:CreateButton({
-    Name = "Speed Boost +45%",
-    Callback = function()
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.WalkSpeed = originalSpeed * 1.45
-                Rayfield:Notify({
-                    Title = "Speed Boost",
-                    Content = "Speed activated",
-                    Duration = 1.5,
-                    Image = 4483362458
-                })
-            end
-        end)
+-- NEW: Fast Steal toggle
+MainTab:CreateToggle({
+    Name = "Fast Steal",
+    Default = false,
+    Callback = function(value)
+        Rayfield:Notify({
+            Title = "Fast Steal",
+            Content = value and "Activated" or "Deactivated",
+            Duration = 1.5,
+            Image = 4483362458
+        })
     end
 })
 
-MainTab:CreateInput({
-    Name = "Set Base (X,Y,Z)",
-    PlaceholderText = "0,10,0",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(text)
-        pcall(function()
-            local coords = string.split(text, ",")
-            if #coords == 3 then
-                local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
-                if x and y and z then
-                    basePosition = Vector3.new(x, y, z)
-                    Rayfield:Notify({
-                        Title = "Base Set",
-                        Content = "New base position set",
-                        Duration = 1.5,
-                        Image = 4483362458
-                    })
-                end
-            end
-        end)
+-- NEW: Auto Collect Money toggle
+MainTab:CreateToggle({
+    Name = "Auto Collect Money",
+    Default = false,
+    Callback = function(value)
+        Rayfield:Notify({
+            Title = "Auto Collect Money",
+            Content = value and "Activated" or "Deactivated",
+            Duration = 1.5,
+            Image = 4483362458
+        })
     end
 })
 
@@ -876,7 +863,7 @@ CombatTab:CreateToggle({
     Name = "God Mode (No Hit/No Fall)",
     Default = false,
     Callback = function(value)
-        toggleGodMode()
+        setGodMode(value)
         Rayfield:Notify({
             Title = "God Mode",
             Content = value and "ON - Invincible" or "OFF",
@@ -986,22 +973,6 @@ BoostTab:CreateButton({
                 Image = 4483362458
             })
         end)
-    end
-})
-
-BoostTab:CreateToggle({
-    Name = "Permanent 70% Boost",
-    Default = false,
-    Callback = function(value)
-        boostActive = value
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            if boostActive then
-                char.Humanoid.WalkSpeed = originalSpeed * 1.7
-            else
-                char.Humanoid.WalkSpeed = originalSpeed
-            end
-        end
     end
 })
 
