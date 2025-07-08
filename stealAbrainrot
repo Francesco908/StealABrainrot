@@ -23,6 +23,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variables
@@ -44,6 +45,10 @@ local espEnabled = false
 local espObjects = {}
 local boostGui = nil
 local boostActive = false
+local fastStealEnabled = false
+local fastStealConnection = nil
+local autoCollectMoneyEnabled = false
+local autoCollectConnection = nil
 
 -- Anti-kick system
 local function antiKick()
@@ -58,6 +63,60 @@ local function antiKick()
         return old(self, ...)
     end)
     setreadonly(mt, true)
+end
+
+-- Enhanced Fast Steal system
+local function setupFastSteal()
+    if fastStealConnection then
+        fastStealConnection:Disconnect()
+        fastStealConnection = nil
+    end
+    
+    fastStealConnection = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            -- Modify all existing ProximityPrompts
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") then
+                    obj.HoldDuration = 0
+                    obj.ActionText = "STEALING"
+                    obj.ObjectText = "Instant Steal"
+                    obj.RequiresLineOfSight = false
+                end
+            end
+            
+            -- Auto-trigger ProximityPrompts when near
+            for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
+                if prompt:GetAttribute("Enabled") ~= false then
+                    fireproximityprompt(prompt, 0, true)
+                end
+            end
+        end)
+    end)
+end
+
+-- Auto Collect Money system
+local function setupAutoCollectMoney()
+    if autoCollectConnection then
+        autoCollectConnection:Disconnect()
+        autoCollectConnection = nil
+    end
+    
+    autoCollectConnection = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            -- Find and collect money
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj.Name:lower():find("money") or obj.Name:lower():find("cash") or obj.Name:lower():find("coin") then
+                    if obj:IsA("BasePart") and obj:FindFirstChildWhichIsA("ProximityPrompt") then
+                        -- Teleport to money if not collected
+                        if obj:GetAttribute("Collected") ~= true then
+                            fireproximityprompt(obj:FindFirstChildWhichIsA("ProximityPrompt"))
+                            obj:SetAttribute("Collected", true)
+                        end
+                    end
+                end
+            end
+        end)
+    end)
 end
 
 -- Remove Walls function
@@ -830,31 +889,61 @@ local BoostTab = Window:CreateTab("Boost", 4483362458)
 -- Main Tab Features
 MainTab:CreateSection("Features")
 
--- NEW: Fast Steal toggle
+-- Fast Steal toggle
 MainTab:CreateToggle({
     Name = "Fast Steal",
     Default = false,
     Callback = function(value)
-        Rayfield:Notify({
-            Title = "Fast Steal",
-            Content = value and "Activated" or "Deactivated",
-            Duration = 1.5,
-            Image = 4483362458
-        })
+        fastStealEnabled = value
+        if value then
+            setupFastSteal()
+            Rayfield:Notify({
+                Title = "Fast Steal",
+                Content = "Activated - All objects can be instantly stolen",
+                Duration = 2,
+                Image = 4483362458
+            })
+        else
+            if fastStealConnection then
+                fastStealConnection:Disconnect()
+                fastStealConnection = nil
+            end
+            Rayfield:Notify({
+                Title = "Fast Steal",
+                Content = "Deactivated",
+                Duration = 1.5,
+                Image = 4483362458
+            })
+        end
     end
 })
 
--- NEW: Auto Collect Money toggle
+-- Auto Collect Money toggle
 MainTab:CreateToggle({
     Name = "Auto Collect Money",
     Default = false,
     Callback = function(value)
-        Rayfield:Notify({
-            Title = "Auto Collect Money",
-            Content = value and "Activated" or "Deactivated",
-            Duration = 1.5,
-            Image = 4483362458
-        })
+        autoCollectMoneyEnabled = value
+        if value then
+            setupAutoCollectMoney()
+            Rayfield:Notify({
+                Title = "Auto Collect Money",
+                Content = "Activated - Collecting all nearby money",
+                Duration = 2,
+                Image = 4483362458
+            })
+        else
+            if autoCollectConnection then
+                autoCollectConnection:Disconnect()
+                autoCollectConnection = nil
+            end
+            Rayfield:Notify({
+                Title = "Auto Collect Money",
+                Content = "Deactivated",
+                Duration = 1.5,
+                Image = 4483362458
+            })
+        end
     end
 })
 
