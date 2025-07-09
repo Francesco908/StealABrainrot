@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "🔧 OnlyRoboxScript YT",
-    LoadingTitle = "Loading...",
-    LoadingSubtitle = "Thanks for using my script",
+    Name = "🔧 Mobile Admin Tools Pro",
+    LoadingTitle = "Loading enhanced tools...",
+    LoadingSubtitle = "Ultra Optimized Free Edition",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "MobileToolsProConfig",
@@ -44,6 +44,8 @@ local OriginalJumpPower = 50
 local BasePosition = nil
 local BaseTeleportActive = false
 local BaseTeleportParts = {}
+local TeleportHeight = 165
+local TeleportSpeed = 35
 
 -- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
@@ -118,10 +120,10 @@ if Player.Character then
     storeSpawnPosition()
 end
 
--- ======= SISTEMA TELEPORT BASE BYPASSATO =======
+-- ======= SISTEMA TELEPORT BASE FIXATO =======
 local function startBaseTeleport()
     if not BasePosition then
-        notify("Error", "Base position not set!", 3)
+        notify("Error", "Set base position first!", 3)
         return
     end
 
@@ -143,8 +145,10 @@ local function startBaseTeleport()
     humanoid.JumpPower = 0
     
     -- 1. Teletrasporta in alto
-    local startHeight = 165
-    root.CFrame = CFrame.new(root.Position.X, startHeight, root.Position.Z)
+    local startCFrame = root.CFrame
+    local highPosition = Vector3.new(startCFrame.X, TeleportHeight, startCFrame.Z)
+    root.CFrame = CFrame.new(highPosition)
+    task.wait(0.1)
     
     -- 2. Crea parti visive per indicare la direzione
     for _, part in ipairs(BaseTeleportParts) do
@@ -165,12 +169,12 @@ local function startBaseTeleport()
     table.insert(BaseTeleportParts, directionPart)
     
     -- 3. Calcola direzione
-    local direction = (BasePosition - root.Position).Unit
-    local baseDistance = (BasePosition - root.Position).Magnitude
+    local direction = (Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z) - root.Position).Unit
+    local baseDistance = (Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z) - root.Position).Magnitude
     
     -- 4. Crea controlli di volo
     local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = direction * 35 -- Velocità moderata
+    bodyVelocity.Velocity = direction * TeleportSpeed
     bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
     bodyVelocity.P = 1250
     bodyVelocity.Parent = root
@@ -184,14 +188,14 @@ local function startBaseTeleport()
     -- 5. Animazione di volo
     humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
     
-    -- 6. Attendi arrivo
+    -- 6. Attendi arrivo all'area sopra la base
     local startTime = os.time()
-    while BaseTeleportActive and (root.Position - BasePosition).Magnitude > 15 do
+    while BaseTeleportActive and (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(BasePosition.X, 0, BasePosition.Z)).Magnitude > 10 do
         if os.time() - startTime > 15 then break end -- Timeout dopo 15 secondi
         
         -- Aggiorna direzione
-        direction = (BasePosition - root.Position).Unit
-        bodyVelocity.Velocity = direction * 35
+        direction = (Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z) - root.Position).Unit
+        bodyVelocity.Velocity = direction * TeleportSpeed
         bodyGyro.CFrame = CFrame.new(root.Position, root.Position + direction)
         
         -- Aggiorna parte visiva
@@ -200,31 +204,33 @@ local function startBaseTeleport()
         task.wait(0.1)
     end
     
-    -- 7. Disabilita volo
+    -- 7. Disabilita volo orizzontale
     bodyVelocity:Destroy()
     bodyGyro:Destroy()
     
-    -- 8. Scendi di 60 studs
-    local targetY = BasePosition.Y - 60
+    -- 8. Scendi verticalmente alla base
     local descendVelocity = Instance.new("BodyVelocity")
     descendVelocity.Velocity = Vector3.new(0, -25, 0)
     descendVelocity.MaxForce = Vector3.new(0, 10000, 0)
     descendVelocity.P = 1000
     descendVelocity.Parent = root
     
-    while BaseTeleportActive and root.Position.Y > targetY + 5 do
+    -- Aspetta che raggiunga l'altezza della base
+    while BaseTeleportActive and root.Position.Y > BasePosition.Y + 5 do
         task.wait(0.1)
     end
     
     descendVelocity:Destroy()
     
-    -- 9. Ripristina stato originale
-    root.CFrame = CFrame.new(BasePosition.X, targetY, BasePosition.Z)
+    -- 9. Posiziona esattamente sulla base
+    root.CFrame = CFrame.new(BasePosition)
+    
+    -- 10. Ripristina stato originale
     humanoid.WalkSpeed = originalWalkSpeed
     humanoid.JumpPower = originalJumpPower
     humanoid:ChangeState(Enum.HumanoidStateType.Running)
     
-    -- 10. Pulisci parti visive
+    -- 11. Pulisci parti visive
     for _, part in ipairs(BaseTeleportParts) do
         if part then part:Destroy() end
     end
@@ -239,7 +245,7 @@ local function modifyPrompt(prompt)
     if not prompt:IsDescendantOf(game:GetService("CoreGui")) then
         prompt.HoldDuration = 0
         prompt.RequiresLineOfSight = false
-        prompt.MaxActivationDistance = 75 -- Aumentato per maggiore efficacia
+        prompt.MaxActivationDistance = 75
     end
 end
 
@@ -256,7 +262,6 @@ local function autoClickNearbyPrompts()
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local root = character.HumanoidRootPart
-    local clicked = false
     
     for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
         if prompt.Enabled and prompt.Visible then
@@ -264,18 +269,15 @@ local function autoClickNearbyPrompts()
             if part:IsA("BasePart") then
                 local distance = (root.Position - part.Position).Magnitude
                 if distance <= prompt.MaxActivationDistance then
-                    fireproximityprompt(prompt) -- Metodo più affidabile
-                    clicked = true
-                    task.wait(0.08) -- Tempo ridotto per maggiore velocità
+                    fireproximityprompt(prompt)
+                    task.wait(0.08)
                 end
             end
         end
     end
-    
-    return clicked
 end
 
--- ======= SISTEMA KILL AURA (rimasto invariato) =======
+-- ======= SISTEMA KILL AURA =======
 local function startKillAura()
     if KillAuraActive then return end
     KillAuraActive = true
@@ -413,10 +415,10 @@ Connections.JumpButton = UserInputService.JumpRequest:Connect(function()
     if humanoid and rootPart and humanoid.FloorMaterial == Enum.Material.Air then
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
-        bodyVelocity.Velocity = Vector3.new(0, 70, 0) -- Aumentata potenza
+        bodyVelocity.Velocity = Vector3.new(0, 70, 0)
         bodyVelocity.Parent = rootPart
         
-        game:GetService("Debris"):AddItem(bodyVelocity, 0.25) -- Tempo ridotto
+        game:GetService("Debris"):AddItem(bodyVelocity, 0.25)
     end
 end)
 
@@ -509,7 +511,7 @@ MainTab:CreateToggle({
     end,
 })
 
--- Kill Aura (rimasto invariato)
+-- Kill Aura
 MainTab:CreateToggle({
     Name = "⚔️ Kill Aura 360°",
     CurrentValue = false,
@@ -713,9 +715,9 @@ VisualTab:CreateToggle({
                     highlight.Name = "PlayerESP"
                     highlight.FillColor = Color3.fromRGB(100, 200, 255)
                     highlight.OutlineColor = Color3.fromRGB(0, 100, 200)
-                    highlight.FillTransparency = 0.45 -- Ridotta trasparenza
+                    highlight.FillTransparency = 0.45
                     highlight.OutlineTransparency = 0
-                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- Migliora visibilità
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                     highlight.Parent = character
                     
                     ESPCache[player] = highlight
@@ -768,7 +770,7 @@ VisualTab:CreateToggle({
                     billboard.Size = UDim2.new(0, 200, 0, 50)
                     billboard.StudsOffset = Vector3.new(0, 2.5, 0)
                     billboard.AlwaysOnTop = true
-                    billboard.MaxDistance = 500 -- Aumentato raggio visibilità
+                    billboard.MaxDistance = 500
                     billboard.Parent = head
                     
                     local nameLabel = Instance.new("TextLabel")
@@ -796,7 +798,7 @@ VisualTab:CreateToggle({
             Connections.PlayerAdded_NameESP = Players.PlayerAdded:Connect(addNameESP)
             Connections.CharacterAdded_NameESP = Players.PlayerAdded:Connect(function(player)
                 player.CharacterAdded:Connect(function(char)
-                    task.wait(1) -- Attendi che il modello sia completamente caricato
+                    task.wait(1)
                     addNameESP(player)
                 end)
             end)
@@ -840,10 +842,8 @@ MiscTab:CreateToggle({
         if Value then
             notify("Anti-AFK Enabled", "Idle protection active", 2)
             
-            -- Usa un thread separato per evitare lag
             task.spawn(function()
                 while AntiAFKEnabled do
-                    -- Simula movimento casuale più sofisticato
                     local actions = {
                         {key = "W", duration = 0.15},
                         {key = "A", duration = 0.1},
@@ -857,7 +857,6 @@ MiscTab:CreateToggle({
                     task.wait(randomAction.duration)
                     VirtualInputManager:SendKeyEvent(false, randomAction.key, false, game)
                     
-                    -- Attendi tra 25 e 35 secondi prima della prossima azione
                     task.wait(math.random(25, 35))
                 end
             end)
@@ -942,8 +941,8 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         if SpeedBoostActive then
-            humanoid.WalkSpeed = 95 -- Aumentata velocità
-            humanoid.JumpPower = 85 -- Aumentata potenza salto
+            humanoid.WalkSpeed = 95
+            humanoid.JumpPower = 85
         else
             humanoid.WalkSpeed = OriginalWalkSpeed
             humanoid.JumpPower = OriginalJumpPower
@@ -956,7 +955,7 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
             if obj.Name:lower():find("money") or obj.Name:lower():find("coin") or obj.Name:lower():find("cash") then
                 if obj:IsA("BasePart") then
                     local distance = (character.HumanoidRootPart.Position - obj.Position).Magnitude
-                    if distance < 120 then -- Aumentato raggio
+                    if distance < 120 then
                         obj.CFrame = character.HumanoidRootPart.CFrame
                     end
                 end
@@ -1019,10 +1018,9 @@ MiscTab:CreateButton({
 
 -- Inizializzazione BYPASSATA
 Connections.CharacterAdded = Player.CharacterAdded:Connect(function(character)
-    task.wait(1.5) -- Tempo ridotto
+    task.wait(1.5)
     storeSpawnPosition()
     
-    -- Salva valori movimento originali
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         OriginalWalkSpeed = humanoid.WalkSpeed
@@ -1030,7 +1028,6 @@ Connections.CharacterAdded = Player.CharacterAdded:Connect(function(character)
     end
 end)
 
--- Salva valori movimento iniziali
 if Player.Character then
     local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
     if humanoid then
