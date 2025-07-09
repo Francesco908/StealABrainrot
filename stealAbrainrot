@@ -41,15 +41,8 @@ local KillAuraActive = false
 local KillAuraConnection = nil
 local OriginalWalkSpeed = 16
 local OriginalJumpPower = 50
-local BasePosition = nil
-local BaseTeleportActive = false
-local BaseTeleportParts = {}
-local TeleportHeight = 165
-local TeleportSpeed = 35
-
--- Variabili per il sistema teleport migliorato
 local savedBase = nil
-local isRunning = false
+local isActive = false
 
 -- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
@@ -107,7 +100,7 @@ local function makeDraggable(gui)
     end)
 end
 
--- ======= SISTEMA TELEPORT BASE BYPASS-PROOF =======
+-- ======= SISTEMA TELEPORT BASE MIGLIORATO =======
 local function setBase()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
@@ -118,8 +111,8 @@ local function setBase()
     end
 end
 
-local function teleportSequence()
-    if not savedBase or isRunning then 
+local function goBase()
+    if not savedBase or isActive then 
         notify("Error", "Set base position first or teleport in progress", 3)
         return 
     end
@@ -133,76 +126,65 @@ local function teleportSequence()
     local rootPart = character.HumanoidRootPart
     local humanoid = character:FindFirstChild("Humanoid")
     
-    isRunning = true
-    notify("Base Teleport", "Starting secure teleport sequence...", 3)
+    isActive = true
+    notify("Base Teleport", "Starting flight sequence...", 3)
     
-    -- Disabilita controlli player temporaneamente
+    -- Disabilita controlli player
     if humanoid then
         humanoid.PlatformStand = true
     end
     
-    -- Teleport in alto (165 studs sopra base)
-    rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y + TeleportHeight, savedBase.Z)
+    -- FASE 1: Teleport in alto a 165 studs sopra base
+    local highPosition = Vector3.new(savedBase.X, savedBase.Y + 165, savedBase.Z)
+    rootPart.CFrame = CFrame.new(highPosition)
     rootPart.Velocity = Vector3.new(0, 0, 0)
-    rootPart.AngularVelocity = Vector3.new(0, 0, 0)
+    rootPart.RotVelocity = Vector3.new(0, 0, 0)
     
-    -- Aspetta 2 secondi con controllo continuo posizione
-    local startTime = tick()
-    while tick() - startTime < 2 do
-        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y + TeleportHeight, savedBase.Z)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        RunService.Heartbeat:Wait()
+    -- FASE 2: Movimento volante verso l'alto (velocità 45) per 2 secondi
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyVelocity.Velocity = Vector3.new(0, 45, 0)
+    bodyVelocity.Parent = rootPart
+    
+    -- Mantieni posizione X e Z forzata durante il volo
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        local currentPos = rootPart.Position
+        rootPart.CFrame = CFrame.new(savedBase.X, currentPos.Y, savedBase.Z)
+        rootPart.Velocity = Vector3.new(0, 45, 0)
+    end)
+    
+    -- Aspetta 2 secondi
+    wait(2)
+    
+    -- FASE 3: Ferma il volo e inizia discesa
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+    end
+    if connection then
+        connection:Disconnect()
     end
     
-    -- Teleport sulla base (dall'alto)
-    rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y, savedBase.Z)
-    rootPart.Velocity = Vector3.new(0, 0, 0)
-    rootPart.AngularVelocity = Vector3.new(0, 0, 0)
+    -- Inizia discesa controllata verso mezz'aria
+    local currentY = rootPart.Position.Y
+    local targetY = savedBase.Y + 20 -- Mezz'aria
     
-    -- Aspetta 1.5 secondi mantenendo posizione
-    startTime = tick()
-    while tick() - startTime < 1.5 do
-        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y, savedBase.Z)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        RunService.Heartbeat:Wait()
-    end
+    local descendTween = TweenService:Create(
+        rootPart,
+        TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {CFrame = CFrame.new(savedBase.X, targetY, savedBase.Z)}
+    )
+    descendTween:Play()
     
-    -- Riabilita controlli per la caduta
+    -- FASE 4: Quando arriva a mezz'aria, riabilita controlli
+    descendTween.Completed:Wait()
+    
     if humanoid then
         humanoid.PlatformStand = false
     end
     
-    -- Caduta controllata a -50 con velocità forzata
-    local fallConnection
-    local targetY = savedBase.Y - 50
-    local fallSpeed = 0
-    
-    fallConnection = RunService.Heartbeat:Connect(function()
-        if not rootPart.Parent then
-            fallConnection:Disconnect()
-            isRunning = false
-            return
-        end
-        
-        local currentPos = rootPart.Position
-        
-        if currentPos.Y <= targetY then
-            -- Ferma alla posizione target
-            rootPart.CFrame = CFrame.new(savedBase.X, targetY, savedBase.Z)
-            rootPart.Velocity = Vector3.new(0, 0, 0)
-            fallConnection:Disconnect()
-            isRunning = false
-            notify("Base Teleport", "Arrived at base location!", 3)
-            return
-        end
-        
-        -- Accelerazione caduta realistica
-        fallSpeed = fallSpeed + 0.5
-        local newY = currentPos.Y - fallSpeed
-        
-        rootPart.CFrame = CFrame.new(savedBase.X, newY, savedBase.Z)
-        rootPart.Velocity = Vector3.new(0, -fallSpeed, 0)
-    end)
+    isActive = false
+    notify("Base Teleport", "Arrived at base location!", 3)
 end
 
 -- ======= SISTEMA FAST STEAL BYPASSATO =======
@@ -309,8 +291,8 @@ MainTab:CreateButton({
 })
 
 MainTab:CreateButton({
-    Name = "🏠 Teleport to Base",
-    Callback = teleportSequence
+    Name = "🏠 Go to Base",
+    Callback = goBase
 })
 
 -- Toggle Fast Steal con auto-click BYPASSATO
@@ -931,16 +913,10 @@ local function cleanup()
         if billboard then billboard:Destroy() end
     end
     
-    for _, part in ipairs(BaseTeleportParts) do
-        if part then part:Destroy() end
-    end
-    BaseTeleportParts = {}
-    
     if FastStealConnection then FastStealConnection:Disconnect() end
     stopKillAura()
     
-    BaseTeleportActive = false
-    isRunning = false
+    isActive = false
     
     local character = Player.Character
     if character then
@@ -968,4 +944,4 @@ MiscTab:CreateButton({
     end,
 })
 
-notify("Admin Tools Pro Loaded", "Bypass-Proof Teleport System Active 🛡️", 4)
+notify("Admin Tools Pro Loaded", "Advanced Flight System Active ✈️", 4)
