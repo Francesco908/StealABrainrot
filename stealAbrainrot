@@ -1,12 +1,12 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "🔧 Mobile Admin Tools Pro",
-    LoadingTitle = "Loading enhanced tools...",
-    LoadingSubtitle = "Ultra Optimized Premium Edition",
+    Name = "🔧 OnlyRoboxScript YT",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "Thanks for using my script",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "MobileToolsProConfig",
-        FileName = "UltraOptimizedPremiumConfig"
+        FileName = "UltraOptimizedConfig"
     }
 })
 
@@ -22,12 +22,6 @@ local Workspace = game:GetService("Workspace")
 local TeleportService = game:GetService("TeleportService")
 local Player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-
--- Variabili premium
-local PremiumEnabled = false -- Cambia a true per attivare le funzioni premium
-local BasePosition = nil
-local TeleportHeight = 167
-local TeleportSpeed = 35
 
 -- Variabili
 local Connections = {}
@@ -47,6 +41,9 @@ local KillAuraActive = false
 local KillAuraConnection = nil
 local OriginalWalkSpeed = 16
 local OriginalJumpPower = 50
+local BasePosition = nil
+local BaseTeleportActive = false
+local BaseTeleportParts = {}
 
 -- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
@@ -119,6 +116,122 @@ end)
 
 if Player.Character then
     storeSpawnPosition()
+end
+
+-- ======= SISTEMA TELEPORT BASE BYPASSATO =======
+local function startBaseTeleport()
+    if not BasePosition then
+        notify("Error", "Base position not set!", 3)
+        return
+    end
+
+    local character = Player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    BaseTeleportActive = true
+    notify("Base Teleport", "Teleporting to base...", 3)
+    
+    local root = character.HumanoidRootPart
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    
+    -- Salva stato originale
+    local originalWalkSpeed = humanoid.WalkSpeed
+    local originalJumpPower = humanoid.JumpPower
+    
+    -- Disabilita altre movimenti
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
+    
+    -- 1. Teletrasporta in alto
+    local startHeight = 165
+    root.CFrame = CFrame.new(root.Position.X, startHeight, root.Position.Z)
+    
+    -- 2. Crea parti visive per indicare la direzione
+    for _, part in ipairs(BaseTeleportParts) do
+        if part then part:Destroy() end
+    end
+    BaseTeleportParts = {}
+    
+    local directionPart = Instance.new("Part")
+    directionPart.Size = Vector3.new(3, 3, 3)
+    directionPart.Shape = Enum.PartType.Ball
+    directionPart.Material = EnumMaterial.Neon
+    directionPart.Color = Color3.fromRGB(0, 255, 0)
+    directionPart.CFrame = CFrame.new(BasePosition)
+    directionPart.Anchored = true
+    directionPart.CanCollide = false
+    directionPart.Transparency = 0.3
+    directionPart.Parent = workspace
+    table.insert(BaseTeleportParts, directionPart)
+    
+    -- 3. Calcola direzione
+    local direction = (BasePosition - root.Position).Unit
+    local baseDistance = (BasePosition - root.Position).Magnitude
+    
+    -- 4. Crea controlli di volo
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Velocity = direction * 35 -- Velocità moderata
+    bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+    bodyVelocity.P = 1250
+    bodyVelocity.Parent = root
+    
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
+    bodyGyro.P = 1500
+    bodyGyro.CFrame = CFrame.new(root.Position, root.Position + direction)
+    bodyGyro.Parent = root
+    
+    -- 5. Animazione di volo
+    humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+    
+    -- 6. Attendi arrivo
+    local startTime = os.time()
+    while BaseTeleportActive and (root.Position - BasePosition).Magnitude > 15 do
+        if os.time() - startTime > 15 then break end -- Timeout dopo 15 secondi
+        
+        -- Aggiorna direzione
+        direction = (BasePosition - root.Position).Unit
+        bodyVelocity.Velocity = direction * 35
+        bodyGyro.CFrame = CFrame.new(root.Position, root.Position + direction)
+        
+        -- Aggiorna parte visiva
+        directionPart.CFrame = CFrame.new(BasePosition)
+        
+        task.wait(0.1)
+    end
+    
+    -- 7. Disabilita volo
+    bodyVelocity:Destroy()
+    bodyGyro:Destroy()
+    
+    -- 8. Scendi di 60 studs
+    local targetY = BasePosition.Y - 60
+    local descendVelocity = Instance.new("BodyVelocity")
+    descendVelocity.Velocity = Vector3.new(0, -25, 0)
+    descendVelocity.MaxForce = Vector3.new(0, 10000, 0)
+    descendVelocity.P = 1000
+    descendVelocity.Parent = root
+    
+    while BaseTeleportActive and root.Position.Y > targetY + 5 do
+        task.wait(0.1)
+    end
+    
+    descendVelocity:Destroy()
+    
+    -- 9. Ripristina stato originale
+    root.CFrame = CFrame.new(BasePosition.X, targetY, BasePosition.Z)
+    humanoid.WalkSpeed = originalWalkSpeed
+    humanoid.JumpPower = originalJumpPower
+    humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    
+    -- 10. Pulisci parti visive
+    for _, part in ipairs(BaseTeleportParts) do
+        if part then part:Destroy() end
+    end
+    BaseTeleportParts = {}
+    
+    BaseTeleportActive = false
+    notify("Base Teleport", "Arrived at base location!", 3)
 end
 
 -- ======= SISTEMA FAST STEAL BYPASSATO =======
@@ -218,45 +331,35 @@ local function stopKillAura()
     KillAuraActive = false
 end
 
--- ======= SISTEMA TELEPORT BASE BYPASSATO =======
-local function teleportToBase()
-    if not BasePosition then
-        notify("Error", "Base position not set!", 3)
-        return
-    end
-
-    local character = Player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    local root = character.HumanoidRootPart
-    local startPos = root.Position
-    local targetPos = BasePosition + Vector3.new(0, TeleportHeight, 0)
-    
-    -- Teletrasporta in alto
-    root.CFrame = CFrame.new(targetPos)
-    task.wait(0.1)
-    
-    -- Vola verso la base
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = (BasePosition - targetPos).Unit * TeleportSpeed
-    bodyVelocity.MaxForce = Vector3.new(10000, 0, 10000)
-    bodyVelocity.P = 1000
-    bodyVelocity.Parent = root
-    
-    -- Attendi arrivo o timeout
-    local startTime = os.time()
-    while (root.Position - BasePosition).Magnitude > 5 do
-        if os.time() - startTime > 10 then break end -- Timeout dopo 10 secondi
-        task.wait()
-    end
-    
-    bodyVelocity:Destroy()
-    root.CFrame = CFrame.new(BasePosition)
-end
-
 -- Tab Main
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features ⚙️")
+
+-- Base Teleport System in Main
+MainTab:CreateButton({
+    Name = "📍 Set Base Position",
+    Callback = function()
+        local char = Player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            BasePosition = char.HumanoidRootPart.Position
+            notify("Base Position Set", "Location saved successfully", 3)
+        else
+            notify("Error", "Character not found", 3)
+        end
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🏠 Teleport to Base",
+    Callback = function()
+        if not BasePosition then
+            notify("Error", "Set base position first!", 3)
+            return
+        end
+        
+        startBaseTeleport()
+    end
+})
 
 -- Toggle Fast Steal con auto-click BYPASSATO
 MainTab:CreateToggle({
@@ -420,32 +523,6 @@ MainTab:CreateToggle({
             notify("Kill Aura Disabled", "Kill Aura deactivated", 2)
         end
     end,
-})
-
--- Base Teleport System in Main
-MainTab:CreateButton({
-    Name = "📍 Set Base Position",
-    Callback = function()
-        local char = Player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            BasePosition = char.HumanoidRootPart.Position
-            notify("Base Position Set", "Location saved successfully", 3)
-        else
-            notify("Error", "Character not found", 3)
-        end
-    end
-})
-
-MainTab:CreateButton({
-    Name = "🏠 Teleport to Base",
-    Callback = function()
-        if not PremiumEnabled then
-            notify("Premium Locked", "This feature requires premium access!", 3)
-            return
-        end
-        
-        teleportToBase()
-    end
 })
 
 -- Steal Helper BYPASSATO
@@ -805,35 +882,6 @@ MiscTab:CreateToggle({
     end,
 })
 
--- Tab Other (Premium Locked)
-local OtherTab = Window:CreateTab("Other", 13014546637)
-local PremiumSection = OtherTab:CreateSection("Premium Features 🔒")
-
--- Funzioni premium offuscate
-local function createPremiumButton(name, description)
-    local button = OtherTab:CreateButton({
-        Name = name,
-        Callback = function()
-            if not PremiumEnabled then
-                notify("Premium Locked", "This feature requires premium access!\n"..description, 4)
-            end
-        end,
-    })
-    
-    -- Stile premium
-    button:Set("TextColor3", Color3.fromRGB(200, 200, 200))
-    button:Set("BackgroundColor3", Color3.fromRGB(50, 50, 50))
-end
-
-createPremiumButton("🔒 Set Enemy Base", "Set enemy base location (Premium Only)")
-createPremiumButton("🔒 Teleport to Enemy Base", "Quick teleport to enemy base (Premium Only)")
-createPremiumButton("🔒 Advanced Fly", "Enhanced flying mode (Premium Only)")
-createPremiumButton("🔒 Item ESP", "Highlight valuable items (Premium Only)")
-createPremiumButton("🔒 Auto Steal", "Automatically steal nearby items (Premium Only)")
-
-OtherTab:CreateLabel("Premium features require activation key")
-OtherTab:CreateLabel("Contact admin for premium access")
-
 -- Tab Server
 local ServerTab = Window:CreateTab("Server", 13014546637)
 local ServerSection = ServerTab:CreateSection("Server Controls 🔄")
@@ -934,9 +982,15 @@ local function cleanup()
         if billboard then billboard:Destroy() end
     end
     
+    for _, part in ipairs(BaseTeleportParts) do
+        if part then part:Destroy() end
+    end
+    BaseTeleportParts = {}
+    
     if FastStealConnection then FastStealConnection:Disconnect() end
     stopKillAura()
-    stopFlying()
+    
+    BaseTeleportActive = false
     
     local character = Player.Character
     if character then
@@ -985,4 +1039,4 @@ if Player.Character then
     end
 end
 
-notify("Admin Tools Pro Loaded", "Ultra Optimized Premium Edition 🚀", 4)
+notify("Admin Tools Pro Loaded", "Ultra Optimized Free Edition 🚀", 4)
