@@ -1,14 +1,13 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
 local Window = Rayfield:CreateWindow({
-   Name = "🔧 Mobile Admin Tools Pro",
-   LoadingTitle = "Loading enhanced tools...",
-   LoadingSubtitle = "Ultra Optimized Edition",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "MobileToolsProConfig",
-      FileName = "UltraOptimizedConfig"
-   }
+    Name = "🔧 Mobile Admin Tools Pro",
+    LoadingTitle = "Loading enhanced tools...",
+    LoadingSubtitle = "Ultra Optimized Free Edition",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "MobileToolsProConfig",
+        FileName = "UltraOptimizedConfig"
+    }
 })
 
 -- Servizi e variabili
@@ -43,8 +42,11 @@ local OriginalWalkSpeed = 16
 local OriginalJumpPower = 50
 local savedBase = nil
 local isActive = false
+local LockPlotBlockEnabled = false
+local LockPlotBlockGUI = nil
+local LockPlotBlockLoop = nil
 
--- Funzioni di utilità
+-- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
     if Connections[name] then
         Connections[name]:Disconnect()
@@ -56,7 +58,7 @@ local function notify(title, content, duration)
     Rayfield:Notify({
         Title = title,
         Content = content,
-        Duration = duration or 3,
+        Duration = duration or 2.5,
         Image = 13014546637,
     })
 end
@@ -100,7 +102,7 @@ local function makeDraggable(gui)
     end)
 end
 
--- ======= SISTEMA TELEPORT BASE =======
+-- ======= NUOVO SISTEMA TELEPORT BASE =======
 local function setBase()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
@@ -109,33 +111,6 @@ local function setBase()
     else
         notify("Error", "Character not found", 3)
     end
-end
-
-local function findPlotBlock()
-    local plot = Workspace:FindFirstChild(Player.Name)
-    if plot then
-        local purchases = plot:FindFirstChild("Purchases")
-        if purchases then
-            local plotBlock = purchases:FindFirstChild("PlotBlock")
-            if plotBlock then
-                if plotBlock:IsA("Model") and plotBlock.PrimaryPart then
-                    return plotBlock.PrimaryPart.Position
-                elseif plotBlock:IsA("BasePart") then
-                    return plotBlock.Position
-                end
-            end
-        end
-    end
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj.Name == "PlotBlock" then
-            if obj:IsA("Model") and obj.PrimaryPart then
-                return obj.PrimaryPart.Position
-            elseif obj:IsA("BasePart") then
-                return obj.Position
-            end
-        end
-    end
-    return nil
 end
 
 local function goBase()
@@ -156,47 +131,159 @@ local function goBase()
     isActive = true
     notify("Base Teleport", "Starting flight sequence...", 3)
     
+    -- Disabilita controlli
     if humanoid then
         humanoid.PlatformStand = true
     end
     
-    local aboveBasePos = Vector3.new(savedBase.X, savedBase.Y + 165, savedBase.Z)
-    rootPart.CFrame = CFrame.new(aboveBasePos)
+    -- FASE 1: Teleport a 165 studs sopra posizione attuale
+    local currentPos = rootPart.Position
+    rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + 165, currentPos.Z)
     rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.RotVelocity = Vector3.new(0, 0, 0)
     
-    task.wait(2)
+    -- FASE 2: Dopo 2 secondi, volo verso la base
+    wait(2)
     
-    local plotBlockPos = findPlotBlock()
-    if plotBlockPos then
-        local abovePlotBlockPos = Vector3.new(plotBlockPos.X, plotBlockPos.Y + 165, plotBlockPos.Z)
-        rootPart.CFrame = CFrame.new(abovePlotBlockPos)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        
-        task.wait(2)
-        
-        rootPart.CFrame = CFrame.new(aboveBasePos)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-    end
-    
-    task.wait(1)
-    
-    local descendTween = TweenService:Create(
+    local flyTween = TweenService:Create(
         rootPart,
-        TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-        {CFrame = CFrame.new(savedBase)}
+        TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {CFrame = CFrame.new(savedBase.X, savedBase.Y + 165, savedBase.Z)}
     )
-    descendTween:Play()
+    flyTween:Play()
     
-    descendTween.Completed:Connect(function()
+    -- FASE 3: Quando arriva sopra la base, aspetta 1.5 secondi
+    flyTween.Completed:Connect(function()
+        wait(1.5)
+        
+        -- FASE 4: Teleport a -50 e caduta libera
+        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y - 50, savedBase.Z)
+        rootPart.Velocity = Vector3.new(0, -50, 0)
+        
+        -- Riabilita controlli per caduta normale
         if humanoid then
             humanoid.PlatformStand = false
         end
+        
         isActive = false
         notify("Base Teleport", "Arrived at base location!", 3)
     end)
 end
 
--- ======= SISTEMA FAST STEAL =======
+-- ======= SISTEMA LOCK BASE TO PLOTBLOCK =======
+local function findPlotBlock()
+    -- Cerca nella base del player corrente
+    local plot = workspace:FindFirstChild(Player.Name)
+    if plot then
+        local purchases = plot:FindFirstChild("Purchases")
+        if purchases then
+            local plotBlock = purchases:FindFirstChild("PlotBlock")
+            if plotBlock then
+                if plotBlock:IsA("Model") and plotBlock.PrimaryPart then
+                    return plotBlock.PrimaryPart.Position
+                elseif plotBlock:IsA("BasePart") then
+                    return plotBlock.Position
+                end
+            end
+        end
+    end
+    
+    -- Ricerca alternativa in tutto il workspace
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "PlotBlock" then
+            if obj:IsA("Model") and obj.PrimaryPart then
+                return obj.PrimaryPart.Position
+            elseif obj:IsA("BasePart") then
+                return obj.Position
+            end
+        end
+    end
+    
+    return nil
+end
+
+local function lockToPlotBlock()
+    local character = Player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then 
+        return 
+    end
+    
+    local plotBlockPos = findPlotBlock()
+    if not plotBlockPos then
+        notify("Error", "PlotBlock not found in Purchases", 3)
+        return
+    end
+    
+    character.HumanoidRootPart.CFrame = CFrame.new(plotBlockPos)
+    character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+end
+
+local function createLockGUI()
+    if LockPlotBlockGUI then LockPlotBlockGUI:Destroy() end
+    
+    local lockGUI = Instance.new("ScreenGui")
+    lockGUI.Name = "LockPlotBlockGUI"
+    lockGUI.Parent = CoreGui
+    lockGUI.ResetOnSpawn = false
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0.25, 0, 0.12, 0)
+    mainFrame.Position = UDim2.new(0.5, 0, 0.05, 0)
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    mainFrame.BackgroundTransparency = 0.2
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = lockGUI
+    createCorner(mainFrame, 0.2)
+    makeDraggable(mainFrame)
+    
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0.3, 0)
+    header.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.7, 0, 1, 0)
+    title.Position = UDim2.new(0.05, 0, 0, 0)
+    title.Text = "🔒 LOCKED TO PLOTBLOCK"
+    title.TextColor3 = Color3.fromRGB(255, 100, 100)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0.25, 0, 0.8, 0)
+    closeBtn.Position = UDim2.new(0.7, 0, 0.1, 0)
+    closeBtn.Text = "✕ CLOSE"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 14
+    closeBtn.Parent = header
+    createCorner(closeBtn, 0.3)
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        LockPlotBlockToggle:Set(false)
+    end)
+    
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(0.9, 0, 0.6, 0)
+    statusLabel.Position = UDim2.new(0.05, 0, 0.35, 0)
+    statusLabel.Text = "Position locked to your PlotBlock in Purchases"
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 14
+    statusLabel.TextWrapped = true
+    statusLabel.Parent = mainFrame
+    
+    LockPlotBlockGUI = lockGUI
+end
+
+-- ======= SISTEMA FAST STEAL BYPASSATO =======
 local function modifyPrompt(prompt)
     if not prompt:IsDescendantOf(game:GetService("CoreGui")) then
         prompt.HoldDuration = 0
@@ -219,15 +306,14 @@ local function autoClickNearbyPrompts()
     
     local root = character.HumanoidRootPart
     
-    for _, prompt in pairs(Workspace:GetDescendants()) do
-        if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+    for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
+        if prompt.Enabled and prompt.Visible then
             local part = prompt.Parent
             if part:IsA("BasePart") then
                 local distance = (root.Position - part.Position).Magnitude
                 if distance <= prompt.MaxActivationDistance then
-                    prompt:InputHoldBegin()
+                    fireproximityprompt(prompt)
                     task.wait(0.08)
-                    prompt:InputHoldEnd()
                 end
             end
         end
@@ -294,6 +380,7 @@ end
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features ⚙️")
 
+-- Base Teleport System in Main
 MainTab:CreateButton({
     Name = "📍 Set Base Position",
     Callback = setBase
@@ -304,19 +391,38 @@ MainTab:CreateButton({
     Callback = goBase
 })
 
-MainTab:CreateButton({
-    Name = "🔒 Auto Lock to Plot Block",
-    Callback = function()
-        local plotBlockPos = findPlotBlock()
-        if plotBlockPos then
-            savedBase = plotBlockPos
-            notify("Auto Lock", "Base position set to Plot Block", 3)
+-- Lock Base to PlotBlock Toggle
+local LockPlotBlockToggle = MainTab:CreateToggle({
+    Name = "🔒 Lock Base",
+    CurrentValue = false,
+    Flag = "LockPlotBlock",
+    Callback = function(Value)
+        LockPlotBlockEnabled = Value
+        if Value then
+            createLockGUI()
+            notify("Locked to PlotBlock", "Teleporting to your PlotBlock...", 3)
+            lockToPlotBlock()
+            
+            -- Avvia il loop di lock
+            LockPlotBlockLoop = RunService.Heartbeat:Connect(function()
+                if LockPlotBlockEnabled then
+                    lockToPlotBlock()
+                end
+            end)
         else
-            notify("Error", "Plot Block not found", 3)
+            if LockPlotBlockGUI then
+                LockPlotBlockGUI:Destroy()
+                LockPlotBlockGUI = nil
+            end
+            if LockPlotBlockLoop then
+                LockPlotBlockLoop:Disconnect()
+                LockPlotBlockLoop = nil
+            end
         end
-    end
+    end,
 })
 
+-- Toggle Fast Steal con auto-click BYPASSATO
 MainTab:CreateToggle({
     Name = "⚡ Auto-Click Proximity",
     CurrentValue = false,
@@ -329,7 +435,7 @@ MainTab:CreateToggle({
                 if FastStealEnabled then
                     autoClickNearbyPrompts()
                 end
-           field
+            end)
             notify("Auto-Click Enabled", "Automatically clicking nearby objects", 2)
         else
             if FastStealConnection then
@@ -341,6 +447,7 @@ MainTab:CreateToggle({
     end,
 })
 
+-- Air Jump BYPASSATO
 MainTab:CreateToggle({
     Name = "🦘 Air Jump",
     CurrentValue = false,
@@ -348,7 +455,7 @@ MainTab:CreateToggle({
     Callback = function(Value)
         AirJumpEnabled = Value
         if Value then 
-            notify("Air Jump Enabled", "Jump inAutomated mid-air activated", 2)
+            notify("Air Jump Enabled", "Jump in mid-air activated", 2)
         else
             notify("Air Jump Disabled", "Normal jump restored", 2)
         end
@@ -374,6 +481,7 @@ Connections.JumpButton = UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+-- Speed Boost (BYPASSATO)
 local SpeedBoostToggle = MainTab:CreateToggle({
     Name = "🚀 Speed Boost",
     CurrentValue = false,
@@ -422,6 +530,7 @@ local SpeedBoostToggle = MainTab:CreateToggle({
     end,
 })
 
+-- NoClip BYPASSATO
 MainTab:CreateToggle({
     Name = "👻 NoClip",
     CurrentValue = false,
@@ -461,6 +570,7 @@ MainTab:CreateToggle({
     end,
 })
 
+-- Kill Aura
 MainTab:CreateToggle({
     Name = "⚔️ Kill Aura 360°",
     CurrentValue = false,
@@ -476,6 +586,7 @@ MainTab:CreateToggle({
     end,
 })
 
+-- Steal Helper BYPASSATO
 local StealHelperToggle = MainTab:CreateToggle({
     Name = "🎯 Steal Helper",
     CurrentValue = false,
@@ -489,54 +600,54 @@ local StealHelperToggle = MainTab:CreateToggle({
             StealGUI.ResetOnSpawn = false
             
             local mainFrame = Instance.new("Frame")
-            mainFrame.Size = UDim2.new(0.3, 0, 0.2, 0)
-            mainFrame.Position = UDim2.new(0.02, 0, 0.6, 0)
-            mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-            mainFrame.BackgroundTransparency = 0.1
+            mainFrame.Size = UDim2.new(0.28, 0, 0.16, 0)
+            mainFrame.Position = UDim2.new(0.02, 0, 0.65, 0)
+            mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+            mainFrame.BackgroundTransparency = 0.05
             mainFrame.BorderSizePixel = 0
             mainFrame.Parent = StealGUI
-            createCorner(mainFrame, 0.15)
+            createCorner(mainFrame, 0.2)
             makeDraggable(mainFrame)
             
             local gradient = Instance.new("UIGradient")
             gradient.Color = ColorSequence.new{
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 70)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 40))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 45, 65)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 35))
             }
             gradient.Rotation = 45
             gradient.Parent = mainFrame
             
             local headerFrame = Instance.new("Frame")
-            headerFrame.Size = UDim2.new(1, 0, 0.3, 0)
+            headerFrame.Size = UDim2.new(1, 0, 0.25, 0)
             headerFrame.Position = UDim2.new(0, 0, 0, 0)
-            headerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-            headerFrame.BackgroundTransparency = 0.2
+            headerFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+            headerFrame.BackgroundTransparency = 0.3
             headerFrame.BorderSizePixel = 0
             headerFrame.Parent = mainFrame
-            createCorner(headerFrame, 0.15)
+            createCorner(headerFrame, 0.2)
             
             local titleLabel = Instance.new("TextLabel")
-            titleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+            titleLabel.Size = UDim2.new(0.6, 0, 1, 0)
             titleLabel.Position = UDim2.new(0.05, 0, 0, 0)
             titleLabel.BackgroundTransparency = 1
             titleLabel.Text = "🎯 Steal Helper Pro"
             titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
             titleLabel.Font = Enum.Font.GothamBold
-            titleLabel.TextSize = 20
+            titleLabel.TextSize = 18
             titleLabel.TextXAlignment = Enum.TextXAlignment.Left
             titleLabel.Parent = headerFrame
             
             local closeButton = Instance.new("TextButton")
-            closeButton.Size = UDim2.new(0.25, 0, 0.7, 0)
-            closeButton.Position = UDim2.new(0.75, 0, 0.15, 0)
-            closeButton.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+            closeButton.Size = UDim2.new(0.3, 0, 0.8, 0)
+            closeButton.Position = UDim2.new(0.65, 0, 0.1, 0)
+            closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
             closeButton.Text = "✕"
             closeButton.TextColor3 = Color3.new(1, 1, 1)
             closeButton.Font = Enum.Font.GothamBold
-            closeButton.TextSize = 18
+            closeButton.TextSize = 16
             closeButton.BorderSizePixel = 0
             closeButton.Parent = headerFrame
-            createCorner(closeButton, 0.5)
+            createCorner(closeButton, 0.4)
             
             closeButton.MouseButton1Click:Connect(function()
                 StealGUI:Destroy()
@@ -547,21 +658,21 @@ local StealHelperToggle = MainTab:CreateToggle({
             
             local isUp = true
             local moveButton = Instance.new("TextButton")
-            moveButton.Size = UDim2.new(0.9, 0, 0.4, 0)
-            moveButton.Position = UDim2.new(0.05, 0, 0.35, 0)
+            moveButton.Size = UDim2.new(0.9, 0, 0.5, 0)
+            moveButton.Position = UDim2.new(0.05, 0, 0.3, 0)
             moveButton.Text = "⬆️ TELEPORT UP"
-            moveButton.TextSize = 22
+            moveButton.TextSize = 20
             moveButton.TextColor3 = Color3.new(1, 1, 1)
-            moveButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+            moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
             moveButton.Font = Enum.Font.GothamBold
             moveButton.BorderSizePixel = 0
             moveButton.Parent = mainFrame
-            createCorner(moveButton, 0.2)
+            createCorner(moveButton, 0.25)
             
             local buttonGradient = Instance.new("UIGradient")
             buttonGradient.Color = ColorSequence.new{
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 250, 150)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 200, 100))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
             }
             buttonGradient.Rotation = 90
             buttonGradient.Parent = moveButton
@@ -574,39 +685,39 @@ local StealHelperToggle = MainTab:CreateToggle({
                         if isUp then
                             rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 180, 0)
                             moveButton.Text = "⬇️ TELEPORT DOWN"
-                            moveButton.BackgroundColor3 = Color3.fromRGB(200, 100, 100)
+                            moveButton.BackgroundColor3 = Color3.fromRGB(170, 85, 85)
                             buttonGradient.Color = ColorSequence.new{
-                                ColorSequenceKeypoint.new(0, Color3.fromRGB(250, 150, 150)),
-                                ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 100, 100))
+                                ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 120, 120)),
+                                ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 85, 85))
                             }
                         else
                             rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 60, 0)
                             moveButton.Text = "⬆️ TELEPORT UP"
-                            moveButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+                            moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
                             buttonGradient.Color = ColorSequence.new{
-                                ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 250, 150)),
-                                ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 200, 100))
+                                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
+                                ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
                             }
                         end
                         isUp = not isUp
                         
-                        local tween = TweenServiceselling:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.35, 0)})
+                        local tween = TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.45, 0)})
                         tween:Play()
                         tween.Completed:Connect(function()
-                            TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.9, 0, 0.4, 0)}):Play()
+                            TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.9, 0, 0.5, 0)}):Play()
                         end)
                     end
                 end
             end)
             
             local coordLabel = Instance.new("TextLabel")
-            coordLabel.Size = UDim2.new(0.9, 0, 0.2, 0)
-            coordLabel.Position = UDim2.new(0.05, 0, 0.78, 0)
+            coordLabel.Size = UDim2.new(0.9, 0, 0.18, 0)
+            coordLabel.Position = UDim2.new(0.05, 0, 0.82, 0)
             coordLabel.Text = "📍 X:0 Y:0 Z:0"
-            coordLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+            coordLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
             coordLabel.BackgroundTransparency = 1
             coordLabel.Font = Enum.Font.GothamBold
-            coordLabel.TextSize = 16
+            coordLabel.TextSize = 14
             coordLabel.TextScaled = true
             coordLabel.Parent = mainFrame
             
@@ -636,21 +747,24 @@ local StealHelperToggle = MainTab:CreateToggle({
     end,
 })
 
--- Tab Visual
+-- Tab Visual BYPASSATO
 local VisualTab = Window:CreateTab("Visual", 13014546637)
 local VisualSection = VisualTab:CreateSection("Visual Settings 👁️")
 
+-- Player ESP BYPASSATO
 VisualTab:CreateToggle({
     Name = "👤 Player ESP",
     CurrentValue = false,
     Flag = "PlayerESP",
     Callback = function(Value)
         if Value then
+            -- Pulizia cache esistente
             for _, highlight in pairs(ESPCache) do
                 if highlight then highlight:Destroy() end
             end
             ESPCache = {}
             
+            -- Funzione per aggiungere ESP
             local function addESP(player)
                 if player == Player then return end
                 
@@ -669,10 +783,12 @@ VisualTab:CreateToggle({
                 end
             end
             
-            for _, player in pairs(Players:GetPlayers()) do
+            -- Aggiungi ESP per tutti i giocatori esistenti
+            for _, player in ipairs(Players:GetPlayers()) do
                 addESP(player)
             end
             
+            -- Connessioni per nuovi giocatori
             Connections.PlayerAdded_ESP = Players.PlayerAdded:Connect(addESP)
             
             notify("Player ESP Enabled", "All players highlighted", 2)
@@ -686,6 +802,7 @@ VisualTab:CreateToggle({
     end,
 })
 
+-- Name ESP BYPASSATO
 local NameESPCache = {}
 VisualTab:CreateToggle({
     Name = "📛 Name ESP",
@@ -693,6 +810,7 @@ VisualTab:CreateToggle({
     Flag = "NameESP",
     Callback = function(Value)
         if Value then
+            -- Funzione per aggiungere Name ESP
             local function addNameESP(player)
                 if player == Player then return end
                 
@@ -700,10 +818,12 @@ VisualTab:CreateToggle({
                 if character and character:FindFirstChild("Head") then
                     local head = character.Head
                     
+                    -- Rimuovi vecchi elementi se esistono
                     if NameESPCache[player] then
                         NameESPCache[player]:Destroy()
                     end
                     
+                    -- Crea nuovo BillboardGui
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "NameESP"
                     billboard.Size = UDim2.new(0, 200, 0, 50)
@@ -728,10 +848,12 @@ VisualTab:CreateToggle({
                 end
             end
             
-            for _, player in pairs(Players:GetPlayers()) do
+            -- Aggiungi per tutti i giocatori
+            for _, player in ipairs(Players:GetPlayers()) do
                 addNameESP(player)
             end
             
+            -- Connessioni
             Connections.PlayerAdded_NameESP = Players.PlayerAdded:Connect(addNameESP)
             Connections.CharacterAdded_NameESP = Players.PlayerAdded:Connect(function(player)
                 player.CharacterAdded:Connect(function(char)
@@ -765,10 +887,11 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Tab Misc
+-- Tab Misc BYPASSATO
 local MiscTab = Window:CreateTab("Misc", 13014546637)
 local UtilitySection = MiscTab:CreateSection("Utility Features 🛠️")
 
+-- Anti-AFK BYPASSATO
 MiscTab:CreateToggle({
     Name = "🚫 Anti AFK",
     CurrentValue = false,
@@ -802,6 +925,7 @@ MiscTab:CreateToggle({
     end,
 })
 
+-- Auto Collect Money BYPASSATO
 MiscTab:CreateToggle({
     Name = "💰 Auto Collect Money",
     CurrentValue = false,
@@ -867,10 +991,12 @@ ServerTab:CreateButton({
     end
 })
 
+-- Loop principale BYPASSATO
 Connections.MainLoop = RunService.Heartbeat:Connect(function()
     local character = Player.Character
     if not character then return end
     
+    -- Speed Boost BYPASSATO
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         if SpeedBoostActive then
@@ -882,6 +1008,7 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
         end
     end
     
+    -- Auto Collect Money BYPASSATO
     if AutoCollectEnabled then
         for _, obj in pairs(Workspace:GetDescendants()) do
             if obj.Name:lower():find("money") or obj.Name:lower():find("coin") or obj.Name:lower():find("cash") then
@@ -896,6 +1023,7 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Cleanup BYPASSATO
 local function cleanup()
     for _, connection in pairs(Connections) do
         if connection then connection:Disconnect() end
@@ -916,6 +1044,17 @@ local function cleanup()
     stopKillAura()
     
     isActive = false
+    LockPlotBlockEnabled = false
+    
+    if LockPlotBlockGUI then
+        LockPlotBlockGUI:Destroy()
+        LockPlotBlockGUI = nil
+    end
+    
+    if LockPlotBlockLoop then
+        LockPlotBlockLoop:Disconnect()
+        LockPlotBlockLoop = nil
+    end
     
     local character = Player.Character
     if character then
@@ -934,6 +1073,7 @@ local function cleanup()
     end
 end
 
+-- Pulsante Unload
 MiscTab:CreateButton({
     Name = "🔴 Unload Interface",
     Callback = function()
