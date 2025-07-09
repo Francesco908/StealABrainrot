@@ -111,6 +111,33 @@ local function setBase()
     end
 end
 
+local function findPlotBlock()
+    local plot = Workspace:FindFirstChild(Player.Name)
+    if plot then
+        local purchases = plot:FindFirstChild("Purchases")
+        if purchases then
+            local plotBlock = purchases:FindFirstChild("PlotBlock")
+            if plotBlock then
+                if plotBlock:IsA("Model") and plotBlock.PrimaryPart then
+                    return plotBlock.PrimaryPart.Position
+                elseif plotBlock:IsA("BasePart") then
+                    return plotBlock.Position
+                end
+            end
+        end
+    end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj.Name == "PlotBlock" then
+            if obj:IsA("Model") and obj.PrimaryPart then
+                return obj.PrimaryPart.Position
+            elseif obj:IsA("BasePart") then
+                return obj.Position
+            end
+        end
+    end
+    return nil
+end
+
 local function goBase()
     if not savedBase or isActive then 
         notify("Error", "Set base position first or teleport in progress", 3)
@@ -134,41 +161,38 @@ local function goBase()
         humanoid.PlatformStand = true
     end
     
-    -- FASE 1: Salita a 165 studs sopra la posizione attuale
-    local currentPos = rootPart.Position
-    local aboveCurrentPos = Vector3.new(currentPos.X, currentPos.Y + 165, currentPos.Z)
-    rootPart.CFrame = CFrame.new(aboveCurrentPos)
+    -- Salita a 165 studs sopra la base
+    local aboveBasePos = Vector3.new(savedBase.X, savedBase.Y + 165, savedBase.Z)
+    rootPart.CFrame = CFrame.new(aboveBasePos)
     rootPart.Velocity = Vector3.new(0, 0, 0)
     
-    -- FASE 2: Attesa di 2 secondi in aria
-    wait(2)
-    
-    -- FASE 3: Volo orizzontale verso la base a 165 studs di altezza
-    local aboveBasePos = Vector3.new(savedBase.X, savedBase.Y + 165, savedBase.Z)
-    local flyTween = TweenService:Create(
-        rootPart,
-        TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        {CFrame = CFrame.new(aboveBasePos)}
-    )
-    flyTween:Play()
-    
-    -- FASE 4: Attesa di 2 secondi sopra la base e discesa automatica
-    flyTween.Completed:Connect(function()
-        wait(2)
-        local descendTween = TweenService:Create(
-            rootPart,
-            TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-            {CFrame = CFrame.new(savedBase)}
-        )
-        descendTween:Play()
+    -- Controllo per il bypass con PlotBlock
+    local plotBlockPos = findPlotBlock()
+    if plotBlockPos then
+        -- Teletrasporto sopra il PlotBlock a 165 studs
+        local abovePlotBlockPos = Vector3.new(plotBlockPos.X, plotBlockPos.Y + 165, plotBlockPos.Z)
+        rootPart.CFrame = CFrame.new(abovePlotBlockPos)
+        wait(2) -- Breve periodo sopra il PlotBlock
         
-        descendTween.Completed:Connect(function()
-            if humanoid then
-                humanoid.PlatformStand = false
-            end
-            isActive = false
-            notify("Base Teleport", "Arrived at base location!", 3)
-        end)
+        -- Ritorno rapido sopra la base
+        rootPart.CFrame = CFrame.new(aboveBasePos)
+    end
+    
+    -- Discesa controllata verso la base
+    wait(1) -- Piccola pausa prima della discesa
+    local descendTween = TweenService:Create(
+        rootPart,
+        TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+        {CFrame = CFrame.new(savedBase)}
+    )
+    descendTween:Play()
+    
+    descendTween.Completed:Connect(function()
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+        isActive = false
+        notify("Base Teleport", "Arrived at base location!", 3)
     end)
 end
 
@@ -366,7 +390,7 @@ local SpeedBoostToggle = MainTab:CreateToggle({
             makeDraggable(button)
             
             button.MouseButton1Click:Connect(function()
-                SpeedBoostActive = not SpeedBoostActive
+  SpeedBoostActive = not SpeedBoostActive
                 button.Text = SpeedBoostActive and "💨 ON" or "💨 OFF"
                 button.BackgroundColor3 = SpeedBoostActive and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
                 
@@ -639,7 +663,7 @@ VisualTab:CreateToggle({
                 end
             end
             
-            for _, player in ipairs(Players:GetPlayers()) do
+            for _, player in pairs(Players:GetPlayers()) do
                 addESP(player)
             end
             
