@@ -1,12 +1,12 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "🔧 Mobile Admin Tools Pro",
-    LoadingTitle = "Loading enhanced tools...",
-    LoadingSubtitle = "Ultra Optimized Free Edition",
+    Name = "🔧 OnlyRoblox Admin Tools Pro",
+    LoadingTitle = "OnlyRoblox Script Loading...",
+    LoadingSubtitle = "Thanks for using my script!",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "MobileToolsProConfig",
-        FileName = "UltraOptimizedConfig"
+        FolderName = "OnlyRobloxConfig",
+        FileName = "UltraConfig"
     }
 })
 
@@ -45,6 +45,7 @@ local isActive = false
 local LockPlotBlockEnabled = false
 local LockPlotBlockGUI = nil
 local LockPlotBlockLoop = nil
+local FlightHeight = 50 -- Altezza fissa di volo
 
 -- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
@@ -102,7 +103,7 @@ local function makeDraggable(gui)
     end)
 end
 
--- ======= NUOVO SISTEMA TELEPORT BASE =======
+-- ======= SISTEMA TELEPORT BASE MIGLIORATO =======
 local function setBase()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
@@ -129,44 +130,75 @@ local function goBase()
     local humanoid = character:FindFirstChild("Humanoid")
     
     isActive = true
-    notify("Base Teleport", "Starting flight sequence...", 3)
+    notify("Flight System", "Starting flight sequence...", 3)
     
     -- Disabilita controlli
     if humanoid then
         humanoid.PlatformStand = true
     end
     
-    -- FASE 1: Teleport a 165 studs sopra posizione attuale
+    -- FASE 1: Teleport a 50 studs sopra posizione attuale
     local currentPos = rootPart.Position
-    rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + 165, currentPos.Z)
+    rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + FlightHeight, currentPos.Z)
     rootPart.Velocity = Vector3.new(0, 0, 0)
     rootPart.RotVelocity = Vector3.new(0, 0, 0)
     
-    -- FASE 2: Dopo 2 secondi, volo verso la base
-    wait(2)
+    -- FASE 2: Volo verso la base a 50 studs di altezza
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyVelocity.P = 1500
+    bodyVelocity.Parent = rootPart
     
-    local flyTween = TweenService:Create(
-        rootPart,
-        TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        {CFrame = CFrame.new(savedBase.X, savedBase.Y + 165, savedBase.Z)}
-    )
-    flyTween:Play()
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(20000, 20000, 20000)
+    bodyGyro.P = 2000
+    bodyGyro.Parent = rootPart
     
-    -- FASE 3: Quando arriva sopra la base, aspetta 1.5 secondi
-    flyTween.Completed:Connect(function()
-        wait(1.5)
-        
-        -- FASE 4: Teleport a -50 e caduta libera
-        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y - 50, savedBase.Z)
-        rootPart.Velocity = Vector3.new(0, -50, 0)
-        
-        -- Riabilita controlli per caduta normale
-        if humanoid then
-            humanoid.PlatformStand = false
+    local startTime = os.time()
+    local flightSpeed = 35
+    
+    local flightConnection
+    flightConnection = RunService.Heartbeat:Connect(function()
+        if not rootPart or not rootPart.Parent then
+            flightConnection:Disconnect()
+            return
         end
         
-        isActive = false
-        notify("Base Teleport", "Arrived at base location!", 3)
+        -- Calcola direzione verso la base (mantenendo altezza 50)
+        local targetPos = Vector3.new(savedBase.X, savedBase.Y + FlightHeight, savedBase.Z)
+        local direction = (targetPos - rootPart.Position).Unit
+        
+        -- Imposta velocità e rotazione
+        bodyVelocity.Velocity = direction * flightSpeed
+        bodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + direction)
+        
+        -- Controlla se siamo arrivati
+        local distance = (Vector3.new(rootPart.Position.X, 0, rootPart.Position.Z) - Vector3.new(savedBase.X, 0, savedBase.Z)).Magnitude
+        if distance < 10 or os.time() - startTime > 30 then
+            flightConnection:Disconnect()
+            
+            -- FASE 3: Discesa fluida alla base
+            local descendTween = TweenService:Create(
+                rootPart,
+                TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {CFrame = CFrame.new(savedBase)}
+            )
+            descendTween:Play()
+            
+            descendTween.Completed:Connect(function()
+                -- Ripristina controlli
+                if humanoid then
+                    humanoid.PlatformStand = false
+                end
+                
+                -- Pulisci oggetti fisici
+                bodyVelocity:Destroy()
+                bodyGyro:Destroy()
+                
+                isActive = false
+                notify("Flight System", "Arrived at base location!", 3)
+            end)
+        end
     end)
 end
 
@@ -387,7 +419,7 @@ MainTab:CreateButton({
 })
 
 MainTab:CreateButton({
-    Name = "🏠 Go to Base",
+    Name = "✈️ Fly to Base",
     Callback = goBase
 })
 
@@ -618,126 +650,126 @@ local StealHelperToggle = MainTab:CreateToggle({
             gradient.Parent = mainFrame
             
             local headerFrame = Instance.new("Frame")
-            headerFrame.Size = UDim2.new(1, 0, 0.25, 0)
-            headerFrame.Position = UDim2.new(0, 0, 0, 0)
-            headerFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-            headerFrame.BackgroundTransparency = 0.3
-            headerFrame.BorderSizePixel = 0
-            headerFrame.Parent = mainFrame
-            createCorner(headerFrame, 0.2)
-            
-            local titleLabel = Instance.new("TextLabel")
-            titleLabel.Size = UDim2.new(0.6, 0, 1, 0)
-            titleLabel.Position = UDim2.new(0.05, 0, 0, 0)
-            titleLabel.BackgroundTransparency = 1
-            titleLabel.Text = "🎯 Steal Helper Pro"
-            titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-            titleLabel.Font = Enum.Font.GothamBold
-            titleLabel.TextSize = 18
-            titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-            titleLabel.Parent = headerFrame
-            
-            local closeButton = Instance.new("TextButton")
-            closeButton.Size = UDim2.new(0.3, 0, 0.8, 0)
-            closeButton.Position = UDim2.new(0.65, 0, 0.1, 0)
-            closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
-            closeButton.Text = "✕"
-            closeButton.TextColor3 = Color3.new(1, 1, 1)
-            closeButton.Font = Enum.Font.GothamBold
-            closeButton.TextSize = 16
-            closeButton.BorderSizePixel = 0
-            closeButton.Parent = headerFrame
-            createCorner(closeButton, 0.4)
-            
-            closeButton.MouseButton1Click:Connect(function()
-                StealGUI:Destroy()
-                StealGUI = nil
-                StealHelperEnabled = false
-                StealHelperToggle:Set(false)
-            end)
-            
-            local isUp = true
-            local moveButton = Instance.new("TextButton")
-            moveButton.Size = UDim2.new(0.9, 0, 0.5, 0)
-            moveButton.Position = UDim2.new(0.05, 0, 0.3, 0)
-            moveButton.Text = "⬆️ TELEPORT UP"
-            moveButton.TextSize = 20
-            moveButton.TextColor3 = Color3.new(1, 1, 1)
-            moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
-            moveButton.Font = Enum.Font.GothamBold
-            moveButton.BorderSizePixel = 0
-            moveButton.Parent = mainFrame
-            createCorner(moveButton, 0.25)
-            
-            local buttonGradient = Instance.new("UIGradient")
-            buttonGradient.Color = ColorSequence.new{
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
-            }
-            buttonGradient.Rotation = 90
-            buttonGradient.Parent = moveButton
-            
-            moveButton.MouseButton1Click:Connect(function()
-                local character = Player.Character
-                if character then
-                    local rootPart = character:FindFirstChild("HumanoidRootPart")
-                    if rootPart then
-                        if isUp then
-                            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 180, 0)
-                            moveButton.Text = "⬇️ TELEPORT DOWN"
-                            moveButton.BackgroundColor3 = Color3.fromRGB(170, 85, 85)
-                            buttonGradient.Color = ColorSequence.new{
-                                ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 120, 120)),
-                                ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 85, 85))
-                            }
-                        else
-                            rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 60, 0)
-                            moveButton.Text = "⬆️ TELEPORT UP"
-                            moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
-                            buttonGradient.Color = ColorSequence.new{
-                                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
-                                ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
-                            }
-                        end
-                        isUp = not isUp
-                        
-                        local tween = TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.45, 0)})
-                        tween:Play()
-                        tween.Completed:Connect(function()
-                            TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.9, 0, 0.5, 0)}):Play()
-                        end)
-                    end
+    headerFrame.Size = UDim2.new(1, 0, 0.25, 0)
+    headerFrame.Position = UDim2.new(0, 0, 0, 0)
+    headerFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+    headerFrame.BackgroundTransparency = 0.3
+    headerFrame.BorderSizePixel = 0
+    headerFrame.Parent = mainFrame
+    createCorner(headerFrame, 0.2)
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    titleLabel.Position = UDim2.new(0.05, 0, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "🎯 Steal Helper Pro"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 18
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = headerFrame
+    
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0.3, 0, 0.8, 0)
+    closeButton.Position = UDim2.new(0.65, 0, 0.1, 0)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+    closeButton.Text = "✕"
+    closeButton.TextColor3 = Color3.new(1, 1, 1)
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 16
+    closeButton.BorderSizePixel = 0
+    closeButton.Parent = headerFrame
+    createCorner(closeButton, 0.4)
+    
+    closeButton.MouseButton1Click:Connect(function()
+        StealGUI:Destroy()
+        StealGUI = nil
+        StealHelperEnabled = false
+        StealHelperToggle:Set(false)
+    end)
+    
+    local isUp = true
+    local moveButton = Instance.new("TextButton")
+    moveButton.Size = UDim2.new(0.9, 0, 0.5, 0)
+    moveButton.Position = UDim2.new(0.05, 0, 0.3, 0)
+    moveButton.Text = "⬆️ TELEPORT UP"
+    moveButton.TextSize = 20
+    moveButton.TextColor3 = Color3.new(1, 1, 1)
+    moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
+    moveButton.Font = Enum.Font.GothamBold
+    moveButton.BorderSizePixel = 0
+    moveButton.Parent = mainFrame
+    createCorner(moveButton, 0.25)
+    
+    local buttonGradient = Instance.new("UIGradient")
+    buttonGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
+    }
+    buttonGradient.Rotation = 90
+    buttonGradient.Parent = moveButton
+    
+    moveButton.MouseButton1Click:Connect(function()
+        local character = Player.Character
+        if character then
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                if isUp then
+                    rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 180, 0)
+                    moveButton.Text = "⬇️ TELEPORT DOWN"
+                    moveButton.BackgroundColor3 = Color3.fromRGB(170, 85, 85)
+                    buttonGradient.Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 120, 120)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 85, 85))
+                    }
+                else
+                    rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 60, 0)
+                    moveButton.Text = "⬆️ TELEPORT UP"
+                    moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
+                    buttonGradient.Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
+                    }
                 end
-            end)
-            
-            local coordLabel = Instance.new("TextLabel")
-            coordLabel.Size = UDim2.new(0.9, 0, 0.18, 0)
-            coordLabel.Position = UDim2.new(0.05, 0, 0.82, 0)
-            coordLabel.Text = "📍 X:0 Y:0 Z:0"
-            coordLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-            coordLabel.BackgroundTransparency = 1
-            coordLabel.Font = Enum.Font.GothamBold
-            coordLabel.TextSize = 14
-            coordLabel.TextScaled = true
-            coordLabel.Parent = mainFrame
-            
-            task.spawn(function()
-                while StealGUI and StealGUI.Parent do
-                    local character = Player.Character
-                    if character then
-                        local rootPart = character:FindFirstChild("HumanoidRootPart")
-                        if rootPart then
-                            coordLabel.Text = string.format("📍 X:%d Y:%d Z:%d", 
-                                math.floor(rootPart.Position.X), 
-                                math.floor(rootPart.Position.Y), 
-                                math.floor(rootPart.Position.Z))
-                        end
-                    end
-                    task.wait(0.3)
+                isUp = not isUp
+                
+                local tween = TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.45, 0)})
+                tween:Play()
+                tween.Completed:Connect(function()
+                    TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.9, 0, 0.5, 0)}):Play()
+                end)
+            end
+        end
+    end)
+    
+    local coordLabel = Instance.new("TextLabel")
+    coordLabel.Size = UDim2.new(0.9, 0, 0.18, 0)
+    coordLabel.Position = UDim2.new(0.05, 0, 0.82, 0)
+    coordLabel.Text = "📍 X:0 Y:0 Z:0"
+    coordLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    coordLabel.BackgroundTransparency = 1
+    coordLabel.Font = Enum.Font.GothamBold
+    coordLabel.TextSize = 14
+    coordLabel.TextScaled = true
+    coordLabel.Parent = mainFrame
+    
+    task.spawn(function()
+        while StealGUI and StealGUI.Parent do
+            local character = Player.Character
+            if character then
+                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                if rootPart then
+                    coordLabel.Text = string.format("📍 X:%d Y:%d Z:%d", 
+                        math.floor(rootPart.Position.X), 
+                        math.floor(rootPart.Position.Y), 
+                        math.floor(rootPart.Position.Z))
                 end
-            end)
-            
-            notify("Steal Helper Active", "Teleport controls enabled", 3)
+            end
+            task.wait(0.3)
+        end
+    end)
+    
+    notify("Steal Helper Active", "Teleport controls enabled", 3)
         else
             if StealGUI then
                 StealGUI:Destroy()
@@ -1082,4 +1114,4 @@ MiscTab:CreateButton({
     end,
 })
 
-notify("Admin Tools Pro Loaded", "Advanced Teleport System Active ✈️", 4)
+notify("OnlyRoblox Tools Loaded", "Thanks for using my script! ✨", 5)
