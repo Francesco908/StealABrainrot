@@ -26,7 +26,6 @@ local Camera = workspace.CurrentCamera
 -- Variabili
 local Connections = {}
 local ESPCache = {}
-local SpawnPosition = nil
 local AirJumpEnabled = false
 local SpeedBoostActive = false
 local SpeedBoostButton = nil
@@ -44,8 +43,8 @@ local OriginalJumpPower = 50
 local savedBase = nil
 local isActive = false
 local LockPlotBlockEnabled = false
-local LockPlotBlockConnection = nil
-local PlotBlockPosition = nil
+local LockPlotBlockGUI = nil
+local LockPlotBlockLoop = nil
 
 -- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
@@ -103,7 +102,7 @@ local function makeDraggable(gui)
     end)
 end
 
--- ======= SISTEMA TELEPORT BASE MIGLIORATO =======
+-- ======= NUOVO SISTEMA TELEPORT BASE =======
 local function setBase()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
@@ -137,40 +136,34 @@ local function goBase()
         humanoid.PlatformStand = true
     end
     
-    -- FASE 1: Teleport in alto a 165 studs
-    rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y + 165, savedBase.Z)
+    -- FASE 1: Teleport a 165 studs sopra posizione attuale
+    local currentPos = rootPart.Position
+    rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + 165, currentPos.Z)
     rootPart.Velocity = Vector3.new(0, 0, 0)
     rootPart.RotVelocity = Vector3.new(0, 0, 0)
     
-    -- FASE 2: Volo orizzontale verso la base (rimanendo a 165 studs di altezza)
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.Parent = rootPart
+    -- FASE 2: Dopo 2 secondi, volo verso la base
+    wait(2)
     
-    -- Tween per andare sopra la base mantenendo altezza 165
     local flyTween = TweenService:Create(
         rootPart,
-        TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
         {CFrame = CFrame.new(savedBase.X, savedBase.Y + 165, savedBase.Z)}
     )
-    
     flyTween:Play()
     
-    -- FASE 3: Dopo 2 secondi, caduta libera a -50
+    -- FASE 3: Quando arriva sopra la base, aspetta 1.5 secondi
     flyTween.Completed:Connect(function()
-        if bodyVelocity then
-            bodyVelocity:Destroy()
-        end
+        wait(1.5)
         
-        -- Riabilita controlli per caduta naturale
+        -- FASE 4: Teleport a -50 e caduta libera
+        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y - 50, savedBase.Z)
+        rootPart.Velocity = Vector3.new(0, -50, 0)
+        
+        -- Riabilita controlli per caduta normale
         if humanoid then
             humanoid.PlatformStand = false
         end
-        
-        -- Teleport immediato a -50 (come se si fosse buttato)
-        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y - 50, savedBase.Z)
-        rootPart.Velocity = Vector3.new(0, -50, 0)
         
         isActive = false
         notify("Base Teleport", "Arrived at base location!", 3)
@@ -179,30 +172,23 @@ end
 
 -- ======= SISTEMA LOCK BASE TO PLOTBLOCK =======
 local function findPlotBlock()
-    -- Cerca prima nel workspace principale
-    local purchasesFolder = workspace:FindFirstChild("Purchases")
-    if not purchasesFolder then
-        -- Cerca in tutti i modelli nel workspace
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj.Name == "Purchases" and obj:IsA("Folder") then
-                purchasesFolder = obj
-                break
+    -- Cerca nella base del player corrente
+    local plot = workspace:FindFirstChild(Player.Name)
+    if plot then
+        local purchases = plot:FindFirstChild("Purchases")
+        if purchases then
+            local plotBlock = purchases:FindFirstChild("PlotBlock")
+            if plotBlock then
+                if plotBlock:IsA("Model") and plotBlock.PrimaryPart then
+                    return plotBlock.PrimaryPart.Position
+                elseif plotBlock:IsA("BasePart") then
+                    return plotBlock.Position
+                end
             end
         end
     end
     
-    if purchasesFolder then
-        local plotBlock = purchasesFolder:FindFirstChild("PlotBlock")
-        if plotBlock then
-            if plotBlock:IsA("Model") and plotBlock.PrimaryPart then
-                return plotBlock.PrimaryPart.Position
-            elseif plotBlock:IsA("BasePart") then
-                return plotBlock.Position
-            end
-        end
-    end
-    
-    -- Cerca in modo più aggressivo in tutto il workspace
+    -- Ricerca alternativa in tutto il workspace
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "PlotBlock" then
             if obj:IsA("Model") and obj.PrimaryPart then
@@ -222,16 +208,79 @@ local function lockToPlotBlock()
         return 
     end
     
-    if not PlotBlockPosition then
-        PlotBlockPosition = findPlotBlock()
-        if not PlotBlockPosition then
-            notify("Error", "PlotBlock not found in Purchases", 3)
-            return
-        end
+    local plotBlockPos = findPlotBlock()
+    if not plotBlockPos then
+        notify("Error", "PlotBlock not found in Purchases", 3)
+        return
     end
     
-    character.HumanoidRootPart.CFrame = CFrame.new(PlotBlockPosition)
+    character.HumanoidRootPart.CFrame = CFrame.new(plotBlockPos)
     character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+end
+
+local function createLockGUI()
+    if LockPlotBlockGUI then LockPlotBlockGUI:Destroy() end
+    
+    local lockGUI = Instance.new("ScreenGui")
+    lockGUI.Name = "LockPlotBlockGUI"
+    lockGUI.Parent = CoreGui
+    lockGUI.ResetOnSpawn = false
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0.25, 0, 0.12, 0)
+    mainFrame.Position = UDim2.new(0.5, 0, 0.05, 0)
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    mainFrame.BackgroundTransparency = 0.2
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = lockGUI
+    createCorner(mainFrame, 0.2)
+    makeDraggable(mainFrame)
+    
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0.3, 0)
+    header.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.7, 0, 1, 0)
+    title.Position = UDim2.new(0.05, 0, 0, 0)
+    title.Text = "🔒 LOCKED TO PLOTBLOCK"
+    title.TextColor3 = Color3.fromRGB(255, 100, 100)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0.25, 0, 0.8, 0)
+    closeBtn.Position = UDim2.new(0.7, 0, 0.1, 0)
+    closeBtn.Text = "✕ CLOSE"
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 14
+    closeBtn.Parent = header
+    createCorner(closeBtn, 0.3)
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        LockPlotBlockToggle:Set(false)
+    end)
+    
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(0.9, 0, 0.6, 0)
+    statusLabel.Position = UDim2.new(0.05, 0, 0.35, 0)
+    statusLabel.Text = "Position locked to your PlotBlock in Purchases"
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 14
+    statusLabel.TextWrapped = true
+    statusLabel.Parent = mainFrame
+    
+    LockPlotBlockGUI = lockGUI
 end
 
 -- ======= SISTEMA FAST STEAL BYPASSATO =======
@@ -343,62 +392,31 @@ MainTab:CreateButton({
 })
 
 -- Lock Base to PlotBlock Toggle
-MainTab:CreateToggle({
-    Name = "🔒 Lock Base to PlotBlock",
+local LockPlotBlockToggle = MainTab:CreateToggle({
+    Name = "🔒 Lock Base",
     CurrentValue = false,
     Flag = "LockPlotBlock",
     Callback = function(Value)
         LockPlotBlockEnabled = Value
         if Value then
-            PlotBlockPosition = findPlotBlock()
-            if PlotBlockPosition then
-                notify("Locked to PlotBlock", "Teleporting to PlotBlock...", 3)
-                lockToPlotBlock()
-                
-                -- Crea GUI per mostrare lo stato del lock
-                local lockGUI = Instance.new("ScreenGui")
-                lockGUI.Name = "LockPlotBlockGUI"
-                lockGUI.Parent = CoreGui
-                lockGUI.ResetOnSpawn = false
-                
-                local frame = Instance.new("Frame")
-                frame.Size = UDim2.new(0.2, 0, 0.05, 0)
-                frame.Position = UDim2.new(0.4, 0, 0.05, 0)
-                frame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-                frame.BackgroundTransparency = 0.3
-                frame.BorderSizePixel = 0
-                frame.Parent = lockGUI
-                createCorner(frame, 0.2)
-                
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.Text = "🔒 LOCKED TO PLOTBLOCK"
-                label.TextColor3 = Color3.fromRGB(255, 100, 100)
-                label.BackgroundTransparency = 1
-                label.Font = Enum.Font.GothamBold
-                label.TextSize = 14
-                label.Parent = frame
-                
-                -- Salva riferimento per la pulizia
-                LockPlotBlockConnection = lockGUI
-                
-                -- Avvia il loop di lock
-                LockPlotBlockLoop = RunService.Heartbeat:Connect(function()
-                    if LockPlotBlockEnabled then
-                        lockToPlotBlock()
-                    end
-                end)
-            else
-                notify("Error", "PlotBlock not found in Purchases", 3)
-                LockPlotBlockEnabled = false
-            end
+            createLockGUI()
+            notify("Locked to PlotBlock", "Teleporting to your PlotBlock...", 3)
+            lockToPlotBlock()
+            
+            -- Avvia il loop di lock
+            LockPlotBlockLoop = RunService.Heartbeat:Connect(function()
+                if LockPlotBlockEnabled then
+                    lockToPlotBlock()
+                end
+            end)
         else
-            if LockPlotBlockConnection then
-                LockPlotBlockConnection:Destroy()
-                LockPlotBlockConnection = nil
+            if LockPlotBlockGUI then
+                LockPlotBlockGUI:Destroy()
+                LockPlotBlockGUI = nil
             end
             if LockPlotBlockLoop then
                 LockPlotBlockLoop:Disconnect()
+                LockPlotBlockLoop = nil
             end
         end
     end,
@@ -1028,13 +1046,14 @@ local function cleanup()
     isActive = false
     LockPlotBlockEnabled = false
     
-    if LockPlotBlockConnection then
-        LockPlotBlockConnection:Destroy()
-        LockPlotBlockConnection = nil
+    if LockPlotBlockGUI then
+        LockPlotBlockGUI:Destroy()
+        LockPlotBlockGUI = nil
     end
     
     if LockPlotBlockLoop then
         LockPlotBlockLoop:Disconnect()
+        LockPlotBlockLoop = nil
     end
     
     local character = Player.Character
@@ -1063,4 +1082,4 @@ MiscTab:CreateButton({
     end,
 })
 
-notify("Admin Tools Pro Loaded", "Advanced Flight System Active ✈️", 4)
+notify("Admin Tools Pro Loaded", "Advanced Teleport System Active ✈️", 4)
