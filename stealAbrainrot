@@ -1,5 +1,5 @@
--- Brainrot Universal Script with Advanced Features v2.0
--- Enhanced with requested features
+-- Brainrot Universal Script with Advanced Features v3.0
+-- Enhanced with all requested features
 local Rayfield
 pcall(function()
     Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -25,14 +25,11 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Variables
 local basePosition = Vector3.new(0, 10, 0)
-local dropPoint = Vector3.new(0, 300, 0)  -- New drop point
+local dropPoint = Vector3.new(0, 300, 0)
 local originalSpeed = 16
 local godMode = false
 local antiRagdoll = false
-local autoWalk = false
 local skyWidget = nil
-local skyWidgetVisible = false
-local skyWidgetMinimized = false
 local leaveGui = nil
 local baseGui = nil
 local killAuraActive = false
@@ -40,6 +37,7 @@ local killAuraConnection = nil
 local noclipActive = false
 local noclipConnection = nil
 local proximityPromptFixApplied = false
+local speedBoostActive = false
 
 -- Anti-kick system
 local function antiKick()
@@ -134,20 +132,27 @@ local function naturalWalk(targetPosition)
     tween:Play()
 end
 
--- Teleport to drop point and fall
+-- Teleport to drop point and fall to enemy base
 local function teleportAndDrop()
     pcall(function()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
+            -- Save current position (enemy base)
+            local enemyBasePosition = char.HumanoidRootPart.Position
+            
             -- Teleport to drop point
             char.HumanoidRootPart.CFrame = CFrame.new(dropPoint)
             
-            -- Allow falling
-            char.Humanoid:ChangeState(Enum.HumanoidStateType.FallingDown)
+            -- Wait a moment
+            task.wait(0.5)
+            
+            -- Teleport back to enemy base position but at ground level
+            local groundPosition = Vector3.new(enemyBasePosition.X, enemyBasePosition.Y + 5, enemyBasePosition.Z)
+            char.HumanoidRootPart.CFrame = CFrame.new(groundPosition)
             
             Rayfield:Notify({
                 Title = "Drop Teleport",
-                Content = "Teleported to drop point and falling",
+                Content = "Teleported to drop point and returned to enemy base",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -226,374 +231,28 @@ local function stopKillAura()
     killAuraActive = false
 end
 
--- Create Base GUI
-local function createBaseGui()
-    if baseGui then
-        baseGui:Destroy()
-    end
-    
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "BaseGui"
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    screenGui.ResetOnSpawn = false
-    baseGui = screenGui
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 350, 0, 220)  -- Increased height
-    mainFrame.Position = UDim2.new(0.5, -175, 0.5, -110)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    mainFrame.BackgroundTransparency = 0.1
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 15)
-    corner.Parent = mainFrame
-    
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, -60, 0, 40)
-    title.Position = UDim2.new(0, 20, 0, 10)
-    title.BackgroundTransparency = 1
-    title.Text = "🏠 BASE CONTROL"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 18
-    title.Font = Enum.Font.GothamBold
-    title.Parent = mainFrame
-    
-    local closeButton = Instance.new("TextButton")
-    closeButton.Name = "CloseButton"
-    closeButton.Size = UDim2.new(0, 30, 0, 30)
-    closeButton.Position = UDim2.new(1, -40, 0, 10)
-    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-    closeButton.Text = "✕"
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.TextSize = 16
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.BorderSizePixel = 0
-    closeButton.Parent = mainFrame
-    
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 15)
-    closeCorner.Parent = closeButton
-    
-    local inputBox = Instance.new("TextBox")
-    inputBox.Name = "InputBox"
-    inputBox.Size = UDim2.new(0, 250, 0, 35)
-    inputBox.Position = UDim2.new(0.5, -125, 0, 60)
-    inputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    inputBox.Text = "0,10,0"
-    inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    inputBox.TextSize = 14
-    inputBox.Font = Enum.Font.Gotham
-    inputBox.PlaceholderText = "X,Y,Z coordinates"
-    inputBox.BorderSizePixel = 0
-    inputBox.Parent = mainFrame
-    
-    local inputCorner = Instance.new("UICorner")
-    inputCorner.CornerRadius = UDim.new(0, 8)
-    inputCorner.Parent = inputBox
-    
-    -- New Drop Point Section
-    local dropInputBox = Instance.new("TextBox")
-    dropInputBox.Name = "DropInputBox"
-    dropInputBox.Size = UDim2.new(0, 250, 0, 35)
-    dropInputBox.Position = UDim2.new(0.5, -125, 0, 105)
-    dropInputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    dropInputBox.Text = "0,300,0"
-    dropInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dropInputBox.TextSize = 14
-    dropInputBox.Font = Enum.Font.Gotham
-    dropInputBox.PlaceholderText = "Drop Point (X,Y,Z)"
-    dropInputBox.BorderSizePixel = 0
-    dropInputBox.Parent = mainFrame
-    
-    local dropInputCorner = Instance.new("UICorner")
-    dropInputCorner.CornerRadius = UDim.new(0, 8)
-    dropInputCorner.Parent = dropInputBox
-    
-    local setButton = Instance.new("TextButton")
-    setButton.Name = "SetButton"
-    setButton.Size = UDim2.new(0, 120, 0, 35)
-    setButton.Position = UDim2.new(0, 50, 0, 150)
-    setButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
-    setButton.Text = "📍 SET BASE"
-    setButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    setButton.TextSize = 14
-    setButton.Font = Enum.Font.GothamBold
-    setButton.BorderSizePixel = 0
-    setButton.Parent = mainFrame
-    
-    local setCorner = Instance.new("UICorner")
-    setCorner.CornerRadius = UDim.new(0, 8)
-    setCorner.Parent = setButton
-    
-    local goButton = Instance.new("TextButton")
-    goButton.Name = "GoButton"
-    goButton.Size = UDim2.new(0, 120, 0, 35)
-    goButton.Position = UDim2.new(0, 180, 0, 150)
-    goButton.BackgroundColor3 = Color3.fromRGB(100, 200, 120)
-    goButton.Text = "🚀 GO TO BASE"
-    goButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    goButton.TextSize = 14
-    goButton.Font = Enum.Font.GothamBold
-    goButton.BorderSizePixel = 0
-    goButton.Parent = mainFrame
-    
-    local goCorner = Instance.new("UICorner")
-    goCorner.CornerRadius = UDim.new(0, 8)
-    goCorner.Parent = goButton
-    
-    local infoLabel = Instance.new("TextLabel")
-    infoLabel.Name = "InfoLabel"
-    infoLabel.Size = UDim2.new(1, -40, 0, 20)
-    infoLabel.Position = UDim2.new(0, 20, 0, 190)
-    infoLabel.BackgroundTransparency = 1
-    infoLabel.Text = "Base teleport: Up +256 → Base → Down"
-    infoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    infoLabel.TextSize = 12
-    infoLabel.Font = Enum.Font.Gotham
-    infoLabel.Parent = mainFrame
-    
-    closeButton.MouseButton1Click:Connect(function()
-        baseGui:Destroy()
-        baseGui = nil
-    end)
-    
-    setButton.MouseButton1Click:Connect(function()
-        pcall(function()
-            local text = inputBox.Text
-            local coords = string.split(text, ",")
-            if #coords == 3 then
-                local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
-                if x and y and z then
-                    basePosition = Vector3.new(x, y, z)
-                    Rayfield:Notify({
-                        Title = "Base Set",
-                        Content = "New base position set to " .. text,
-                        Duration = 2,
-                        Image = 4483362458
-                    })
-                end
-            end
-        end)
-    end)
-    
-    -- Set Drop Point
-    dropInputBox.FocusLost:Connect(function()
-        pcall(function()
-            local text = dropInputBox.Text
-            local coords = string.split(text, ",")
-            if #coords == 3 then
-                local x, y, z = tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3])
-                if x and y and z then
-                    dropPoint = Vector3.new(x, y, z)
-                    Rayfield:Notify({
-                        Title = "Drop Point Set",
-                        Content = "New drop point set to " .. text,
-                        Duration = 2,
-                        Image = 4483362458
-                    })
-                end
-            end
-        end)
-    end)
-    
-    goButton.MouseButton1Click:Connect(function()
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                -- Go up +256
-                local currentPos = char.HumanoidRootPart.Position
-                local skyPos = Vector3.new(currentPos.X, currentPos.Y + 256, currentPos.Z)
-                char.HumanoidRootPart.CFrame = CFrame.new(skyPos)
-                
-                task.wait(0.5)
-                
-                -- Go to base position at height
-                local finalPos = Vector3.new(basePosition.X, basePosition.Y + 256, basePosition.Z)
-                char.HumanoidRootPart.CFrame = CFrame.new(finalPos)
-                
-                task.wait(0.5)
-                
-                -- Go down to base
-                char.HumanoidRootPart.CFrame = CFrame.new(basePosition)
-                
-                Rayfield:Notify({
-                    Title = "Base Travel",
-                    Content = "Traveled to base via sky route",
-                    Duration = 2,
-                    Image = 4483362458
-                })
-            end
-        end)
-    end)
-end
-
--- Enhanced Steal Helper UI
-local function createStealHelperUI(Window)
-    local StealTab = Window:CreateTab("Steal/Combat", 4483362458)
-    
-    StealTab:CreateSection("⚔️ Combat Features")
-    
-    StealTab:CreateToggle({
-        Name = "God Mode",
-        CurrentValue = false,
-        Callback = function(value)
-            godMode = value
-            local char = LocalPlayer.Character
-            if not char then return end
-            
-            if godMode then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-                if char:FindFirstChild("Humanoid") then
-                    char.Humanoid.MaxHealth = math.huge
-                    char.Humanoid.Health = math.huge
-                end
-            else
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.CanCollide = true
-                    end
-                end
-                if char:FindFirstChild("Humanoid") then
-                    char.Humanoid.MaxHealth = 100
-                    char.Humanoid.Health = 100
-                end
-            end
-            
-            Rayfield:Notify({
-                Title = "God Mode",
-                Content = godMode and "God Mode ON" or "God Mode OFF",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end
-    })
-    
-    StealTab:CreateToggle({
-        Name = "Enhanced Kill Aura 360°",
-        CurrentValue = false,
-        Callback = function(value)
-            if value then
-                startKillAura()
-                Rayfield:Notify({
-                    Title = "Kill Aura",
-                    Content = "360° Kill Aura activated",
-                    Duration = 3,
-                    Image = 4483362458
-                })
-            else
-                stopKillAura()
-                Rayfield:Notify({
-                    Title = "Kill Aura",
-                    Content = "Kill Aura deactivated",
-                    Duration = 2,
-                    Image = 4483362458
-                })
-            end
-        end
-    })
-    
-    StealTab:CreateSection("🎭 Stealth Features")
-    
-    StealTab:CreateToggle({
-        Name = "Bypass NoClip (Pass Through Walls)",
-        CurrentValue = false,
-        Callback = function(value)
-            toggleNoClip()
-            Rayfield:Notify({
-                Title = "NoClip",
-                Content = value and "Bypass NoClip Activated" or "NoClip Deactivated",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end
-    })
-    
-    StealTab:CreateButton({
-        Name = "Invisibility Toggle",
-        Callback = function()
-            pcall(function()
-                local char = LocalPlayer.Character
-                if char then
-                    for _, part in pairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                            part.Transparency = part.Transparency == 0 and 1 or 0
-                        end
-                        if part:IsA("Accessory") then
-                            part.Handle.Transparency = part.Handle.Transparency == 0 and 1 or 0
-                        end
-                    end
-                    
-                    if char:FindFirstChild("Head") then
-                        for _, child in pairs(char.Head:GetChildren()) do
-                            if child:IsA("Decal") then
-                                child.Transparency = child.Transparency == 0 and 1 or 0
-                            end
-                        end
-                    end
-                    
-                    Rayfield:Notify({
-                        Title = "Invisibility",
-                        Content = "Invisibility toggled",
-                        Duration = 2,
-                        Image = 4483362458
-                    })
-                end
-            end)
-        end
-    })
-    
-    StealTab:CreateSection("🚪 Server Management")
-    
-    StealTab:CreateButton({
-        Name = "Leave & Server Hop",
-        Callback = function()
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId, LocalPlayer)
-            end)
-        end
-    })
-    
-    StealTab:CreateButton({
-        Name = "Rejoin Game",
-        Callback = function()
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId, LocalPlayer)
-            end)
-        end
-    })
-end
-
 -- Create UI
 local Window = Rayfield:CreateWindow({
-    Name = "Brainrot Hub Enhanced v2.0",
+    Name = "🚀 Brainrot Hub Enhanced v3.0",
     LoadingTitle = "Loading Premium Features...",
-    LoadingSubtitle = "Enhanced steal helper with bypass features",
+    LoadingSubtitle = "Enhanced with all requested features",
     ConfigurationSaving = {Enabled = false},
     Discord = {Enabled = false},
     KeySystem = false
 })
 
-local MainTab = Window:CreateTab("Main", 4483362458)
-createStealHelperUI(Window)
-local OtherTab = Window:CreateTab("Other", 4483362458)
+local MainTab = Window:CreateTab("🏠 Main", 4483362458)
+local StealTab = Window:CreateTab("⚡ Steal Helper", 4483362458)
+local OtherTab = Window:CreateTab("✨ Other", 4483362458)
 
 -- Speed Section
 MainTab:CreateSection("💨 Speed & Movement")
 
 MainTab:CreateToggle({
-    Name = "Bypass Speed Boost (45% Faster)",
+    Name = "🚀 Bypass Speed Boost (45% Faster)",
     CurrentValue = false,
     Callback = function(value)
+        speedBoostActive = value
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("Humanoid") then
@@ -614,7 +273,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateButton({
-    Name = "Natural Walk to Base (Bypass)",
+    Name = "🚶 Natural Walk to Base (Bypass)",
     Callback = function()
         pcall(function()
             naturalWalk(basePosition)
@@ -632,41 +291,15 @@ MainTab:CreateButton({
 MainTab:CreateSection("📍 Teleport")
 
 MainTab:CreateButton({
-    Name = "Open Base Control Panel",
-    Callback = function()
-        pcall(function()
-            createBaseGui()
-            Rayfield:Notify({
-                Title = "Base Control",
-                Content = "Base control panel opened",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end)
-    end
-})
-
--- Other Tab Features
-OtherTab:CreateSection("✨ Special Features")
-
-OtherTab:CreateButton({
-    Name = "Teleport to Drop Point & Fall",
-    Callback = function()
-        teleportAndDrop()
-    end
-})
-
-OtherTab:CreateButton({
-    Name = "Set Current Position as Drop Point",
+    Name = "🏠 Go to Base",
     Callback = function()
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                local pos = char.HumanoidRootPart.Position
-                dropPoint = Vector3.new(pos.X, pos.Y + 200, pos.Z)
+                char.HumanoidRootPart.CFrame = CFrame.new(basePosition)
                 Rayfield:Notify({
-                    Title = "Drop Point Set",
-                    Content = "Drop point set above current position",
+                    Title = "Base Teleport",
+                    Content = "Teleported to base",
                     Duration = 2,
                     Image = 4483362458
                 })
@@ -675,10 +308,192 @@ OtherTab:CreateButton({
     end
 })
 
+-- Steal Helper Tab (Premium Design)
+StealTab:CreateSection("⚔️ Combat Features")
+
+StealTab:CreateToggle({
+    Name = "🛡️ God Mode",
+    CurrentValue = false,
+    Callback = function(value)
+        godMode = value
+        local char = LocalPlayer.Character
+        if not char then return end
+        
+        if godMode then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+            if char:FindFirstChild("Humanoid") then
+                char.Humanoid.MaxHealth = math.huge
+                char.Humanoid.Health = math.huge
+            end
+        else
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+            if char:FindFirstChild("Humanoid") then
+                char.Humanoid.MaxHealth = 100
+                char.Humanoid.Health = 100
+            end
+        end
+        
+        Rayfield:Notify({
+            Title = "God Mode",
+            Content = godMode and "God Mode ON" or "God Mode OFF",
+            Duration = 2,
+            Image = 4483362458
+        })
+    end
+})
+
+StealTab:CreateToggle({
+    Name = "🌀 Enhanced Kill Aura 360°",
+    CurrentValue = false,
+    Callback = function(value)
+        if value then
+            startKillAura()
+            Rayfield:Notify({
+                Title = "Kill Aura",
+                Content = "360° Kill Aura activated",
+                Duration = 3,
+                Image = 4483362458
+            })
+        else
+            stopKillAura()
+            Rayfield:Notify({
+                Title = "Kill Aura",
+                Content = "Kill Aura deactivated",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    end
+})
+
+StealTab:CreateSection("🎭 Stealth Features")
+
+StealTab:CreateToggle({
+    Name = "👻 Bypass NoClip (Pass Through Walls)",
+    CurrentValue = false,
+    Callback = function(value)
+        toggleNoClip()
+        Rayfield:Notify({
+            Title = "NoClip",
+            Content = value and "Bypass NoClip Activated" or "NoClip Deactivated",
+            Duration = 2,
+            Image = 4483362458
+        })
+    end
+})
+
+StealTab:CreateButton({
+    Name = "👤 Invisibility Toggle",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                        part.Transparency = part.Transparency == 0 and 1 or 0
+                    end
+                    if part:IsA("Accessory") then
+                        part.Handle.Transparency = part.Handle.Transparency == 0 and 1 or 0
+                    end
+                end
+                
+                if char:FindFirstChild("Head") then
+                    for _, child in pairs(char.Head:GetChildren()) do
+                        if child:IsA("Decal") then
+                            child.Transparency = child.Transparency == 0 and 1 or 0
+                        end
+                    end
+                end
+                
+                Rayfield:Notify({
+                    Title = "Invisibility",
+                    Content = "Invisibility toggled",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+StealTab:CreateSection("🚪 Server Management")
+
+StealTab:CreateButton({
+    Name = "🔄 Leave & Server Hop",
+    Callback = function()
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end)
+    end
+})
+
+StealTab:CreateButton({
+    Name = "🔁 Rejoin Game",
+    Callback = function()
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end)
+    end
+})
+
+-- Other Tab Features
+OtherTab:CreateSection("✨ Special Features")
+
+OtherTab:CreateButton({
+    Name = "📍 Set Current Position as Base",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                basePosition = char.HumanoidRootPart.Position
+                Rayfield:Notify({
+                    Title = "Base Position Set",
+                    Content = "Base set to current position",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+OtherTab:CreateButton({
+    Name = "📍 Set Current Position as Drop Point",
+    Callback = function()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                dropPoint = char.HumanoidRootPart.Position
+                Rayfield:Notify({
+                    Title = "Drop Point Set",
+                    Content = "Drop point set to current position",
+                    Duration = 2,
+                    Image = 4483362458
+                })
+            end
+        end)
+    end
+})
+
+OtherTab:CreateButton({
+    Name = "🚀 Teleport to Drop Point & Enemy Base",
+    Callback = function()
+        teleportAndDrop()
+    end
+})
+
 OtherTab:CreateSection("⚙️ Utilities")
 
 OtherTab:CreateButton({
-    Name = "Fix Proximity Prompt Bug",
+    Name = "🔧 Fix Proximity Prompt Bug",
     Callback = function()
         fixProximityPrompt()
         Rayfield:Notify({
@@ -691,7 +506,7 @@ OtherTab:CreateButton({
 })
 
 OtherTab:CreateButton({
-    Name = "Reset Character",
+    Name = "🔄 Reset Character",
     Callback = function()
         pcall(function()
             LocalPlayer.Character:FindFirstChild("Humanoid").Health = 0
@@ -706,7 +521,7 @@ OtherTab:CreateButton({
 })
 
 OtherTab:CreateSlider({
-    Name = "FOV Changer",
+    Name = "👁️ FOV Changer",
     Range = {10, 120},
     Increment = 1,
     Suffix = "FOV",
@@ -728,6 +543,11 @@ local function setupCharacter()
     repeat task.wait(0.1) until LocalPlayer.Character
     repeat task.wait(0.1) until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     originalSpeed = LocalPlayer.Character.Humanoid.WalkSpeed
+    
+    -- Reapply speed boost if active
+    if speedBoostActive then
+        LocalPlayer.Character.Humanoid.WalkSpeed = originalSpeed * 1.45
+    end
 end
 
 if LocalPlayer.Character then
@@ -737,8 +557,8 @@ LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
 -- Success notification
 Rayfield:Notify({
-    Title = "Brainrot Hub Enhanced v2.0 Loaded",
-    Content = "All features activated - Bypass NoClip, Drop Teleport, Proximity Fix!",
+    Title = "🚀 Brainrot Hub Enhanced v3.0 Loaded",
+    Content = "All features activated - Bypass Speed, Drop Teleport, Fixed Prompts!",
     Duration = 6,
     Image = 4483362458
 })
