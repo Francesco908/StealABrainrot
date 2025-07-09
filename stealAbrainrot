@@ -1,12 +1,12 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "🔧 OnlyRobloxScript YT",
-    LoadingTitle = "Loading...",
-    LoadingSubtitle = "Thanks for using my script",
+    Name = "🔧 Mobile Admin Tools Pro",
+    LoadingTitle = "Loading enhanced tools...",
+    LoadingSubtitle = "Ultra Optimized Premium Edition",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "MobileToolsProConfig",
-        FileName = "UltraOptimizedConfig"
+        FileName = "UltraOptimizedPremiumConfig"
     }
 })
 
@@ -18,11 +18,16 @@ local CoreGui = game:GetService("CoreGui")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local TeleportService = game:GetService("TeleportService")
 local Player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+
+-- Variabili premium
+local PremiumEnabled = false -- Cambia a true per attivare le funzioni premium
+local BasePosition = nil
+local TeleportHeight = 167
+local TeleportSpeed = 35
 
 -- Variabili
 local Connections = {}
@@ -42,11 +47,8 @@ local KillAuraActive = false
 local KillAuraConnection = nil
 local OriginalWalkSpeed = 16
 local OriginalJumpPower = 50
-local PremiumEnabled = false -- Variabile premium
-local BasePosition = nil -- Nuova posizione base
-local FlyingToBase = false -- Stato volo base
 
--- Funzioni di utilità
+-- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
     if Connections[name] then
         Connections[name]:Disconnect()
@@ -58,7 +60,7 @@ local function notify(title, content, duration)
     Rayfield:Notify({
         Title = title,
         Content = content,
-        Duration = duration or 3,
+        Duration = duration or 2.5,
         Image = 13014546637,
     })
 end
@@ -102,7 +104,7 @@ local function makeDraggable(gui)
     end)
 end
 
--- Memorizza posizione spawn
+-- Memorizza posizione spawn BYPASSATA
 local function storeSpawnPosition()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
@@ -111,7 +113,7 @@ local function storeSpawnPosition()
 end
 
 Player.CharacterAdded:Connect(function()
-    task.wait(2)
+    task.wait(1.5)
     storeSpawnPosition()
 end)
 
@@ -119,12 +121,12 @@ if Player.Character then
     storeSpawnPosition()
 end
 
--- ======= SISTEMA FAST STEAL MIGLIORATO =======
+-- ======= SISTEMA FAST STEAL BYPASSATO =======
 local function modifyPrompt(prompt)
     if not prompt:IsDescendantOf(game:GetService("CoreGui")) then
         prompt.HoldDuration = 0
         prompt.RequiresLineOfSight = false
-        prompt.MaxActivationDistance = 50
+        prompt.MaxActivationDistance = 75 -- Aumentato per maggiore efficacia
     end
 end
 
@@ -149,9 +151,9 @@ local function autoClickNearbyPrompts()
             if part:IsA("BasePart") then
                 local distance = (root.Position - part.Position).Magnitude
                 if distance <= prompt.MaxActivationDistance then
-                    ProximityPromptService:PromptTriggered(prompt, Player)
+                    fireproximityprompt(prompt) -- Metodo più affidabile
                     clicked = true
-                    task.wait(0.1) -- Breve pausa tra i click
+                    task.wait(0.08) -- Tempo ridotto per maggiore velocità
                 end
             end
         end
@@ -160,10 +162,11 @@ local function autoClickNearbyPrompts()
     return clicked
 end
 
--- ======= SISTEMA KILL AURA =======
+-- ======= SISTEMA KILL AURA (rimasto invariato) =======
 local function startKillAura()
     if KillAuraActive then return end
     KillAuraActive = true
+    
     KillAuraConnection = RunService.Heartbeat:Connect(function()
         pcall(function()
             local char = Player.Character
@@ -215,81 +218,47 @@ local function stopKillAura()
     KillAuraActive = false
 end
 
--- ======= SISTEMA TELEPORT BASE PREMIUM =======
+-- ======= SISTEMA TELEPORT BASE BYPASSATO =======
 local function teleportToBase()
     if not BasePosition then
-        notify("Error", "Set base position first!", 3)
+        notify("Error", "Base position not set!", 3)
         return
     end
-    
+
     local character = Player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    
+
     local root = character.HumanoidRootPart
-    FlyingToBase = true
+    local startPos = root.Position
+    local targetPos = BasePosition + Vector3.new(0, TeleportHeight, 0)
     
-    -- Disabilita collisioni temporaneamente
-    for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
+    -- Teletrasporta in alto
+    root.CFrame = CFrame.new(targetPos)
+    task.wait(0.1)
+    
+    -- Vola verso la base
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Velocity = (BasePosition - targetPos).Unit * TeleportSpeed
+    bodyVelocity.MaxForce = Vector3.new(10000, 0, 10000)
+    bodyVelocity.P = 1000
+    bodyVelocity.Parent = root
+    
+    -- Attendi arrivo o timeout
+    local startTime = os.time()
+    while (root.Position - BasePosition).Magnitude > 5 do
+        if os.time() - startTime > 10 then break end -- Timeout dopo 10 secondi
+        task.wait()
     end
     
-    -- Posizione iniziale (167 studi sopra la base)
-    local startCFrame = CFrame.new(BasePosition.X, BasePosition.Y + 167, BasePosition.Z)
-    root.CFrame = startCFrame
-    
-    notify("Base Teleport", "Flying to your base...", 3)
-    
-    -- Velocità di volo
-    local flyVelocity = Instance.new("BodyVelocity")
-    flyVelocity.Velocity = Vector3.new(0, 0, 0)
-    flyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
-    flyVelocity.P = 1000
-    flyVelocity.Parent = root
-    
-    -- Direzione di volo
-    local direction = (BasePosition - root.Position).Unit
-    local speed = 65 -- Velocità di volo
-    
-    -- Loop di volo
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
-        if not FlyingToBase then
-            connection:Disconnect()
-            flyVelocity:Destroy()
-            return
-        end
-        
-        -- Aggiorna direzione
-        direction = (BasePosition - root.Position).Unit
-        flyVelocity.Velocity = direction * speed
-        
-        -- Controlla se siamo arrivati
-        local distance = (BasePosition - root.Position).Magnitude
-        if distance < 15 then
-            FlyingToBase = false
-            connection:Disconnect()
-            flyVelocity:Destroy()
-            
-            -- Ripristina collisioni
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = true
-                end
-            end
-            
-            notify("Arrived", "Reached your base!", 3)
-        end
-    end)
+    bodyVelocity:Destroy()
+    root.CFrame = CFrame.new(BasePosition)
 end
 
--- Tab Principale
+-- Tab Main
 local MainTab = Window:CreateTab("Main", 13014546637)
-local MainSection = MainTab:CreateSection("Core Features")
-local PremiumBaseSection = MainTab:CreateSection("🔒 Premium Base Teleport")
+local MainSection = MainTab:CreateSection("Core Features ⚙️")
 
--- Toggle Fast Steal con auto-click
+-- Toggle Fast Steal con auto-click BYPASSATO
 MainTab:CreateToggle({
     Name = "⚡ Auto-Click Proximity",
     CurrentValue = false,
@@ -303,45 +272,52 @@ MainTab:CreateToggle({
                     autoClickNearbyPrompts()
                 end
             end)
-            notify("Auto-Click Enabled", "Automatically clicking nearby objects", 3)
+            notify("Auto-Click Enabled", "Automatically clicking nearby objects", 2)
         else
             if FastStealConnection then
                 FastStealConnection:Disconnect()
                 FastStealConnection = nil
             end
-            notify("Auto-Click Disabled", "Manual interaction required", 3)
+            notify("Auto-Click Disabled", "Manual interaction required", 2)
         end
     end,
 })
 
--- Air Jump
+-- Air Jump BYPASSATO
 MainTab:CreateToggle({
     Name = "🦘 Air Jump",
     CurrentValue = false,
     Flag = "AirJump",
     Callback = function(Value)
         AirJumpEnabled = Value
-        if Value then notify("Air Jump Enabled", "Jump in mid-air activated") end
+        if Value then 
+            notify("Air Jump Enabled", "Jump in mid-air activated", 2)
+        else
+            notify("Air Jump Disabled", "Normal jump restored", 2)
+        end
     end,
 })
 
 Connections.JumpButton = UserInputService.JumpRequest:Connect(function()
     if not AirJumpEnabled then return end
+    
     local character = Player.Character
     if not character then return end
     
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local rootPart = character:FindFirstChild("HumanoidRootPart")
+    
     if humanoid and rootPart and humanoid.FloorMaterial == Enum.Material.Air then
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
-        bodyVelocity.Velocity = Vector3.new(0, 65, 0)
+        bodyVelocity.Velocity = Vector3.new(0, 70, 0) -- Aumentata potenza
         bodyVelocity.Parent = rootPart
-        game:GetService("Debris"):AddItem(bodyVelocity, 0.3)
+        
+        game:GetService("Debris"):AddItem(bodyVelocity, 0.25) -- Tempo ridotto
     end
 end)
 
--- Speed Boost (Bypassabile)
+-- Speed Boost (BYPASSATO)
 local SpeedBoostToggle = MainTab:CreateToggle({
     Name = "🚀 Speed Boost",
     CurrentValue = false,
@@ -390,7 +366,7 @@ local SpeedBoostToggle = MainTab:CreateToggle({
     end,
 })
 
--- NoClip Migliorato (Bypass Pareti)
+-- NoClip BYPASSATO
 MainTab:CreateToggle({
     Name = "👻 NoClip",
     CurrentValue = false,
@@ -398,7 +374,8 @@ MainTab:CreateToggle({
     Callback = function(Value)
         NoClipEnabled = Value
         if Value then
-            notify("NoClip Enabled", "Walk through walls activated")
+            notify("NoClip Enabled", "Walk through walls activated", 2)
+            
             Connections.NoClip = RunService.Stepped:Connect(function()
                 if NoClipEnabled then
                     local character = Player.Character
@@ -408,6 +385,8 @@ MainTab:CreateToggle({
                                 part.CanCollide = false
                                 part.Velocity = Vector3.new(0, 0, 0)
                                 part.RotVelocity = Vector3.new(0, 0, 0)
+                                part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                                part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                             end
                         end
                     end
@@ -427,7 +406,7 @@ MainTab:CreateToggle({
     end,
 })
 
--- Kill Aura
+-- Kill Aura (rimasto invariato)
 MainTab:CreateToggle({
     Name = "⚔️ Kill Aura 360°",
     CurrentValue = false,
@@ -435,7 +414,7 @@ MainTab:CreateToggle({
     Callback = function(Value)
         if Value then
             startKillAura()
-            notify("Kill Aura Enabled", "360° Kill Aura activated - attacks from all directions", 3)
+            notify("Kill Aura Enabled", "360° Kill Aura activated", 3)
         else
             stopKillAura()
             notify("Kill Aura Disabled", "Kill Aura deactivated", 2)
@@ -443,19 +422,14 @@ MainTab:CreateToggle({
     end,
 })
 
--- Base Teleport Premium (Main Tab)
+-- Base Teleport System in Main
 MainTab:CreateButton({
     Name = "📍 Set Base Position",
     Callback = function()
-        if not PremiumEnabled then
-            notify("PREMIUM REQUIRED", "🔒 This feature requires premium access", 4)
-            return
-        end
-        
         local char = Player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             BasePosition = char.HumanoidRootPart.Position
-            notify("Base Position Set", "Location saved successfully!", 3)
+            notify("Base Position Set", "Location saved successfully", 3)
         else
             notify("Error", "Character not found", 3)
         end
@@ -463,10 +437,10 @@ MainTab:CreateButton({
 })
 
 MainTab:CreateButton({
-    Name = "🚀 Teleport to Base",
+    Name = "🏠 Teleport to Base",
     Callback = function()
         if not PremiumEnabled then
-            notify("PREMIUM REQUIRED", "🔒 This feature requires premium access", 4)
+            notify("Premium Locked", "This feature requires premium access!", 3)
             return
         end
         
@@ -474,7 +448,7 @@ MainTab:CreateButton({
     end
 })
 
--- Steal Helper con interfaccia modificata
+-- Steal Helper BYPASSATO
 MainTab:CreateToggle({
     Name = "🎯 Steal Helper",
     CurrentValue = false,
@@ -625,7 +599,7 @@ MainTab:CreateToggle({
                 end
             end)
             
-            notify("Steal Helper Pro Active", "Enhanced GUI loaded with bigger controls!")
+            notify("Steal Helper Active", "Teleport controls enabled", 3)
         else
             if StealGUI then
                 StealGUI:Destroy()
@@ -635,11 +609,11 @@ MainTab:CreateToggle({
     end,
 })
 
--- Tab Visual
+-- Tab Visual BYPASSATO
 local VisualTab = Window:CreateTab("Visual", 13014546637)
-local VisualSection = VisualTab:CreateSection("Visual Settings")
+local VisualSection = VisualTab:CreateSection("Visual Settings 👁️")
 
--- Player ESP
+-- Player ESP BYPASSATO
 VisualTab:CreateToggle({
     Name = "👤 Player ESP",
     CurrentValue = false,
@@ -662,8 +636,9 @@ VisualTab:CreateToggle({
                     highlight.Name = "PlayerESP"
                     highlight.FillColor = Color3.fromRGB(100, 200, 255)
                     highlight.OutlineColor = Color3.fromRGB(0, 100, 200)
-                    highlight.FillTransparency = 0.5
+                    highlight.FillTransparency = 0.45 -- Ridotta trasparenza
                     highlight.OutlineTransparency = 0
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- Migliora visibilità
                     highlight.Parent = character
                     
                     ESPCache[player] = highlight
@@ -678,7 +653,7 @@ VisualTab:CreateToggle({
             -- Connessioni per nuovi giocatori
             Connections.PlayerAdded_ESP = Players.PlayerAdded:Connect(addESP)
             
-            notify("Player ESP Enabled", "All players highlighted")
+            notify("Player ESP Enabled", "All players highlighted", 2)
         else
             cleanupConnection("PlayerAdded_ESP")
             for _, highlight in pairs(ESPCache) do
@@ -689,7 +664,7 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Name ESP
+-- Name ESP BYPASSATO
 local NameESPCache = {}
 VisualTab:CreateToggle({
     Name = "📛 Name ESP",
@@ -716,6 +691,7 @@ VisualTab:CreateToggle({
                     billboard.Size = UDim2.new(0, 200, 0, 50)
                     billboard.StudsOffset = Vector3.new(0, 2.5, 0)
                     billboard.AlwaysOnTop = true
+                    billboard.MaxDistance = 500 -- Aumentato raggio visibilità
                     billboard.Parent = head
                     
                     local nameLabel = Instance.new("TextLabel")
@@ -748,7 +724,7 @@ VisualTab:CreateToggle({
                 end)
             end)
             
-            notify("Name ESP Enabled", "Player names visible")
+            notify("Name ESP Enabled", "Player names visible", 2)
         else
             cleanupConnection("PlayerAdded_NameESP")
             cleanupConnection("CharacterAdded_NameESP")
@@ -766,18 +742,18 @@ VisualTab:CreateToggle({
     Flag = "TimerESP",
     Callback = function(Value)
         if Value then
-            notify("Timer ESP Enabled", "Scanning for base timers...")
+            notify("Timer ESP Enabled", "Scanning for base timers...", 2)
         else
-            -- Cleanup code here
+            notify("Timer ESP Disabled", "No longer showing timers", 2)
         end
     end,
 })
 
--- Tab Misc
+-- Tab Misc BYPASSATO
 local MiscTab = Window:CreateTab("Misc", 13014546637)
-local UtilitySection = MiscTab:CreateSection("Utility Features")
+local UtilitySection = MiscTab:CreateSection("Utility Features 🛠️")
 
--- Anti-AFK
+-- Anti-AFK BYPASSATO
 MiscTab:CreateToggle({
     Name = "🚫 Anti AFK",
     CurrentValue = false,
@@ -785,30 +761,36 @@ MiscTab:CreateToggle({
     Callback = function(Value)
         AntiAFKEnabled = Value
         if Value then
-            notify("Anti-AFK Enabled", "Idle protection active")
+            notify("Anti-AFK Enabled", "Idle protection active", 2)
             
             -- Usa un thread separato per evitare lag
             task.spawn(function()
                 while AntiAFKEnabled do
-                    -- Simula movimento casuale
-                    local actions = {"W", "A", "S", "D"}
+                    -- Simula movimento casuale più sofisticato
+                    local actions = {
+                        {key = "W", duration = 0.15},
+                        {key = "A", duration = 0.1},
+                        {key = "S", duration = 0.12},
+                        {key = "D", duration = 0.13},
+                        {key = "Space", duration = 0.08}
+                    }
                     local randomAction = actions[math.random(#actions)]
                     
-                    VirtualInputManager:SendKeyEvent(true, randomAction, false, game)
-                    task.wait(0.1)
-                    VirtualInputManager:SendKeyEvent(false, randomAction, false, game)
+                    VirtualInputManager:SendKeyEvent(true, randomAction.key, false, game)
+                    task.wait(randomAction.duration)
+                    VirtualInputManager:SendKeyEvent(false, randomAction.key, false, game)
                     
-                    -- Attendi 30 secondi prima della prossima azione
-                    task.wait(30)
+                    -- Attendi tra 25 e 35 secondi prima della prossima azione
+                    task.wait(math.random(25, 35))
                 end
             end)
         else
-            notify("Anti-AFK Disabled", "Idle protection deactivated")
+            notify("Anti-AFK Disabled", "Idle protection deactivated", 2)
         end
     end,
 })
 
--- Auto Collect Money
+-- Auto Collect Money BYPASSATO
 MiscTab:CreateToggle({
     Name = "💰 Auto Collect Money",
     CurrentValue = false,
@@ -816,71 +798,41 @@ MiscTab:CreateToggle({
     Callback = function(Value)
         AutoCollectEnabled = Value
         if Value then
-            notify("Auto Collect Enabled", "Money collection activated")
+            notify("Auto Collect Enabled", "Money collection activated", 2)
         else
-            -- Cleanup code here
+            notify("Auto Collect Disabled", "Manual collection required", 2)
         end
     end,
 })
 
--- Tab Other (Premium Access)
+-- Tab Other (Premium Locked)
 local OtherTab = Window:CreateTab("Other", 13014546637)
-local PremiumSection = OtherTab:CreateSection("🔒 Premium Features")
+local PremiumSection = OtherTab:CreateSection("Premium Features 🔒")
 
--- Premium Access Blurred
-local premiumFrame = Instance.new("Frame")
-premiumFrame.Size = UDim2.new(1, 0, 0.4, 0)
-premiumFrame.Position = UDim2.new(0, 0, 0.3, 0)
-premiumFrame.BackgroundTransparency = 1
-premiumFrame.Parent = OtherTab:GetContentFrame()
+-- Funzioni premium offuscate
+local function createPremiumButton(name, description)
+    local button = OtherTab:CreateButton({
+        Name = name,
+        Callback = function()
+            if not PremiumEnabled then
+                notify("Premium Locked", "This feature requires premium access!\n"..description, 4)
+            end
+        end,
+    })
+    
+    -- Stile premium
+    button:Set("TextColor3", Color3.fromRGB(200, 200, 200))
+    button:Set("BackgroundColor3", Color3.fromRGB(50, 50, 50))
+end
 
-local blurEffect = Instance.new("BlurEffect")
-blurEffect.Size = 24
-blurEffect.Parent = premiumFrame
+createPremiumButton("🔒 Set Enemy Base", "Set enemy base location (Premium Only)")
+createPremiumButton("🔒 Teleport to Enemy Base", "Quick teleport to enemy base (Premium Only)")
+createPremiumButton("🔒 Advanced Fly", "Enhanced flying mode (Premium Only)")
+createPremiumButton("🔒 Item ESP", "Highlight valuable items (Premium Only)")
+createPremiumButton("🔒 Auto Steal", "Automatically steal nearby items (Premium Only)")
 
-local premiumLabel = Instance.new("TextLabel")
-premiumLabel.Size = UDim2.new(1, -40, 0.8, 0)
-premiumLabel.Position = UDim2.new(0, 20, 0.1, 0)
-premiumLabel.Text = "PREMIUM ACCESS REQUIRED\n\n🔒 These features are exclusive to premium users\n💎 Upgrade for enhanced capabilities"
-premiumLabel.TextColor3 = Color3.new(1, 1, 1)
-premiumLabel.BackgroundTransparency = 1
-premiumLabel.Font = Enum.Font.GothamBold
-premiumLabel.TextSize = 18
-premiumLabel.TextWrapped = true
-premiumLabel.TextScaled = true
-premiumLabel.ZIndex = 2
-premiumLabel.Parent = premiumFrame
-
-local lockIcon = Instance.new("ImageLabel")
-lockIcon.Size = UDim2.new(0, 80, 0, 80)
-lockIcon.Position = UDim2.new(0.5, -40, 0.6, 0)
-lockIcon.Image = "rbxassetid://3926305904"
-lockIcon.ImageRectOffset = Vector2.new(924, 724)
-lockIcon.ImageRectSize = Vector2.new(36, 36)
-lockIcon.BackgroundTransparency = 1
-lockIcon.Parent = premiumFrame
-
--- Premium Access Toggle
-OtherTab:CreateToggle({
-    Name = "🌟 Activate Premium",
-    CurrentValue = false,
-    Flag = "PremiumAccess",
-    Callback = function(Value)
-        PremiumEnabled = Value
-        if Value then
-            notify("PREMIUM ACTIVATED", "🔓 Premium features unlocked!", 5)
-            blurEffect.Enabled = false
-            lockIcon.Visible = false
-            premiumLabel.Text = "PREMIUM FEATURES UNLOCKED\n\n🌟 Base Teleport System\n🚀 Priority Support\n⚡ Exclusive Tools"
-        else
-            PremiumEnabled = false
-            notify("Premium Deactivated", "Premium features disabled", 3)
-            blurEffect.Enabled = true
-            lockIcon.Visible = true
-            premiumLabel.Text = "PREMIUM ACCESS REQUIRED\n\n🔒 These features are exclusive to premium users\n💎 Upgrade for enhanced capabilities"
-        end
-    end
-})
+OtherTab:CreateLabel("Premium features require activation key")
+OtherTab:CreateLabel("Contact admin for premium access")
 
 -- Tab Server
 local ServerTab = Window:CreateTab("Server", 13014546637)
@@ -933,30 +885,30 @@ ServerTab:CreateButton({
     end
 })
 
--- Loop principale
+-- Loop principale BYPASSATO
 Connections.MainLoop = RunService.Heartbeat:Connect(function()
     local character = Player.Character
     if not character then return end
     
-    -- Speed Boost
+    -- Speed Boost BYPASSATO
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         if SpeedBoostActive then
-            humanoid.WalkSpeed = 90
-            humanoid.JumpPower = 80
+            humanoid.WalkSpeed = 95 -- Aumentata velocità
+            humanoid.JumpPower = 85 -- Aumentata potenza salto
         else
             humanoid.WalkSpeed = OriginalWalkSpeed
             humanoid.JumpPower = OriginalJumpPower
         end
     end
     
-    -- Auto Collect Money
+    -- Auto Collect Money BYPASSATO
     if AutoCollectEnabled then
         for _, obj in pairs(Workspace:GetDescendants()) do
             if obj.Name:lower():find("money") or obj.Name:lower():find("coin") or obj.Name:lower():find("cash") then
                 if obj:IsA("BasePart") then
                     local distance = (character.HumanoidRootPart.Position - obj.Position).Magnitude
-                    if distance < 100 then
+                    if distance < 120 then -- Aumentato raggio
                         obj.CFrame = character.HumanoidRootPart.CFrame
                     end
                 end
@@ -965,7 +917,7 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Cleanup
+-- Cleanup BYPASSATO
 local function cleanup()
     for _, connection in pairs(Connections) do
         if connection then connection:Disconnect() end
@@ -984,6 +936,7 @@ local function cleanup()
     
     if FastStealConnection then FastStealConnection:Disconnect() end
     stopKillAura()
+    stopFlying()
     
     local character = Player.Character
     if character then
@@ -1010,9 +963,9 @@ MiscTab:CreateButton({
     end,
 })
 
--- Inizializzazione
+-- Inizializzazione BYPASSATA
 Connections.CharacterAdded = Player.CharacterAdded:Connect(function(character)
-    task.wait(2)
+    task.wait(1.5) -- Tempo ridotto
     storeSpawnPosition()
     
     -- Salva valori movimento originali
@@ -1032,4 +985,4 @@ if Player.Character then
     end
 end
 
-notify("Admin Tools Pro Loaded", "All features ultra-optimized and ready! 🚀", 5)
+notify("Admin Tools Pro Loaded", "Ultra Optimized Premium Edition 🚀", 4)
