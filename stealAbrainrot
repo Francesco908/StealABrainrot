@@ -131,7 +131,7 @@ local function startBaseTeleport()
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 
     BaseTeleportActive = true
-    notify("Base Teleport", "Teleporting to base...", 3)
+    notify("Base Teleport", "Starting teleport sequence...", 3)
     
     local root = character.HumanoidRootPart
     local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -144,11 +144,12 @@ local function startBaseTeleport()
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
     
-    -- 1. Teletrasporta in alto
-    local startCFrame = root.CFrame
-    local highPosition = Vector3.new(startCFrame.X, TeleportHeight, startCFrame.Z)
+    -- 1. Teletrasporta in alto (165 studs)
+    local startPos = root.Position
+    local highPosition = Vector3.new(startPos.X, TeleportHeight, startPos.Z)
     root.CFrame = CFrame.new(highPosition)
-    task.wait(0.1)
+    notify("Base Teleport", "Elevating to flight height...", 2)
+    task.wait(2) -- Attesa 2 secondi
     
     -- 2. Crea parti visive per indicare la direzione
     for _, part in ipairs(BaseTeleportParts) do
@@ -169,13 +170,13 @@ local function startBaseTeleport()
     table.insert(BaseTeleportParts, directionPart)
     
     -- 3. Calcola direzione
-    local direction = (Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z) - root.Position).Unit
-    local baseDistance = (Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z) - root.Position).Magnitude
+    local targetHighPos = Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z)
+    local direction = (targetHighPos - root.Position).Unit
     
-    -- 4. Crea controlli di volo
+    -- 4. Movimento orizzontale verso la base
     local bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.Velocity = direction * TeleportSpeed
-    bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+    bodyVelocity.MaxForce = Vector3.new(10000, 0, 10000) -- Solo movimento orizzontale
     bodyVelocity.P = 1250
     bodyVelocity.Parent = root
     
@@ -185,16 +186,13 @@ local function startBaseTeleport()
     bodyGyro.CFrame = CFrame.new(root.Position, root.Position + direction)
     bodyGyro.Parent = root
     
-    -- 5. Animazione di volo
-    humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
-    
-    -- 6. Attendi arrivo all'area sopra la base
+    -- 5. Attendi arrivo all'area sopra la base
     local startTime = os.time()
     while BaseTeleportActive and (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(BasePosition.X, 0, BasePosition.Z)).Magnitude > 10 do
         if os.time() - startTime > 15 then break end -- Timeout dopo 15 secondi
         
         -- Aggiorna direzione
-        direction = (Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z) - root.Position).Unit
+        direction = (targetHighPos - root.Position).Unit
         bodyVelocity.Velocity = direction * TeleportSpeed
         bodyGyro.CFrame = CFrame.new(root.Position, root.Position + direction)
         
@@ -204,19 +202,23 @@ local function startBaseTeleport()
         task.wait(0.1)
     end
     
-    -- 7. Disabilita volo orizzontale
+    -- 6. Ferma movimento orizzontale
     bodyVelocity:Destroy()
     bodyGyro:Destroy()
+    
+    -- 7. Attesa di 1 secondo
+    notify("Base Teleport", "Descending to base location...", 1)
+    task.wait(1)
     
     -- 8. Scendi verticalmente alla base
     local descendVelocity = Instance.new("BodyVelocity")
     descendVelocity.Velocity = Vector3.new(0, -25, 0)
-    descendVelocity.MaxForce = Vector3.new(0, 10000, 0)
+    descendVelocity.MaxForce = Vector3.new(0, 10000, 0) -- Solo movimento verticale
     descendVelocity.P = 1000
     descendVelocity.Parent = root
     
     -- Aspetta che raggiunga l'altezza della base
-    while BaseTeleportActive and root.Position.Y > BasePosition.Y + 5 do
+    while BaseTeleportActive and root.Position.Y > BasePosition.Y + 2 do
         task.wait(0.1)
     end
     
@@ -528,7 +530,7 @@ MainTab:CreateToggle({
 })
 
 -- Steal Helper BYPASSATO
-MainTab:CreateToggle({
+local StealHelperToggle = MainTab:CreateToggle({
     Name = "🎯 Steal Helper",
     CurrentValue = false,
     Flag = "StealHelper",
