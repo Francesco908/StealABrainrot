@@ -46,7 +46,7 @@ local LockPlotBlockEnabled = false
 local LockPlotBlockGUI = nil
 local LockPlotBlockLoop = nil
 
--- Funzioni di utilità BYPASSATE
+-- Funzioni di utilità
 local function cleanupConnection(name)
     if Connections[name] then
         Connections[name]:Disconnect()
@@ -102,7 +102,7 @@ local function makeDraggable(gui)
     end)
 end
 
--- ======= NUOVO SISTEMA TELEPORT BASE =======
+-- ======= SISTEMA TELEPORT BASE =======
 local function setBase()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
@@ -145,26 +145,19 @@ local function goBase()
     -- FASE 2: Dopo 2 secondi, volo verso la base
     wait(2)
     
+    -- Vola direttamente alla posizione della base
     local flyTween = TweenService:Create(
         rootPart,
         TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        {CFrame = CFrame.new(savedBase.X, savedBase.Y + 165, savedBase.Z)}
+        {CFrame = CFrame.new(savedBase)}
     )
     flyTween:Play()
     
-    -- FASE 3: Quando arriva sopra la base, aspetta 1.5 secondi
+    -- FASE 3: Quando arriva alla base, riabilita i controlli
     flyTween.Completed:Connect(function()
-        wait(1.5)
-        
-        -- FASE 4: Teleport a -50 e caduta libera
-        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y - 50, savedBase.Z)
-        rootPart.Velocity = Vector3.new(0, -50, 0)
-        
-        -- Riabilita controlli per caduta normale
         if humanoid then
             humanoid.PlatformStand = false
         end
-        
         isActive = false
         notify("Base Teleport", "Arrived at base location!", 3)
     end)
@@ -172,7 +165,6 @@ end
 
 -- ======= SISTEMA LOCK BASE TO PLOTBLOCK =======
 local function findPlotBlock()
-    -- Cerca nella base del player corrente
     local plot = workspace:FindFirstChild(Player.Name)
     if plot then
         local purchases = plot:FindFirstChild("Purchases")
@@ -188,7 +180,6 @@ local function findPlotBlock()
         end
     end
     
-    -- Ricerca alternativa in tutto il workspace
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "PlotBlock" then
             if obj:IsA("Model") and obj.PrimaryPart then
@@ -283,7 +274,7 @@ local function createLockGUI()
     LockPlotBlockGUI = lockGUI
 end
 
--- ======= SISTEMA FAST STEAL BYPASSATO =======
+-- ======= SISTEMA FAST STEAL =======
 local function modifyPrompt(prompt)
     if not prompt:IsDescendantOf(game:GetService("CoreGui")) then
         prompt.HoldDuration = 0
@@ -403,6 +394,15 @@ local LockPlotBlockToggle = MainTab:CreateToggle({
             notify("Locked to PlotBlock", "Teleporting to your PlotBlock...", 3)
             lockToPlotBlock()
             
+            -- Disabilita i controlli
+            local character = Player.Character
+            if character then
+                local humanoid = character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.PlatformStand = true
+                end
+            end
+            
             -- Avvia il loop di lock
             LockPlotBlockLoop = RunService.Heartbeat:Connect(function()
                 if LockPlotBlockEnabled then
@@ -418,11 +418,19 @@ local LockPlotBlockToggle = MainTab:CreateToggle({
                 LockPlotBlockLoop:Disconnect()
                 LockPlotBlockLoop = nil
             end
+            -- Riabilita i controlli
+            local character = Player.Character
+            if character then
+                local humanoid = character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.PlatformStand = false
+                end
+            end
         end
     end,
 })
 
--- Toggle Fast Steal con auto-click BYPASSATO
+-- Toggle Fast Steal
 MainTab:CreateToggle({
     Name = "⚡ Auto-Click Proximity",
     CurrentValue = false,
@@ -447,7 +455,7 @@ MainTab:CreateToggle({
     end,
 })
 
--- Air Jump BYPASSATO
+-- Air Jump
 MainTab:CreateToggle({
     Name = "🦘 Air Jump",
     CurrentValue = false,
@@ -481,7 +489,7 @@ Connections.JumpButton = UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Speed Boost (BYPASSATO)
+-- Speed Boost
 local SpeedBoostToggle = MainTab:CreateToggle({
     Name = "🚀 Speed Boost",
     CurrentValue = false,
@@ -530,7 +538,7 @@ local SpeedBoostToggle = MainTab:CreateToggle({
     end,
 })
 
--- NoClip BYPASSATO
+-- NoClip
 MainTab:CreateToggle({
     Name = "👻 NoClip",
     CurrentValue = false,
@@ -586,7 +594,7 @@ MainTab:CreateToggle({
     end,
 })
 
--- Steal Helper BYPASSATO
+-- Steal Helper
 local StealHelperToggle = MainTab:CreateToggle({
     Name = "🎯 Steal Helper",
     CurrentValue = false,
@@ -747,24 +755,22 @@ local StealHelperToggle = MainTab:CreateToggle({
     end,
 })
 
--- Tab Visual BYPASSATO
+-- Tab Visual
 local VisualTab = Window:CreateTab("Visual", 13014546637)
 local VisualSection = VisualTab:CreateSection("Visual Settings 👁️")
 
--- Player ESP BYPASSATO
+-- Player ESP
 VisualTab:CreateToggle({
     Name = "👤 Player ESP",
     CurrentValue = false,
     Flag = "PlayerESP",
     Callback = function(Value)
         if Value then
-            -- Pulizia cache esistente
             for _, highlight in pairs(ESPCache) do
                 if highlight then highlight:Destroy() end
             end
             ESPCache = {}
             
-            -- Funzione per aggiungere ESP
             local function addESP(player)
                 if player == Player then return end
                 
@@ -783,12 +789,10 @@ VisualTab:CreateToggle({
                 end
             end
             
-            -- Aggiungi ESP per tutti i giocatori esistenti
             for _, player in ipairs(Players:GetPlayers()) do
                 addESP(player)
             end
             
-            -- Connessioni per nuovi giocatori
             Connections.PlayerAdded_ESP = Players.PlayerAdded:Connect(addESP)
             
             notify("Player ESP Enabled", "All players highlighted", 2)
@@ -802,7 +806,7 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Name ESP BYPASSATO
+-- Name ESP
 local NameESPCache = {}
 VisualTab:CreateToggle({
     Name = "📛 Name ESP",
@@ -810,7 +814,6 @@ VisualTab:CreateToggle({
     Flag = "NameESP",
     Callback = function(Value)
         if Value then
-            -- Funzione per aggiungere Name ESP
             local function addNameESP(player)
                 if player == Player then return end
                 
@@ -818,12 +821,10 @@ VisualTab:CreateToggle({
                 if character and character:FindFirstChild("Head") then
                     local head = character.Head
                     
-                    -- Rimuovi vecchi elementi se esistono
                     if NameESPCache[player] then
                         NameESPCache[player]:Destroy()
                     end
                     
-                    -- Crea nuovo BillboardGui
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "NameESP"
                     billboard.Size = UDim2.new(0, 200, 0, 50)
@@ -848,12 +849,10 @@ VisualTab:CreateToggle({
                 end
             end
             
-            -- Aggiungi per tutti i giocatori
             for _, player in ipairs(Players:GetPlayers()) do
                 addNameESP(player)
             end
             
-            -- Connessioni
             Connections.PlayerAdded_NameESP = Players.PlayerAdded:Connect(addNameESP)
             Connections.CharacterAdded_NameESP = Players.PlayerAdded:Connect(function(player)
                 player.CharacterAdded:Connect(function(char)
@@ -887,11 +886,11 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Tab Misc BYPASSATO
+-- Tab Misc
 local MiscTab = Window:CreateTab("Misc", 13014546637)
 local UtilitySection = MiscTab:CreateSection("Utility Features 🛠️")
 
--- Anti-AFK BYPASSATO
+-- Anti-AFK
 MiscTab:CreateToggle({
     Name = "🚫 Anti AFK",
     CurrentValue = false,
@@ -925,7 +924,7 @@ MiscTab:CreateToggle({
     end,
 })
 
--- Auto Collect Money BYPASSATO
+-- Auto Collect Money
 MiscTab:CreateToggle({
     Name = "💰 Auto Collect Money",
     CurrentValue = false,
@@ -991,12 +990,11 @@ ServerTab:CreateButton({
     end
 })
 
--- Loop principale BYPASSATO
+-- Loop principale
 Connections.MainLoop = RunService.Heartbeat:Connect(function()
     local character = Player.Character
     if not character then return end
     
-    -- Speed Boost BYPASSATO
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         if SpeedBoostActive then
@@ -1008,7 +1006,6 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- Auto Collect Money BYPASSATO
     if AutoCollectEnabled then
         for _, obj in pairs(Workspace:GetDescendants()) do
             if obj.Name:lower():find("money") or obj.Name:lower():find("coin") or obj.Name:lower():find("cash") then
@@ -1023,7 +1020,7 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Cleanup BYPASSATO
+-- Cleanup
 local function cleanup()
     for _, connection in pairs(Connections) do
         if connection then connection:Disconnect() end
