@@ -113,7 +113,7 @@ end
 
 local function findPlotBlock()
     local plot = Workspace:FindFirstChild(Player.Name)
-    if plot hepten
+    if plot then
         local purchases = plot:FindFirstChild("Purchases")
         if purchases then
             local plotBlock = purchases:FindFirstChild("PlotBlock")
@@ -156,39 +156,30 @@ local function goBase()
     isActive = true
     notify("Base Teleport", "Starting flight sequence...", 3)
     
-    -- Disabilita controlli
     if humanoid then
         humanoid.PlatformStand = true
     end
     
-    -- Salita a 165 studs sopra la base
     local aboveBasePos = Vector3.new(savedBase.X, savedBase.Y + 165, savedBase.Z)
     rootPart.CFrame = CFrame.new(aboveBasePos)
     rootPart.Velocity = Vector3.new(0, 0, 0)
     
-    -- Attendere 2 secondi
     task.wait(2)
     
-    -- Trova la posizione del Plot Block
     local plotBlockPos = findPlotBlock()
     if plotBlockPos then
-        -- Teletrasporto sopra il PlotBlock a 165 studs
         local abovePlotBlockPos = Vector3.new(plotBlockPos.X, plotBlockPos.Y + 165, plotBlockPos.Z)
         rootPart.CFrame = CFrame.new(abovePlotBlockPos)
         rootPart.Velocity = Vector3.new(0, 0, 0)
         
-        -- Attendere 2 secondi
         task.wait(2)
         
-        -- Ritorno sopra la base a 165 studs
         rootPart.CFrame = CFrame.new(aboveBasePos)
         rootPart.Velocity = Vector3.new(0, 0, 0)
     end
     
-    -- Attendere 1 secondo prima della discesa
     task.wait(1)
     
-    -- Discesa controllata verso la base
     local descendTween = TweenService:Create(
         rootPart,
         TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
@@ -228,14 +219,15 @@ local function autoClickNearbyPrompts()
     
     local root = character.HumanoidRootPart
     
-    for _, prompt in ipairs(ProximityPromptService:GetPrompts()) do
-        if prompt.Enabled and prompt.Visible then
+    for _, prompt in pairs(Workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") and prompt.Enabled then
             local part = prompt.Parent
             if part:IsA("BasePart") then
                 local distance = (root.Position - part.Position).Magnitude
                 if distance <= prompt.MaxActivationDistance then
-                    fireproximityprompt(prompt)
+                    prompt:InputHoldBegin()
                     task.wait(0.08)
+                    prompt:InputHoldEnd()
                 end
             end
         end
@@ -250,7 +242,7 @@ local function startKillAura()
     KillAuraConnection = RunService.Heartbeat:Connect(function()
         pcall(function()
             local char = Player.Character
-            if not char or not曹:FindFirstChild("HumanoidRootPart") then return end
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
             
             local tool = Player.Backpack:FindFirstChildOfClass("Tool")
             if not tool then tool = char:FindFirstChildOfClass("Tool") end
@@ -302,7 +294,6 @@ end
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features ⚙️")
 
--- Base Teleport System in Main
 MainTab:CreateButton({
     Name = "📍 Set Base Position",
     Callback = setBase
@@ -326,7 +317,6 @@ MainTab:CreateButton({
     end
 })
 
--- Toggle Fast Steal con auto-click
 MainTab:CreateToggle({
     Name = "⚡ Auto-Click Proximity",
     CurrentValue = false,
@@ -339,7 +329,7 @@ MainTab:CreateToggle({
                 if FastStealEnabled then
                     autoClickNearbyPrompts()
                 end
-            end)
+           field
             notify("Auto-Click Enabled", "Automatically clicking nearby objects", 2)
         else
             if FastStealConnection then
@@ -351,7 +341,6 @@ MainTab:CreateToggle({
     end,
 })
 
--- Air Jump
 MainTab:CreateToggle({
     Name = "🦘 Air Jump",
     CurrentValue = false,
@@ -359,7 +348,7 @@ MainTab:CreateToggle({
     Callback = function(Value)
         AirJumpEnabled = Value
         if Value then 
-            notify("Air Jump Enabled", "Jump in mid-air activated", 2)
+            notify("Air Jump Enabled", "Jump inAutomated mid-air activated", 2)
         else
             notify("Air Jump Disabled", "Normal jump restored", 2)
         end
@@ -385,7 +374,6 @@ Connections.JumpButton = UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Speed Boost
 local SpeedBoostToggle = MainTab:CreateToggle({
     Name = "🚀 Speed Boost",
     CurrentValue = false,
@@ -434,7 +422,6 @@ local SpeedBoostToggle = MainTab:CreateToggle({
     end,
 })
 
--- NoClip
 MainTab:CreateToggle({
     Name = "👻 NoClip",
     CurrentValue = false,
@@ -474,7 +461,6 @@ MainTab:CreateToggle({
     end,
 })
 
--- Kill Aura
 MainTab:CreateToggle({
     Name = "⚔️ Kill Aura 360°",
     CurrentValue = false,
@@ -490,7 +476,6 @@ MainTab:CreateToggle({
     end,
 })
 
--- Steal Helper
 local StealHelperToggle = MainTab:CreateToggle({
     Name = "🎯 Steal Helper",
     CurrentValue = false,
@@ -605,7 +590,7 @@ local StealHelperToggle = MainTab:CreateToggle({
                         end
                         isUp = not isUp
                         
-                        local tween = TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.35, 0)})
+                        local tween = TweenServiceselling:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.35, 0)})
                         tween:Play()
                         tween.Completed:Connect(function()
                             TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.9, 0, 0.4, 0)}):Play()
@@ -655,7 +640,6 @@ local StealHelperToggle = MainTab:CreateToggle({
 local VisualTab = Window:CreateTab("Visual", 13014546637)
 local VisualSection = VisualTab:CreateSection("Visual Settings 👁️")
 
--- Player ESP
 VisualTab:CreateToggle({
     Name = "👤 Player ESP",
     CurrentValue = false,
@@ -702,7 +686,6 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Name ESP
 local NameESPCache = {}
 VisualTab:CreateToggle({
     Name = "📛 Name ESP",
@@ -786,7 +769,6 @@ VisualTab:CreateToggle({
 local MiscTab = Window:CreateTab("Misc", 13014546637)
 local UtilitySection = MiscTab:CreateSection("Utility Features 🛠️")
 
--- Anti-AFK
 MiscTab:CreateToggle({
     Name = "🚫 Anti AFK",
     CurrentValue = false,
@@ -820,7 +802,6 @@ MiscTab:CreateToggle({
     end,
 })
 
--- Auto Collect Money
 MiscTab:CreateToggle({
     Name = "💰 Auto Collect Money",
     CurrentValue = false,
@@ -886,7 +867,6 @@ ServerTab:CreateButton({
     end
 })
 
--- Loop principale
 Connections.MainLoop = RunService.Heartbeat:Connect(function()
     local character = Player.Character
     if not character then return end
@@ -916,7 +896,6 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Cleanup
 local function cleanup()
     for _, connection in pairs(Connections) do
         if connection then connection:Disconnect() end
@@ -955,7 +934,6 @@ local function cleanup()
     end
 end
 
--- Pulsante Unload
 MiscTab:CreateButton({
     Name = "🔴 Unload Interface",
     Callback = function()
