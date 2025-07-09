@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "🔧 OnlyRoblox Admin Tools Pro",
-    LoadingTitle = "OnlyRoblox Script Loading...",
+    Name = "🔧 OnlyRobloxScript YT",
+    LoadingTitle = "OnlyRobloxScriptYT Script Loading...",
     LoadingSubtitle = "Thanks for using my script!",
     ConfigurationSaving = {
         Enabled = true,
