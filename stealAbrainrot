@@ -47,6 +47,10 @@ local BaseTeleportParts = {}
 local TeleportHeight = 165
 local TeleportSpeed = 35
 
+-- Variabili per il sistema teleport migliorato
+local savedBase = nil
+local isRunning = false
+
 -- Funzioni di utilità BYPASSATE
 local function cleanupConnection(name)
     if Connections[name] then
@@ -103,143 +107,102 @@ local function makeDraggable(gui)
     end)
 end
 
--- Memorizza posizione spawn BYPASSATA
-local function storeSpawnPosition()
+-- ======= SISTEMA TELEPORT BASE BYPASS-PROOF =======
+local function setBase()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        SpawnPosition = character.HumanoidRootPart.Position
+        savedBase = character.HumanoidRootPart.Position
+        notify("Base Position Set", "Location saved successfully", 3)
+    else
+        notify("Error", "Character not found", 3)
     end
 end
 
-Player.CharacterAdded:Connect(function()
-    task.wait(1.5)
-    storeSpawnPosition()
-end)
-
-if Player.Character then
-    storeSpawnPosition()
-end
-
--- ======= SISTEMA TELEPORT BASE FIXATO =======
-local function startBaseTeleport()
-    if not BasePosition then
-        notify("Error", "Set base position first!", 3)
-        return
+local function teleportSequence()
+    if not savedBase or isRunning then 
+        notify("Error", "Set base position first or teleport in progress", 3)
+        return 
     end
-
+    
     local character = Player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    BaseTeleportActive = true
-    notify("Base Teleport", "Starting teleport sequence...", 3)
-    
-    local root = character.HumanoidRootPart
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    
-    -- Salva stato originale
-    local originalWalkSpeed = humanoid.WalkSpeed
-    local originalJumpPower = humanoid.JumpPower
-    
-    -- Disabilita altre movimenti
-    humanoid.WalkSpeed = 0
-    humanoid.JumpPower = 0
-    
-    -- 1. Teletrasporta in alto (165 studs)
-    local startPos = root.Position
-    local highPosition = Vector3.new(startPos.X, TeleportHeight, startPos.Z)
-    root.CFrame = CFrame.new(highPosition)
-    notify("Base Teleport", "Elevating to flight height...", 2)
-    task.wait(2) -- Attesa 2 secondi
-    
-    -- 2. Crea parti visive per indicare la direzione
-    for _, part in ipairs(BaseTeleportParts) do
-        if part then part:Destroy() end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then 
+        notify("Error", "Character not found", 3)
+        return 
     end
-    BaseTeleportParts = {}
     
-    local directionPart = Instance.new("Part")
-    directionPart.Size = Vector3.new(3, 3, 3)
-    directionPart.Shape = Enum.PartType.Ball
-    directionPart.Material = EnumMaterial.Neon
-    directionPart.Color = Color3.fromRGB(0, 255, 0)
-    directionPart.CFrame = CFrame.new(BasePosition)
-    directionPart.Anchored = true
-    directionPart.CanCollide = false
-    directionPart.Transparency = 0.3
-    directionPart.Parent = workspace
-    table.insert(BaseTeleportParts, directionPart)
+    local rootPart = character.HumanoidRootPart
+    local humanoid = character:FindFirstChild("Humanoid")
     
-    -- 3. Calcola direzione
-    local targetHighPos = Vector3.new(BasePosition.X, TeleportHeight, BasePosition.Z)
-    local direction = (targetHighPos - root.Position).Unit
+    isRunning = true
+    notify("Base Teleport", "Starting secure teleport sequence...", 3)
     
-    -- 4. Movimento orizzontale verso la base
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = direction * TeleportSpeed
-    bodyVelocity.MaxForce = Vector3.new(10000, 0, 10000) -- Solo movimento orizzontale
-    bodyVelocity.P = 1250
-    bodyVelocity.Parent = root
+    -- Disabilita controlli player temporaneamente
+    if humanoid then
+        humanoid.PlatformStand = true
+    end
     
-    local bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
-    bodyGyro.P = 1500
-    bodyGyro.CFrame = CFrame.new(root.Position, root.Position + direction)
-    bodyGyro.Parent = root
+    -- Teleport in alto (165 studs sopra base)
+    rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y + TeleportHeight, savedBase.Z)
+    rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.AngularVelocity = Vector3.new(0, 0, 0)
     
-    -- 5. Attendi arrivo all'area sopra la base
-    local startTime = os.time()
-    while BaseTeleportActive and (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(BasePosition.X, 0, BasePosition.Z)).Magnitude > 10 do
-        if os.time() - startTime > 15 then break end -- Timeout dopo 15 secondi
+    -- Aspetta 2 secondi con controllo continuo posizione
+    local startTime = tick()
+    while tick() - startTime < 2 do
+        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y + TeleportHeight, savedBase.Z)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        RunService.Heartbeat:Wait()
+    end
+    
+    -- Teleport sulla base (dall'alto)
+    rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y, savedBase.Z)
+    rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.AngularVelocity = Vector3.new(0, 0, 0)
+    
+    -- Aspetta 1.5 secondi mantenendo posizione
+    startTime = tick()
+    while tick() - startTime < 1.5 do
+        rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y, savedBase.Z)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        RunService.Heartbeat:Wait()
+    end
+    
+    -- Riabilita controlli per la caduta
+    if humanoid then
+        humanoid.PlatformStand = false
+    end
+    
+    -- Caduta controllata a -50 con velocità forzata
+    local fallConnection
+    local targetY = savedBase.Y - 50
+    local fallSpeed = 0
+    
+    fallConnection = RunService.Heartbeat:Connect(function()
+        if not rootPart.Parent then
+            fallConnection:Disconnect()
+            isRunning = false
+            return
+        end
         
-        -- Aggiorna direzione
-        direction = (targetHighPos - root.Position).Unit
-        bodyVelocity.Velocity = direction * TeleportSpeed
-        bodyGyro.CFrame = CFrame.new(root.Position, root.Position + direction)
+        local currentPos = rootPart.Position
         
-        -- Aggiorna parte visiva
-        directionPart.CFrame = CFrame.new(BasePosition)
+        if currentPos.Y <= targetY then
+            -- Ferma alla posizione target
+            rootPart.CFrame = CFrame.new(savedBase.X, targetY, savedBase.Z)
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+            fallConnection:Disconnect()
+            isRunning = false
+            notify("Base Teleport", "Arrived at base location!", 3)
+            return
+        end
         
-        task.wait(0.1)
-    end
-    
-    -- 6. Ferma movimento orizzontale
-    bodyVelocity:Destroy()
-    bodyGyro:Destroy()
-    
-    -- 7. Attesa di 1 secondo
-    notify("Base Teleport", "Descending to base location...", 1)
-    task.wait(1)
-    
-    -- 8. Scendi verticalmente alla base
-    local descendVelocity = Instance.new("BodyVelocity")
-    descendVelocity.Velocity = Vector3.new(0, -25, 0)
-    descendVelocity.MaxForce = Vector3.new(0, 10000, 0) -- Solo movimento verticale
-    descendVelocity.P = 1000
-    descendVelocity.Parent = root
-    
-    -- Aspetta che raggiunga l'altezza della base
-    while BaseTeleportActive and root.Position.Y > BasePosition.Y + 2 do
-        task.wait(0.1)
-    end
-    
-    descendVelocity:Destroy()
-    
-    -- 9. Posiziona esattamente sulla base
-    root.CFrame = CFrame.new(BasePosition)
-    
-    -- 10. Ripristina stato originale
-    humanoid.WalkSpeed = originalWalkSpeed
-    humanoid.JumpPower = originalJumpPower
-    humanoid:ChangeState(Enum.HumanoidStateType.Running)
-    
-    -- 11. Pulisci parti visive
-    for _, part in ipairs(BaseTeleportParts) do
-        if part then part:Destroy() end
-    end
-    BaseTeleportParts = {}
-    
-    BaseTeleportActive = false
-    notify("Base Teleport", "Arrived at base location!", 3)
+        -- Accelerazione caduta realistica
+        fallSpeed = fallSpeed + 0.5
+        local newY = currentPos.Y - fallSpeed
+        
+        rootPart.CFrame = CFrame.new(savedBase.X, newY, savedBase.Z)
+        rootPart.Velocity = Vector3.new(0, -fallSpeed, 0)
+    end)
 end
 
 -- ======= SISTEMA FAST STEAL BYPASSATO =======
@@ -342,27 +305,12 @@ local MainSection = MainTab:CreateSection("Core Features ⚙️")
 -- Base Teleport System in Main
 MainTab:CreateButton({
     Name = "📍 Set Base Position",
-    Callback = function()
-        local char = Player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            BasePosition = char.HumanoidRootPart.Position
-            notify("Base Position Set", "Location saved successfully", 3)
-        else
-            notify("Error", "Character not found", 3)
-        end
-    end
+    Callback = setBase
 })
 
 MainTab:CreateButton({
     Name = "🏠 Teleport to Base",
-    Callback = function()
-        if not BasePosition then
-            notify("Error", "Set base position first!", 3)
-            return
-        end
-        
-        startBaseTeleport()
-    end
+    Callback = teleportSequence
 })
 
 -- Toggle Fast Steal con auto-click BYPASSATO
@@ -992,6 +940,7 @@ local function cleanup()
     stopKillAura()
     
     BaseTeleportActive = false
+    isRunning = false
     
     local character = Player.Character
     if character then
@@ -1005,6 +954,7 @@ local function cleanup()
         if humanoid then
             humanoid.WalkSpeed = OriginalWalkSpeed
             humanoid.JumpPower = OriginalJumpPower
+            humanoid.PlatformStand = false
         end
     end
 end
@@ -1018,24 +968,4 @@ MiscTab:CreateButton({
     end,
 })
 
--- Inizializzazione BYPASSATA
-Connections.CharacterAdded = Player.CharacterAdded:Connect(function(character)
-    task.wait(1.5)
-    storeSpawnPosition()
-    
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        OriginalWalkSpeed = humanoid.WalkSpeed
-        OriginalJumpPower = humanoid.JumpPower
-    end
-end)
-
-if Player.Character then
-    local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        OriginalWalkSpeed = humanoid.WalkSpeed
-        OriginalJumpPower = humanoid.JumpPower
-    end
-end
-
-notify("Admin Tools Pro Loaded", "Ultra Optimized Free Edition 🚀", 4)
+notify("Admin Tools Pro Loaded", "Bypass-Proof Teleport System Active 🛡️", 4)
