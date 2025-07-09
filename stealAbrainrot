@@ -1,13 +1,14 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
 local Window = Rayfield:CreateWindow({
-    Name = "🔧 Mobile Admin Tools Pro",
-    LoadingTitle = "Loading enhanced tools...",
-    LoadingSubtitle = "Ultra Optimized Free Edition",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "MobileToolsProConfig",
-        FileName = "UltraOptimizedConfig"
-    }
+   Name = "🔧 Mobile Admin Tools Pro",
+   LoadingTitle = "Loading enhanced tools...",
+   LoadingSubtitle = "Ultra Optimized Edition",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "MobileToolsProConfig",
+      FileName = "UltraOptimizedConfig"
+   }
 })
 
 -- Servizi e variabili
@@ -42,9 +43,6 @@ local OriginalWalkSpeed = 16
 local OriginalJumpPower = 50
 local savedBase = nil
 local isActive = false
-local LockPlotBlockEnabled = false
-local LockPlotBlockGUI = nil
-local LockPlotBlockLoop = nil
 
 -- Funzioni di utilità
 local function cleanupConnection(name)
@@ -58,7 +56,7 @@ local function notify(title, content, duration)
     Rayfield:Notify({
         Title = title,
         Content = content,
-        Duration = duration or 2.5,
+        Duration = duration or 3,
         Image = 13014546637,
     })
 end
@@ -136,142 +134,42 @@ local function goBase()
         humanoid.PlatformStand = true
     end
     
-    -- FASE 1: Teleport a 165 studs sopra posizione attuale
+    -- FASE 1: Salita a 165 studs sopra la posizione attuale
     local currentPos = rootPart.Position
-    rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + 165, currentPos.Z)
+    local aboveCurrentPos = Vector3.new(currentPos.X, currentPos.Y + 165, currentPos.Z)
+    rootPart.CFrame = CFrame.new(aboveCurrentPos)
     rootPart.Velocity = Vector3.new(0, 0, 0)
-    rootPart.RotVelocity = Vector3.new(0, 0, 0)
     
-    -- FASE 2: Dopo 2 secondi, volo verso la base
+    -- FASE 2: Attesa di 2 secondi in aria
     wait(2)
     
-    -- Vola direttamente alla posizione della base
+    -- FASE 3: Volo orizzontale verso la base a 165 studs di altezza
+    local aboveBasePos = Vector3.new(savedBase.X, savedBase.Y + 165, savedBase.Z)
     local flyTween = TweenService:Create(
         rootPart,
         TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        {CFrame = CFrame.new(savedBase)}
+        {CFrame = CFrame.new(aboveBasePos)}
     )
     flyTween:Play()
     
-    -- FASE 3: Quando arriva alla base, riabilita i controlli
+    -- FASE 4: Attesa di 2 secondi sopra la base e discesa automatica
     flyTween.Completed:Connect(function()
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
-        isActive = false
-        notify("Base Teleport", "Arrived at base location!", 3)
-    end)
-end
-
--- ======= SISTEMA LOCK BASE TO PLOTBLOCK =======
-local function findPlotBlock()
-    local plot = workspace:FindFirstChild(Player.Name)
-    if plot then
-        local purchases = plot:FindFirstChild("Purchases")
-        if purchases then
-            local plotBlock = purchases:FindFirstChild("PlotBlock")
-            if plotBlock then
-                if plotBlock:IsA("Model") and plotBlock.PrimaryPart then
-                    return plotBlock.PrimaryPart.Position
-                elseif plotBlock:IsA("BasePart") then
-                    return plotBlock.Position
-                end
+        wait(2)
+        local descendTween = TweenService:Create(
+            rootPart,
+            TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            {CFrame = CFrame.new(savedBase)}
+        )
+        descendTween:Play()
+        
+        descendTween.Completed:Connect(function()
+            if humanoid then
+                humanoid.PlatformStand = false
             end
-        end
-    end
-    
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == "PlotBlock" then
-            if obj:IsA("Model") and obj.PrimaryPart then
-                return obj.PrimaryPart.Position
-            elseif obj:IsA("BasePart") then
-                return obj.Position
-            end
-        end
-    end
-    
-    return nil
-end
-
-local function lockToPlotBlock()
-    local character = Player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then 
-        return 
-    end
-    
-    local plotBlockPos = findPlotBlock()
-    if not plotBlockPos then
-        notify("Error", "PlotBlock not found in Purchases", 3)
-        return
-    end
-    
-    character.HumanoidRootPart.CFrame = CFrame.new(plotBlockPos)
-    character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-end
-
-local function createLockGUI()
-    if LockPlotBlockGUI then LockPlotBlockGUI:Destroy() end
-    
-    local lockGUI = Instance.new("ScreenGui")
-    lockGUI.Name = "LockPlotBlockGUI"
-    lockGUI.Parent = CoreGui
-    lockGUI.ResetOnSpawn = false
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0.25, 0, 0.12, 0)
-    mainFrame.Position = UDim2.new(0.5, 0, 0.05, 0)
-    mainFrame.AnchorPoint = Vector2.new(0.5, 0)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-    mainFrame.BackgroundTransparency = 0.2
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = lockGUI
-    createCorner(mainFrame, 0.2)
-    makeDraggable(mainFrame)
-    
-    local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0.3, 0)
-    header.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    header.BorderSizePixel = 0
-    header.Parent = mainFrame
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.7, 0, 1, 0)
-    title.Position = UDim2.new(0.05, 0, 0, 0)
-    title.Text = "🔒 LOCKED TO PLOTBLOCK"
-    title.TextColor3 = Color3.fromRGB(255, 100, 100)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 16
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = header
-    
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0.25, 0, 0.8, 0)
-    closeBtn.Position = UDim2.new(0.7, 0, 0.1, 0)
-    closeBtn.Text = "✕ CLOSE"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 14
-    closeBtn.Parent = header
-    createCorner(closeBtn, 0.3)
-    
-    closeBtn.MouseButton1Click:Connect(function()
-        LockPlotBlockToggle:Set(false)
+            isActive = false
+            notify("Base Teleport", "Arrived at base location!", 3)
+        end)
     end)
-    
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(0.9, 0, 0.6, 0)
-    statusLabel.Position = UDim2.new(0.05, 0, 0.35, 0)
-    statusLabel.Text = "Position locked to your PlotBlock in Purchases"
-    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextSize = 14
-    statusLabel.TextWrapped = true
-    statusLabel.Parent = mainFrame
-    
-    LockPlotBlockGUI = lockGUI
 end
 
 -- ======= SISTEMA FAST STEAL =======
@@ -382,55 +280,7 @@ MainTab:CreateButton({
     Callback = goBase
 })
 
--- Lock Base to PlotBlock Toggle
-local LockPlotBlockToggle = MainTab:CreateToggle({
-    Name = "🔒 Lock Base",
-    CurrentValue = false,
-    Flag = "LockPlotBlock",
-    Callback = function(Value)
-        LockPlotBlockEnabled = Value
-        if Value then
-            createLockGUI()
-            notify("Locked to PlotBlock", "Teleporting to your PlotBlock...", 3)
-            lockToPlotBlock()
-            
-            -- Disabilita i controlli
-            local character = Player.Character
-            if character then
-                local humanoid = character:FindFirstChild("Humanoid")
-                if humanoid then
-                    humanoid.PlatformStand = true
-                end
-            end
-            
-            -- Avvia il loop di lock
-            LockPlotBlockLoop = RunService.Heartbeat:Connect(function()
-                if LockPlotBlockEnabled then
-                    lockToPlotBlock()
-                end
-            end)
-        else
-            if LockPlotBlockGUI then
-                LockPlotBlockGUI:Destroy()
-                LockPlotBlockGUI = nil
-            end
-            if LockPlotBlockLoop then
-                LockPlotBlockLoop:Disconnect()
-                LockPlotBlockLoop = nil
-            end
-            -- Riabilita i controlli
-            local character = Player.Character
-            if character then
-                local humanoid = character:FindFirstChild("Humanoid")
-                if humanoid then
-                    humanoid.PlatformStand = false
-                end
-            end
-        end
-    end,
-})
-
--- Toggle Fast Steal
+-- Toggle Fast Steal con auto-click
 MainTab:CreateToggle({
     Name = "⚡ Auto-Click Proximity",
     CurrentValue = false,
@@ -849,7 +699,7 @@ VisualTab:CreateToggle({
                 end
             end
             
-            for _, player in ipairs(Players:GetPlayers()) do
+            for _, player in pairs(Players:GetPlayers()) do
                 addNameESP(player)
             end
             
@@ -1041,17 +891,6 @@ local function cleanup()
     stopKillAura()
     
     isActive = false
-    LockPlotBlockEnabled = false
-    
-    if LockPlotBlockGUI then
-        LockPlotBlockGUI:Destroy()
-        LockPlotBlockGUI = nil
-    end
-    
-    if LockPlotBlockLoop then
-        LockPlotBlockLoop:Disconnect()
-        LockPlotBlockLoop = nil
-    end
     
     local character = Player.Character
     if character then
