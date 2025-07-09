@@ -42,14 +42,9 @@ local KillAuraActive = false
 local KillAuraConnection = nil
 local OriginalWalkSpeed = 16
 local OriginalJumpPower = 50
-
--- NUOVE VARIABILI PER BASE TELEPORT
-local HomeBasePosition = nil
-local EnemyBasePosition = nil
-local BaseTeleportEnabled = false
-local FlyingModeEnabled = false
-local FlyVelocity = nil
-local FlyGyro = nil
+local PremiumEnabled = false -- Variabile premium
+local BasePosition = nil -- Nuova posizione base
+local FlyingToBase = false -- Stato volo base
 
 -- Funzioni di utilità
 local function cleanupConnection(name)
@@ -164,7 +159,6 @@ local function autoClickNearbyPrompts()
     
     return clicked
 end
--- ======= FINE FIX =======
 
 -- ======= SISTEMA KILL AURA =======
 local function startKillAura()
@@ -220,89 +214,80 @@ local function stopKillAura()
     end
     KillAuraActive = false
 end
--- ======= FINE KILL AURA =======
 
--- ======= SISTEMA VOLO =======
-local function startFlying()
-    if FlyingModeEnabled then return end
-    FlyingModeEnabled = true
+-- ======= SISTEMA TELEPORT BASE PREMIUM =======
+local function teleportToBase()
+    if not BasePosition then
+        notify("Error", "Set base position first!", 3)
+        return
+    end
     
     local character = Player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local root = character.HumanoidRootPart
+    FlyingToBase = true
     
-    -- Crea i controlli di volo
-    FlyVelocity = Instance.new("BodyVelocity")
-    FlyVelocity.Velocity = Vector3.new(0, 0, 0)
-    FlyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
-    FlyVelocity.P = 1000
-    FlyVelocity.Parent = root
+    -- Disabilita collisioni temporaneamente
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
     
-    FlyGyro = Instance.new("BodyGyro")
-    FlyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
-    FlyGyro.P = 1000
-    FlyGyro.D = 100
-    FlyGyro.Parent = root
+    -- Posizione iniziale (167 studi sopra la base)
+    local startCFrame = CFrame.new(BasePosition.X, BasePosition.Y + 167, BasePosition.Z)
+    root.CFrame = startCFrame
     
-    notify("Flying Mode 🚀", "Use WASD to fly, Space to go up, Ctrl to go down", 4)
+    notify("Base Teleport", "Flying to your base...", 3)
+    
+    -- Velocità di volo
+    local flyVelocity = Instance.new("BodyVelocity")
+    flyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+    flyVelocity.P = 1000
+    flyVelocity.Parent = root
+    
+    -- Direzione di volo
+    local direction = (BasePosition - root.Position).Unit
+    local speed = 65 -- Velocità di volo
+    
+    -- Loop di volo
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if not FlyingToBase then
+            connection:Disconnect()
+            flyVelocity:Destroy()
+            return
+        end
+        
+        -- Aggiorna direzione
+        direction = (BasePosition - root.Position).Unit
+        flyVelocity.Velocity = direction * speed
+        
+        -- Controlla se siamo arrivati
+        local distance = (BasePosition - root.Position).Magnitude
+        if distance < 15 then
+            FlyingToBase = false
+            connection:Disconnect()
+            flyVelocity:Destroy()
+            
+            -- Ripristina collisioni
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+            
+            notify("Arrived", "Reached your base!", 3)
+        end
+    end)
 end
-
-local function stopFlying()
-    FlyingModeEnabled = false
-    
-    if FlyVelocity then
-        FlyVelocity:Destroy()
-        FlyVelocity = nil
-    end
-    
-    if FlyGyro then
-        FlyGyro:Destroy()
-        FlyGyro = nil
-    end
-end
-
-local function updateFlying()
-    if not FlyingModeEnabled then return end
-    
-    local character = Player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local root = character.HumanoidRootPart
-    
-    -- Calcola la direzione di movimento
-    local moveDirection = Vector3.new(0, 0, 0)
-    local cameraDirection = Camera.CFrame.LookVector
-    
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-        moveDirection = moveDirection + cameraDirection
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-        moveDirection = moveDirection - cameraDirection
-    end
-    if UserInputService:IsKeyCode(Enum.KeyCode.A) then
-        moveDirection = moveDirection - Camera.CFrame.RightVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-        moveDirection = moveDirection + Camera.CFrame.RightVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-        moveDirection = moveDirection + Vector3.new(0, 1, 0)
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-        moveDirection = moveDirection + Vector3.new(0, -1, 0)
-    end
-    
-    -- Normalizza e applica la velocità
-    moveDirection = moveDirection.Unit
-    FlyVelocity.Velocity = moveDirection * 50
-    FlyGyro.CFrame = Camera.CFrame
-end
--- ======= FINE SISTEMA VOLO =======
 
 -- Tab Principale
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features")
+local PremiumBaseSection = MainTab:CreateSection("🔒 Premium Base Teleport")
 
 -- Toggle Fast Steal con auto-click
 MainTab:CreateToggle({
@@ -458,18 +443,35 @@ MainTab:CreateToggle({
     end,
 })
 
--- Flying Mode
-MainTab:CreateToggle({
-    Name = "🚀 Flying Mode",
-    CurrentValue = false,
-    Flag = "FlyingMode",
-    Callback = function(Value)
-        if Value then
-            startFlying()
-        else
-            stopFlying()
+-- Base Teleport Premium (Main Tab)
+MainTab:CreateButton({
+    Name = "📍 Set Base Position",
+    Callback = function()
+        if not PremiumEnabled then
+            notify("PREMIUM REQUIRED", "🔒 This feature requires premium access", 4)
+            return
         end
-    end,
+        
+        local char = Player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            BasePosition = char.HumanoidRootPart.Position
+            notify("Base Position Set", "Location saved successfully!", 3)
+        else
+            notify("Error", "Character not found", 3)
+        end
+    end
+})
+
+MainTab:CreateButton({
+    Name = "🚀 Teleport to Base",
+    Callback = function()
+        if not PremiumEnabled then
+            notify("PREMIUM REQUIRED", "🔒 This feature requires premium access", 4)
+            return
+        end
+        
+        teleportToBase()
+    end
 })
 
 -- Steal Helper con interfaccia modificata
@@ -633,11 +635,11 @@ MainTab:CreateToggle({
     end,
 })
 
--- Tab Visual (FIXED)
+-- Tab Visual
 local VisualTab = Window:CreateTab("Visual", 13014546637)
 local VisualSection = VisualTab:CreateSection("Visual Settings")
 
--- Player ESP FIXED
+-- Player ESP
 VisualTab:CreateToggle({
     Name = "👤 Player ESP",
     CurrentValue = false,
@@ -687,7 +689,7 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Name ESP FIXED
+-- Name ESP
 local NameESPCache = {}
 VisualTab:CreateToggle({
     Name = "📛 Name ESP",
@@ -771,11 +773,11 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Tab Misc (FIXED Anti-AFK)
+-- Tab Misc
 local MiscTab = Window:CreateTab("Misc", 13014546637)
 local UtilitySection = MiscTab:CreateSection("Utility Features")
 
--- Anti-AFK FIXED
+-- Anti-AFK
 MiscTab:CreateToggle({
     Name = "🚫 Anti AFK",
     CurrentValue = false,
@@ -821,108 +823,66 @@ MiscTab:CreateToggle({
     end,
 })
 
--- Tab Other
+-- Tab Other (Premium Access)
 local OtherTab = Window:CreateTab("Other", 13014546637)
-local BaseSection = OtherTab:CreateSection("Base Teleport System 🏰")
+local PremiumSection = OtherTab:CreateSection("🔒 Premium Features")
 
--- Imposta Home Base
-OtherTab:CreateButton({
-    Name = "🏠 Set Home Base",
-    Callback = function()
-        local char = Player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            HomeBasePosition = char.HumanoidRootPart.CFrame
-            notify("Home Base Set", "Position saved successfully", 3)
-        else
-            notify("Error", "Character not found", 3)
-        end
-    end
-})
+-- Premium Access Blurred
+local premiumFrame = Instance.new("Frame")
+premiumFrame.Size = UDim2.new(1, 0, 0.4, 0)
+premiumFrame.Position = UDim2.new(0, 0, 0.3, 0)
+premiumFrame.BackgroundTransparency = 1
+premiumFrame.Parent = OtherTab:GetContentFrame()
 
--- Imposta Base Avversario
-OtherTab:CreateButton({
-    Name = "⚔️ Set Enemy Base",
-    Callback = function()
-        local char = Player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            EnemyBasePosition = char.HumanoidRootPart.CFrame
-            notify("Enemy Base Set", "Position saved successfully", 3)
-        else
-            notify("Error", "Character not found", 3)
-        end
-    end
-})
+local blurEffect = Instance.new("BlurEffect")
+blurEffect.Size = 24
+blurEffect.Parent = premiumFrame
 
--- Teletrasporto alla Home Base
-OtherTab:CreateButton({
-    Name = "🏠 Teleport to Home",
-    Callback = function()
-        if HomeBasePosition then
-            local char = Player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = HomeBasePosition
-                notify("Teleported Home", "Returned to home base", 3)
-            end
-        else
-            notify("Error", "Home base not set", 3)
-        end
-    end
-})
+local premiumLabel = Instance.new("TextLabel")
+premiumLabel.Size = UDim2.new(1, -40, 0.8, 0)
+premiumLabel.Position = UDim2.new(0, 20, 0.1, 0)
+premiumLabel.Text = "PREMIUM ACCESS REQUIRED\n\n🔒 These features are exclusive to premium users\n💎 Upgrade for enhanced capabilities"
+premiumLabel.TextColor3 = Color3.new(1, 1, 1)
+premiumLabel.BackgroundTransparency = 1
+premiumLabel.Font = Enum.Font.GothamBold
+premiumLabel.TextSize = 18
+premiumLabel.TextWrapped = true
+premiumLabel.TextScaled = true
+premiumLabel.ZIndex = 2
+premiumLabel.Parent = premiumFrame
 
--- Teletrasporto alla Base Avversaria
-OtherTab:CreateButton({
-    Name = "⚔️ Teleport to Enemy",
-    Callback = function()
-        if EnemyBasePosition then
-            local char = Player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = EnemyBasePosition
-                notify("Teleported Enemy", "Moved to enemy base", 3)
-            end
-        else
-            notify("Error", "Enemy base not set", 3)
-        end
-    end
-})
+local lockIcon = Instance.new("ImageLabel")
+lockIcon.Size = UDim2.new(0, 80, 0, 80)
+lockIcon.Position = UDim2.new(0.5, -40, 0.6, 0)
+lockIcon.Image = "rbxassetid://3926305904"
+lockIcon.ImageRectOffset = Vector2.new(924, 724)
+lockIcon.ImageRectSize = Vector2.new(36, 36)
+lockIcon.BackgroundTransparency = 1
+lockIcon.Parent = premiumFrame
 
--- Teletrasporto Automatico alla Base Avversaria
+-- Premium Access Toggle
 OtherTab:CreateToggle({
-    Name = "🔁 Enemy Base Teleporter",
+    Name = "🌟 Activate Premium",
     CurrentValue = false,
-    Flag = "BaseTeleporter",
+    Flag = "PremiumAccess",
     Callback = function(Value)
-        BaseTeleportEnabled = Value
+        PremiumEnabled = Value
         if Value then
-            Connections.BaseTeleport = RunService.Heartbeat:Connect(function()
-                if not BaseTeleportEnabled then return end
-                
-                local char = Player.Character
-                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-                
-                local root = char.HumanoidRootPart
-                
-                -- Controlla se siamo alla base avversaria
-                if EnemyBasePosition and (root.Position - EnemyBasePosition.Position).Magnitude < 20 then
-                    -- Teletrasporta in alto
-                    root.CFrame = EnemyBasePosition + Vector3.new(0, 150, 0)
-                    
-                    -- Caduta controllata
-                    local fallTime = 0
-                    while char and root and root.Position.Y > EnemyBasePosition.Position.Y + 5 do
-                        task.wait(0.1)
-                        fallTime = fallTime + 0.1
-                        if fallTime > 5 then break end -- Timeout sicurezza
-                    end
-                end
-            end)
-            notify("Base Teleport Active", "Teleport to enemy base enabled", 3)
+            notify("PREMIUM ACTIVATED", "🔓 Premium features unlocked!", 5)
+            blurEffect.Enabled = false
+            lockIcon.Visible = false
+            premiumLabel.Text = "PREMIUM FEATURES UNLOCKED\n\n🌟 Base Teleport System\n🚀 Priority Support\n⚡ Exclusive Tools"
         else
-            cleanupConnection("BaseTeleport")
+            PremiumEnabled = false
+            notify("Premium Deactivated", "Premium features disabled", 3)
+            blurEffect.Enabled = true
+            lockIcon.Visible = true
+            premiumLabel.Text = "PREMIUM ACCESS REQUIRED\n\n🔒 These features are exclusive to premium users\n💎 Upgrade for enhanced capabilities"
         end
     end
 })
 
--- Tab Server (FIXED)
+-- Tab Server
 local ServerTab = Window:CreateTab("Server", 13014546637)
 local ServerSection = ServerTab:CreateSection("Server Controls 🔄")
 
@@ -1003,9 +963,6 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
             end
         end
     end
-    
-    -- Flying Mode
-    updateFlying()
 end)
 
 -- Cleanup
@@ -1027,7 +984,6 @@ local function cleanup()
     
     if FastStealConnection then FastStealConnection:Disconnect() end
     stopKillAura()
-    stopFlying()
     
     local character = Player.Character
     if character then
