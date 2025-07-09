@@ -472,7 +472,7 @@ MainTab:CreateToggle({
     end,
 })
 
--- Steal Helper Migliorato
+-- Steal Helper con interfaccia modificata
 MainTab:CreateToggle({
     Name = "🎯 Steal Helper",
     CurrentValue = false,
