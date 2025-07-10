@@ -52,8 +52,8 @@ local flightSystem = {
     bodyVelocity = nil,
     bodyAngularVelocity = nil,
     currentTween = nil,
-    FLIGHT_SPEED = 47, -- Increased flight speed
-    FLOAT_HEIGHT = 20  -- Increased float height
+    FLIGHT_SPEED = 60, -- Increased flight speed
+    FLOAT_HEIGHT = 90  -- Increased float height
 }
 
 -- Funzioni di utilità
