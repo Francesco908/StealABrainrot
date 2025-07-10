@@ -1,9 +1,11 @@
--- Steal a brainrot Script v4
+-- Steal a brainrot Script v5 (Teleporter Edition)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 
 -- Configurazione colori
@@ -19,12 +21,12 @@ local COLORS = {
 
 -- Creazione GUI principale
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "StealBrainrotV4"
+ScreenGui.Name = "StealBrainrotV5"
 ScreenGui.Parent = game.CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 220)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -110)
+MainFrame.Size = UDim2.new(0, 300, 0, 250) -- Più alto per il teleporter
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
 MainFrame.BackgroundColor3 = COLORS.Background
 MainFrame.BackgroundTransparency = 0.1
 MainFrame.Active = true
@@ -49,7 +51,7 @@ TitleBar.BackgroundTransparency = 1
 TitleBar.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Text = "🧠 Steal a brainrot v4"
+Title.Text = "🚀 Steal a brainrot v5"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextColor3 = COLORS.Text
@@ -93,8 +95,15 @@ MinimizeButton.MouseButton1Click:Connect(function()
         for _, frame in pairs(TabFrames) do
             frame.Visible = false
         end
+        -- Nascondi i pulsanti dei tab quando minimizzato
+        for _, btn in pairs(TabButtons) do
+            btn.Visible = false
+        end
     else
         MainFrame.Size = originalSize
+        for _, btn in pairs(TabButtons) do
+            btn.Visible = true
+        end
         for name, frame in pairs(TabFrames) do
             frame.Visible = (name == currentTab)
         end
@@ -109,6 +118,15 @@ local Tabs = {"Main", "Visual", "Misc"}
 local TabButtons = {}
 local TabFrames = {}
 local currentTab = "Main"
+
+-- Sfondo grigio trasparente
+local BackgroundOverlay = Instance.new("Frame")
+BackgroundOverlay.Size = UDim2.new(1, 0, 1, 0)
+BackgroundOverlay.Position = UDim2.new(0, 0, 0, 0)
+BackgroundOverlay.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+BackgroundOverlay.BackgroundTransparency = 0.7
+BackgroundOverlay.ZIndex = -1
+BackgroundOverlay.Parent = MainFrame
 
 -- Creazione pulsanti tab
 for i, tabName in ipairs(Tabs) do
@@ -132,7 +150,7 @@ for i, tabName in ipairs(Tabs) do
     TabFrame.Position = UDim2.new(0, 5, 0, 60)
     TabFrame.BackgroundTransparency = 1
     TabFrame.ScrollBarThickness = 4
-    TabFrame.CanvasSize = UDim2.new(0, 0, 0, 300)
+    TabFrame.CanvasSize = UDim2.new(0, 0, 0, 350) -- Più spazio per i pulsanti
     TabFrame.Visible = (i == 1)
     TabFrame.Parent = MainFrame
     
@@ -228,12 +246,20 @@ HelperTitle.Size = UDim2.new(1, 0, 0, 20)
 HelperTitle.Position = UDim2.new(0, 0, 0, 5)
 HelperTitle.Parent = StealHelper
 
--- Funzione per muovere il giocatore in altezza
+-- Funzione per muovere il giocatore in altezza (fixato)
 local function MovePlayerY(height)
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = LocalPlayer.Character.HumanoidRootPart
         local newPosition = Vector3.new(hrp.Position.X, height, hrp.Position.Z)
         hrp.CFrame = CFrame.new(newPosition)
+        
+        -- Ripristina fisica dopo 0.1 secondi
+        delay(0.1, function()
+            if hrp then
+                hrp.Velocity = Vector3.new(0, 0, 0)
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            end
+        end)
     end
 end
 
@@ -258,7 +284,7 @@ end)
 
 -- Pulsante DOWN
 local DownButton = Instance.new("TextButton")
-DownButton.Text = "🔽 DOWN (-50)"
+DownButton.Text = "🔽 DOWN (50)"
 DownButton.Font = Enum.Font.GothamBold
 DownButton.TextSize = 12
 DownButton.Size = UDim2.new(0.8, 0, 0, 25)
@@ -272,7 +298,7 @@ DownCorner.CornerRadius = UDim.new(0, 5)
 DownCorner.Parent = DownButton
 
 DownButton.MouseButton1Click:Connect(function()
-    MovePlayerY(-50)
+    MovePlayerY(50) -- Fixato a 50 invece di -50
 end)
 
 -- Rendere lo Steal Helper movibile
@@ -306,6 +332,97 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
     end
 end)
 
+-- Sistema Teleporter con Bypass Anti-Cheat
+local savedBasePosition = nil
+local teleportInProgress = false
+
+local function TeleportToBase()
+    if teleportInProgress then return end
+    if not savedBasePosition then return end
+    
+    teleportInProgress = true
+    local character = LocalPlayer.Character
+    if not character then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not hrp then return end
+    
+    -- Salva stato originale
+    local originalWalkSpeed = humanoid.WalkSpeed
+    local originalJumpPower = humanoid.JumpPower
+    
+    -- Fase 1: Teletrasporto a 165 di altezza
+    local skyPosition = Vector3.new(hrp.Position.X, 165, hrp.Position.Z)
+    hrp.CFrame = CFrame.new(skyPosition)
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
+    
+    -- Mostra timer
+    local teleportGui = Instance.new("ScreenGui")
+    teleportGui.Name = "TeleportCountdown"
+    teleportGui.Parent = game.CoreGui
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.2, 0, 0.1, 0)
+    frame.Position = UDim2.new(0.4, 0, 0.05, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    frame.BackgroundTransparency = 0.3
+    frame.BorderSizePixel = 0
+    frame.Parent = teleportGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.2, 0)
+    corner.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "⏱️ Teletrasporto in 3..."
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 18
+    label.Parent = frame
+    
+    -- Countdown
+    for i = 3, 1, -1 do
+        label.Text = "⏱️ Teletrasporto in "..i.."..."
+        wait(1)
+    end
+    
+    -- Fase 2: Teletrasporto alla base con bypass anti-cheat
+    -- Simula movimento naturale
+    humanoid.WalkSpeed = 16
+    humanoid.JumpPower = 50
+    
+    -- Usa tweening per movimento realistico
+    local tweenInfo = TweenInfo.new(
+        1.5, -- Durata
+        Enum.EasingStyle.Linear, -- Stile
+        Enum.EasingDirection.Out, -- Direzione
+        0, -- Ripetizioni
+        false, -- Inverti
+        0 -- Delay
+    )
+    
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(savedBasePosition)})
+    tween:Play()
+    
+    wait(1.5)
+    
+    -- Assicura il posizionamento esatto
+    hrp.CFrame = CFrame.new(savedBasePosition)
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    
+    -- Ripristina valori originali
+    humanoid.WalkSpeed = originalWalkSpeed
+    humanoid.JumpPower = originalJumpPower
+    
+    -- Pulizia
+    teleportGui:Destroy()
+    teleportInProgress = false
+end
+
 --[[
   ========================
   TAB MAIN (con emoji)
@@ -317,6 +434,27 @@ local yPosition = 5
 -- Steal Helper Button
 CreateButton(MainTab, "🎮 Steal Helper", UDim2.new(0, 10, 0, yPosition), function(active)
     StealHelper.Visible = active
+end)
+yPosition = yPosition + 35
+
+-- Set Base Position
+CreateButton(MainTab, "📍 Set Base Position", UDim2.new(0, 10, 0, yPosition), function(active)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        savedBasePosition = LocalPlayer.Character.HumanoidRootPart.Position
+        notify("Base Position Set", "Location saved successfully", 3)
+    else
+        notify("Error", "Character not found", 3)
+    end
+end)
+yPosition = yPosition + 35
+
+-- Teleport to Base
+CreateButton(MainTab, "🚀 Teleport to Base", UDim2.new(0, 10, 0, yPosition), function(active)
+    if savedBasePosition then
+        TeleportToBase()
+    else
+        notify("Error", "Set base position first", 3)
+    end
 end)
 yPosition = yPosition + 35
 
@@ -367,81 +505,6 @@ CreateButton(MainTab, "🧪 Anti Trap", UDim2.new(0, 10, 0, yPosition), function
         LocalPlayer.Character.Humanoid:SetAttribute("AntiTrap", true)
     else
         LocalPlayer.Character.Humanoid:SetAttribute("AntiTrap", false)
-    end
-end)
-yPosition = yPosition + 35
-
--- AI-Powered Trap Detection 🤖
-CreateButton(MainTab, "🤖 AI Trap Finder", UDim2.new(0, 10, 0, yPosition), function(active)
-    if active then
-        -- Funzione AI avanzata per rilevare trappole
-        local function FindTrapsWithAI()
-            -- API Key per Google Generative AI
-            local API_KEY = "AIzaSyCs7MOursJk-vCG9ycl_vDBtbDUJUz_0KE"
-            local API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-            
-            -- Raccogli informazioni sul gioco
-            local gameInfo = "Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
-            local playerCount = "Players: " .. #Players:GetPlayers()
-            local environmentDesc = "Environment: " .. workspace:GetFullName()
-            
-            -- Crea prompt per l'AI
-            local prompt = {
-                contents = {
-                    parts = {
-                        {text = "You are an expert in Roblox game security analysis. Analyze the following game information and provide a detailed list of potential trap mechanisms, their locations, and how to neutralize them. Game details:\n\n" ..
-                                gameInfo .. "\n" ..
-                                playerCount .. "\n" ..
-                                environmentDesc .. "\n\n" ..
-                                "Provide your analysis in JSON format with the following structure: " ..
-                                '{"traps": [{"name": "trap_name", "location": "position", "type": "trap_type", "neutralization": "method"}]}'}
-                    }
-                }
-            }
-            
-            -- Invia richiesta all'API AI
-            local success, response = pcall(function()
-                return HttpService:PostAsync(
-                    API_URL .. "?key=" .. API_KEY,
-                    HttpService:JSONEncode(prompt),
-                    Enum.HttpContentType.ApplicationJson,
-                    false
-                )
-            end)
-            
-            if success then
-                local jsonResponse = HttpService:JSONDecode(response)
-                if jsonResponse and jsonResponse.candidates and jsonResponse.candidates[1] then
-                    local content = jsonResponse.candidates[1].content
-                    if content and content.parts and content.parts[1] then
-                        local analysisText = content.parts[1].text
-                        
-                        -- Estrai dati JSON dalla risposta
-                        local jsonStart, jsonEnd = analysisText:find("{.+}")
-                        if jsonStart then
-                            local jsonData = analysisText:sub(jsonStart, jsonEnd)
-                            local trapData = HttpService:JSONDecode(jsonData)
-                            
-                            if trapData and trapData.traps then
-                                -- Neutralizza le trappole trovate
-                                for _, trap in ipairs(trapData.traps) do
-                                    print("🤖 AI Found Trap:", trap.name, "at", trap.location, "-", trap.neutralization)
-                                    -- Aggiungi qui la logica per neutralizzare la trappola
-                                end
-                            end
-                        end
-                    end
-                end
-            else
-                warn("🤖 AI Error:", response)
-            end
-        end
-        
-        -- Esegui la scansione periodica
-        while active do
-            FindTrapsWithAI()
-            wait(10) -- Scansiona ogni 10 secondi
-        end
     end
 end)
 
@@ -533,3 +596,53 @@ end)
 
 -- Inizializzazione
 TabButtons["Main"].BackgroundColor3 = COLORS.TabActive
+
+-- Funzione di notifica
+function notify(title, message, duration)
+    duration = duration or 3
+    
+    local notifyGui = Instance.new("ScreenGui")
+    notifyGui.Parent = game.CoreGui
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.25, 0, 0.07, 0)
+    frame.Position = UDim2.new(0.375, 0, 0.05, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    frame.BorderSizePixel = 0
+    frame.Parent = notifyGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.1, 0)
+    corner.Parent = frame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0.4, 0)
+    titleLabel.Position = UDim2.new(0, 5, 0, 0)
+    titleLabel.Text = title
+    titleLabel.TextColor3 = Color3.new(1, 1, 1)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 14
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = frame
+    
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Size = UDim2.new(1, 0, 0.6, 0)
+    messageLabel.Position = UDim2.new(0, 5, 0.4, 0)
+    messageLabel.Text = message
+    messageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Font = Enum.Font.Gotham
+    messageLabel.TextSize = 12
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.Parent = frame
+    
+    delay(duration, function()
+        local tween = TweenService:Create(frame, TweenInfo.new(0.5), {
+            Position = UDim2.new(0.375, 0, -0.1, 0)
+        })
+        tween:Play()
+        tween.Completed:Wait()
+        notifyGui:Destroy()
+    end)
+end
