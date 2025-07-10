@@ -50,10 +50,9 @@ local LockPosition = nil
 local flightSystem = {
     isFlying = false,
     bodyVelocity = nil,
-    bodyAngularVelocity = nil,
-    currentTween = nil,
-    FLIGHT_SPEED = 90, -- Increased flight speed
-    FLOAT_HEIGHT = 20  -- Increased float height
+    bodyGyro = nil,
+    FLIGHT_SPEED = 65,  -- Increased flight speed
+    FLOAT_HEIGHT = 165  -- Increased float height
 }
 
 -- Funzioni di utilità
@@ -120,11 +119,12 @@ local function flightSystem_createBodyMovers(rootPart)
     flightSystem.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     flightSystem.bodyVelocity.Parent = rootPart
     
-    -- Body angular velocity for rotation control
-    flightSystem.bodyAngularVelocity = Instance.new("BodyAngularVelocity")
-    flightSystem.bodyAngularVelocity.MaxTorque = Vector3.new(0, 4000, 0)
-    flightSystem.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-    flightSystem.bodyAngularVelocity.Parent = rootPart
+    -- BodyGyro for rotation control
+    flightSystem.bodyGyro = Instance.new("BodyGyro")
+    flightSystem.bodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000)
+    flightSystem.bodyGyro.P = 1000
+    flightSystem.bodyGyro.D = 50
+    flightSystem.bodyGyro.Parent = rootPart
 end
 
 local function flightSystem_removeBodyMovers()
@@ -132,13 +132,9 @@ local function flightSystem_removeBodyMovers()
         flightSystem.bodyVelocity:Destroy()
         flightSystem.bodyVelocity = nil
     end
-    if flightSystem.bodyAngularVelocity then
-        flightSystem.bodyAngularVelocity:Destroy()
-        flightSystem.bodyAngularVelocity = nil
-    end
-    if flightSystem.currentTween then
-        flightSystem.currentTween:Cancel()
-        flightSystem.currentTween = nil
+    if flightSystem.bodyGyro then
+        flightSystem.bodyGyro:Destroy()
+        flightSystem.bodyGyro = nil
     end
 end
 
@@ -155,25 +151,6 @@ local function flightSystem_stopFlight()
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return end
     
-    -- Find safe landing position
-    local currentPos = rootPart.Position
-    local safePos = currentPos
-    
-    -- Cast ray downward to find ground
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {character}
-    
-    local ray = workspace:Raycast(currentPos, Vector3.new(0, -500, 0), raycastParams)
-    
-    if ray and ray.Instance then
-        -- Safe landing position 6 studs above ground
-        safePos = Vector3.new(currentPos.X, ray.Position.Y + 6, currentPos.Z)
-    else
-        -- If no ground found, go to spawn or safe height
-        safePos = Vector3.new(currentPos.X, math.max(currentPos.Y, 50), currentPos.Z)
-    end
-    
     -- Clean up flight system first
     flightSystem_removeBodyMovers()
     
@@ -181,11 +158,6 @@ local function flightSystem_stopFlight()
     humanoid.PlatformStand = false
     humanoid.WalkSpeed = OriginalWalkSpeed
     humanoid.JumpPower = OriginalJumpPower
-    
-    -- Position character safely
-    rootPart.CFrame = CFrame.new(safePos)
-    rootPart.Velocity = Vector3.new(0, 0, 0)
-    rootPart.RotVelocity = Vector3.new(0, 0, 0)
     
     notify("Flight System", "Landed safely!", 3)
 end
@@ -216,42 +188,86 @@ local function flightSystem_startFlight(target)
     -- Create flight system
     flightSystem_createBodyMovers(rootPart)
     
-    -- Float up first to increased height
+    -- Ascend to flight height
     local startPos = rootPart.Position
-    local floatPos = Vector3.new(startPos.X, startPos.Y + flightSystem.FLOAT_HEIGHT, startPos.Z)
+    local flightHeightPos = Vector3.new(startPos.X, startPos.Y + flightSystem.FLOAT_HEIGHT, startPos.Z)
     
-    -- Set initial upward velocity
-    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 25, 0)  -- Faster ascent
+    -- Set ascent velocity
+    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 50, 0)
     
-    -- Wait for float, then move to target
-    delay(0.8, function()  -- Shorter delay for faster flight
-        if not flightSystem.isFlying then return end
-        
-        -- Calculate direction to target
-        local direction = (target - rootPart.Position).Unit
-        
-        -- Face target direction
-        local lookDirection = Vector3.new(direction.X, 0, direction.Z)
-        if lookDirection.Magnitude > 0 then
-            rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + lookDirection)
+    -- Wait to reach flight height
+    local ascentComplete = false
+    local ascentCheck = RunService.Heartbeat:Connect(function()
+        if not flightSystem.isFlying then
+            ascentCheck:Disconnect()
+            return
         end
         
-        -- Move to target with constant increased velocity
-        flightSystem.bodyVelocity.Velocity = direction * flightSystem.FLIGHT_SPEED
+        if (rootPart.Position.Y >= flightHeightPos.Y - 5) then
+            ascentComplete = true
+            ascentCheck:Disconnect()
+        end
+    end)
+    
+    -- Start moving to target after ascent
+    while flightSystem.isFlying and not ascentComplete do
+        wait(0.1)
+    end
+    
+    if not flightSystem.isFlying then return end
+    
+    -- Calculate direction to target
+    local direction = (target - rootPart.Position).Unit
+    
+    -- Face target direction
+    flightSystem.bodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + direction)
+    
+    -- Move to target with flight speed
+    flightSystem.bodyVelocity.Velocity = direction * flightSystem.FLIGHT_SPEED
+    
+    -- Auto-land when close to target
+    local landingCheck
+    landingCheck = RunService.Heartbeat:Connect(function()
+        if not flightSystem.isFlying or not rootPart or not rootPart.Parent then
+            landingCheck:Disconnect()
+            return
+        end
         
-        -- Auto-land when close to target
-        local landingCheck
-        landingCheck = RunService.Heartbeat:Connect(function()
-            if not flightSystem.isFlying or not rootPart or not rootPart.Parent then
-                landingCheck:Disconnect()
-                return
-            end
+        local distance = (rootPart.Position - target).Magnitude
+        if distance < 25 then
+            landingCheck:Disconnect()
             
-            if (rootPart.Position - target).Magnitude < 12 then
-                landingCheck:Disconnect()
-                flightSystem_stopFlight()
-            end
-        end)
+            -- Start descent
+            flightSystem.bodyVelocity.Velocity = Vector3.new(0, -25, 0)
+            
+            -- Wait until near ground
+            local descentCheck = RunService.Heartbeat:Connect(function()
+                if not flightSystem.isFlying then
+                    descentCheck:Disconnect()
+                    return
+                end
+                
+                -- Cast ray downward to find ground
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                raycastParams.FilterDescendantsInstances = {character}
+                
+                local ray = workspace:Raycast(rootPart.Position, Vector3.new(0, -100, 0), raycastParams)
+                
+                if ray and ray.Position then
+                    local groundDistance = (rootPart.Position - ray.Position).Magnitude
+                    if groundDistance < 10 then
+                        descentCheck:Disconnect()
+                        flightSystem_stopFlight()
+                        
+                        -- Position character safely
+                        rootPart.CFrame = CFrame.new(ray.Position + Vector3.new(0, 5, 0))
+                        rootPart.Velocity = Vector3.new(0, 0, 0)
+                        rootPart.RotVelocity = Vector3.new(0, 0, 0)
+                    end
+                end
+            end)
+        end
     end)
 end
 
