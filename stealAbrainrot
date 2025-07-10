@@ -1,5 +1,5 @@
 -- Steal a brainrot Script
--- Advanced Admin GUI with All Features
+-- Advanced Admin GUI with All Features (Fixed Teleport System)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -174,7 +174,7 @@ local function createButton(name, position, parent, callback)
                 -- Cambia temporaneamente a verde per pulsanti senza stato
                 local originalColor = button.BackgroundColor3
                 button.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-                wait(0.5)
+                task.wait(0.5)
                 button.BackgroundColor3 = originalColor
             end
         end
@@ -206,6 +206,7 @@ local speedHackButton = createButton("Speed Hack", UDim2.new(0, 10, 0, 55), tabC
     speedHackEnabled = not speedHackEnabled
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         if speedHackEnabled then
+            originalWalkSpeed = player.Character.Humanoid.WalkSpeed
             player.Character.Humanoid.WalkSpeed = originalWalkSpeed * 1.5
         else
             player.Character.Humanoid.WalkSpeed = originalWalkSpeed
@@ -355,47 +356,18 @@ function createTeleportGUI()
     local setBaseButton = createButton("Set Base", UDim2.new(0, 10, 0, 40), tpGui, function()
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             basePosition = player.Character.HumanoidRootPart.Position
+            createNotification("Base position set!", 2)
+        else
+            createNotification("Character not found!", 2)
         end
-        -- Non restituisce nulla
     end)
 
     local tpBaseButton = createButton("TP Base", UDim2.new(0, 10, 0, 80), tpGui, function()
         if basePosition and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            createTimerOverlay(5, function()
-                local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-                if not rootPart then return end
-
-                -- Metodi di bypass multipli
-                local methods = {
-                    function() rootPart.CFrame = CFrame.new(basePosition) end,
-                    function()
-                        local bv = Instance.new("BodyVelocity", rootPart)
-                        bv.MaxForce = Vector3.new(4000,4000,4000)
-                        rootPart.CFrame = CFrame.new(basePosition)
-                        wait(0.1) bv:Destroy()
-                    end,
-                    function()
-                        rootPart.Anchored = true
-                        rootPart.CFrame = CFrame.new(basePosition)
-                        wait(0.1) rootPart.Anchored = false
-                    end,
-                    function()
-                        local hm = player.Character:FindFirstChild("Humanoid")
-                        if hm then
-                            hm.PlatformStand = true
-                            rootPart.CFrame = CFrame.new(basePosition)
-                            wait(0.1) hm.PlatformStand = false
-                        end
-                    end,
-                }
-
-                for _, method in ipairs(methods) do
-                    pcall(method); wait(0.1)
-                    if (rootPart.Position - basePosition).Magnitude < 5 then break end
-                end
-            end)
+            teleportToPosition(basePosition)
+        else
+            createNotification("Set base position first!", 2)
         end
-        -- Non restituisce nulla
     end)
 
     tpCloseButton.MouseButton1Click:Connect(function()
@@ -412,7 +384,7 @@ function enableESP()
     end
     connections.playerAdded = Players.PlayerAdded:Connect(function(np)
         np.CharacterAdded:Connect(function(char)
-            if espEnabled then wait(1); createESPForPlayer(np) end
+            if espEnabled then task.wait(1); createESPForPlayer(np) end
         end)
     end)
 end
@@ -441,53 +413,80 @@ function createESPForPlayer(tp)
     end)
 end
 
--- Timer Overlay Function
-function createTimerOverlay(duration, callback)
-    local timerGui = Instance.new("Frame", screenGui)
-    timerGui.Name = "TimerOverlay"
-    timerGui.Size = UDim2.new(0, 200, 0, 80)
-    timerGui.Position = UDim2.new(0.5, -100, 0.1, 0)
-    timerGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    timerGui.BackgroundTransparency = 0.3
-    timerGui.BorderSizePixel = 0
+-- Enhanced Teleport Function with Multiple Bypass Methods
+function teleportToPosition(position)
+    if not player.Character then return end
+    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    createNotification("Teleporting...", 3)
+    
+    -- Metodo 1: Tween (più naturale, meno rilevabile)
+    local tweenInfo = TweenInfo.new(0.7, Enum.EasingStyle.Quad)
+    local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = CFrame.new(position)})
+    tween:Play()
+    tween.Completed:Wait()
+    
+    -- Controlla se il teleport è riuscito
+    if (rootPart.Position - position).Magnitude < 5 then return end
+    
+    -- Metodo 2: BodyVelocity (backup)
+    local bv = Instance.new("BodyVelocity")
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Parent = rootPart
+    rootPart.CFrame = CFrame.new(position)
+    task.wait(0.1)
+    bv:Destroy()
+    
+    -- Metodo 3: PlatformStand (per bypassare collisioni)
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.PlatformStand = true
+        rootPart.CFrame = CFrame.new(position)
+        task.wait(0.2)
+        humanoid.PlatformStand = false
+    end
+    
+    -- Metodo 4: Set network ownership (bypass server-side checks)
+    if rootPart:CanSetNetworkOwnership() then
+        rootPart:SetNetworkOwner(player)
+    end
+    
+    -- Metodo 5: Direct CFrame set (ultimo tentativo)
+    rootPart.CFrame = CFrame.new(position)
+end
 
-    local timerCorner = Instance.new("UICorner")
-    timerCorner.CornerRadius = UDim.new(0, 15)
-    timerCorner.Parent = timerGui
-
-    local timerText = Instance.new("TextLabel")
-    timerText.Size = UDim2.new(1, 0, 0.6, 0)
-    timerText.Position = UDim2.new(0, 0, 0, 0)
-    timerText.BackgroundTransparency = 1
-    timerText.Text = "Teleporting..."
-    timerText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    timerText.TextScaled = true
-    timerText.Font = Enum.Font.GothamBold
-    timerText.Parent = timerGui
-
-    local countdownText = Instance.new("TextLabel")
-    countdownText.Size = UDim2.new(1, 0, 0.4, 0)
-    countdownText.Position = UDim2.new(0, 0, 0.6, 0)
-    countdownText.BackgroundTransparency = 1
-    countdownText.Text = tostring(duration)
-    countdownText.TextColor3 = Color3.fromRGB(255, 100, 100)
-    countdownText.TextScaled = true
-    countdownText.Font = Enum.Font.GothamBold
-    countdownText.Parent = timerGui
-
-    local timeLeft = duration
-    local conn
-    conn = RunService.Heartbeat:Connect(function(dt)
-        timeLeft = timeLeft - dt
-        countdownText.Text = string.format("%.1f", math.max(0, timeLeft))
-        if timeLeft <= 0 then
-            conn:Disconnect()
-            timerGui:Destroy()
-            if callback then callback() end
-        end
+-- Notification System
+function createNotification(text, duration)
+    local notifGui = Instance.new("Frame")
+    notifGui.Name = "Notification"
+    notifGui.Size = UDim2.new(0, 200, 0, 40)
+    notifGui.Position = UDim2.new(0.5, -100, 0.9, 0)
+    notifGui.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    notifGui.BackgroundTransparency = 0.3
+    notifGui.BorderSizePixel = 0
+    notifGui.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = notifGui
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Parent = notifGui
+    
+    task.spawn(function()
+        task.wait(duration)
+        notifGui:Destroy()
     end)
-
-    if callback then callback() end
+    
+    return notifGui
 end
 
 -- Infinite Jump Logic
@@ -499,6 +498,8 @@ local function handleInfiniteJump()
             bv.Name = "InfiniteJumpVelocity"
             bv.MaxForce = Vector3.new(0, math.huge, 0)
             bv.Velocity = Vector3.new(0, 50, 0)
+            task.wait(0.1)
+            if bv then bv:Destroy() end
         end
     else
         local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -546,11 +547,12 @@ end)
 -- Main Loop & Events
 connections.heartbeat = RunService.Heartbeat:Connect(handleInfiniteJump)
 connections.characterAdded = player.CharacterAdded:Connect(function(char)
-    wait(1)
+    task.wait(1)
     if speedHackEnabled and char:FindFirstChild("Humanoid") then
+        originalWalkSpeed = char.Humanoid.WalkSpeed
         char.Humanoid.WalkSpeed = originalWalkSpeed * 1.5
     end
-    if espEnabled then wait(1); enableESP() end
+    if espEnabled then task.wait(1); enableESP() end
 end)
 
 print("Steal a brainrot Script loaded successfully!")
