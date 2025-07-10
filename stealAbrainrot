@@ -24,7 +24,7 @@ local Debris = game:GetService("Debris")
 local Player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Variabili
+-- Variabili globali
 local Connections = {}
 local ESPCache = {}
 local AirJumpEnabled = false
@@ -46,28 +46,23 @@ local isActive = false
 local LockPlotBlockEnabled = false
 local LockPlotBlockGUI = nil
 local LockPlotBlockLoop = nil
+local BaseManagerGUI = nil
 
--- Flight System Variables
-local flightSystem = {
-    isFlying = false,
-    isLanding = false,
-    bodyVelocity = nil,
-    bodyPosition = nil,
-    bodyAngularVelocity = nil,
-    stabilityConnection = nil,
-    visibilityConnection = nil,
-    
-    FLIGHT_SPEED = 70,
-    FLOAT_HEIGHT = 8,
-    LANDING_SPEED = 12,
-    SAFE_LANDING_HEIGHT = 8,
-    VISIBILITY_CHECK_INTERVAL = 0.1,
-    POSITION_CORRECTION_FORCE = 2000,
-    
-    originalWalkSpeed = 16,
-    originalJumpPower = 50,
-    originalHipHeight = 0
-}
+-- Variabili per il nuovo sistema di volo
+local FLIGHT_SPEED = 45
+local FLOAT_HEIGHT = 8
+local LANDING_SPEED = 12
+local TARGET_POINT = Vector3.new(0, 15, 0)
+local VISIBILITY_CHECK_INTERVAL = 0.1
+local isFlying = false
+local isLanding = false
+local bodyVelocity = nil
+local bodyAngularVelocity = nil
+local stabilityConnection = nil
+local visibilityConnection = nil
+local originalWalkSpeed = 16
+local originalJumpPower = 50
+local originalHipHeight = 0
 
 -- Funzioni di utilità
 local function cleanupConnection(name)
@@ -125,349 +120,303 @@ local function makeDraggable(gui)
     end)
 end
 
--- ======= ADVANCED FLIGHT SYSTEM =======
-local function flightSystem_createAdvancedBodyMovers(rootPart)
-    -- Primary movement control
-    flightSystem.bodyVelocity = Instance.new("BodyVelocity")
-    flightSystem.bodyVelocity.MaxForce = Vector3.new(5000, 5000, 5000)
-    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    flightSystem.bodyVelocity.Parent = rootPart
+-- ### Nuovo Sistema di Volo ###
+local function createAdvancedBodyMovers(rootPart)
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(5000, 5000, 5000)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = rootPart
     
-    -- Position stabilization
-    flightSystem.bodyPosition = Instance.new("BodyPosition")
-    flightSystem.bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-    flightSystem.bodyPosition.Position = rootPart.Position
-    flightSystem.bodyPosition.D = 3000
-    flightSystem.bodyPosition.P = 12000
-    flightSystem.bodyPosition.Parent = rootPart
-    
-    -- Rotation control
-    flightSystem.bodyAngularVelocity = Instance.new("BodyAngularVelocity")
-    flightSystem.bodyAngularVelocity.MaxTorque = Vector3.new(0, 5000, 0)
-    flightSystem.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-    flightSystem.bodyAngularVelocity.Parent = rootPart
+    bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+    bodyAngularVelocity.MaxTorque = Vector3.new(0, 5000, 0)
+    bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+    bodyAngularVelocity.Parent = rootPart
 end
 
-local function flightSystem_removeAllBodyMovers()
-    if flightSystem.bodyVelocity then
-        flightSystem.bodyVelocity:Destroy()
-        flightSystem.bodyVelocity = nil
+local function removeAllBodyMovers()
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
     end
-    if flightSystem.bodyPosition then
-        flightSystem.bodyPosition:Destroy()
-        flightSystem.bodyPosition = nil
+    if bodyAngularVelocity then
+        bodyAngularVelocity:Destroy()
+        bodyAngularVelocity = nil
     end
-    if flightSystem.bodyAngularVelocity then
-        flightSystem.bodyAngularVelocity:Destroy()
-        flightSystem.bodyAngularVelocity = nil
+    if stabilityConnection then
+        stabilityConnection:Disconnect()
+        stabilityConnection = nil
     end
-    if flightSystem.stabilityConnection then
-        flightSystem.stabilityConnection:Disconnect()
-        flightSystem.stabilityConnection = nil
-    end
-    if flightSystem.visibilityConnection then
-        flightSystem.visibilityConnection:Disconnect()
-        flightSystem.visibilityConnection = nil
+    if visibilityConnection then
+        visibilityConnection:Disconnect()
+        visibilityConnection = nil
     end
 end
 
-local function flightSystem_startVisibilityMonitoring(character, rootPart)
-    flightSystem.visibilityConnection = RunService.Heartbeat:Connect(function()
+local function startVisibilityMonitoring(character, rootPart)
+    visibilityConnection = RunService.Heartbeat:Connect(function()
         if not character or not rootPart then return end
         
-        -- Ensure character remains visible
         for _, part in pairs(character:GetChildren()) do
             if part:IsA("BasePart") and part.Transparency > 0.9 then
                 part.Transparency = 0
             end
         end
         
-        -- Prevent character from going off-screen or underground
         local position = rootPart.Position
         if position.Y < -50 or position.Y > 1000 then
             rootPart.Position = Vector3.new(position.X, 50, position.Z)
         end
-        
-        -- Maintain proper character orientation
-        if rootPart.CFrame.LookVector.Y > 0.8 or rootPart.CFrame.LookVector.Y < -0.8 then
-            rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z))
-        end
     end)
 end
 
-local function flightSystem_performSafeLanding(character, rootPart, humanoid)
-    if flightSystem.isLanding then return end
-    flightSystem.isLanding = true
+local function performSafeLanding(character, rootPart, humanoid)
+    if isLanding then return end
+    isLanding = true
     
-    -- Find optimal landing position
     local currentPos = rootPart.Position
     local bestLandingPos = currentPos
+    local groundFound = false
     
-    -- Multiple raycast attempts for reliable ground detection
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {character}
     
-    local rayDirections = {
-        Vector3.new(0, -300, 0),
-        Vector3.new(5, -300, 0),
-        Vector3.new(-5, -300, 0),
-        Vector3.new(0, -300, 5),
-        Vector3.new(0, -300, -5)
-    }
-    
-    local groundFound = false
-    for _, direction in pairs(rayDirections) do
-        local ray = workspace:Raycast(currentPos, direction, raycastParams)
-        if ray and ray.Instance then
-            bestLandingPos = Vector3.new(currentPos.X, ray.Position.Y + flightSystem.SAFE_LANDING_HEIGHT, currentPos.Z)
-            groundFound = true
-            break
-        end
+    local ray = workspace:Raycast(currentPos, Vector3.new(0, -300, 0), raycastParams)
+    if ray and ray.Instance then
+        bestLandingPos = Vector3.new(currentPos.X, ray.Position.Y + 1, currentPos.Z)
+        groundFound = true
     end
     
-    -- Fallback to safe altitude if no ground found
     if not groundFound then
         bestLandingPos = Vector3.new(currentPos.X, math.max(currentPos.Y, 50), currentPos.Z)
     end
     
-    -- Smooth descent with continuous monitoring
-    if flightSystem.bodyVelocity and flightSystem.bodyPosition then
-        flightSystem.bodyPosition.Position = bestLandingPos
-        flightSystem.bodyVelocity.Velocity = Vector3.new(0, -flightSystem.LANDING_SPEED, 0)
-        
-        -- Monitor landing progress
-        local landingMonitor
-        landingMonitor = RunService.Heartbeat:Connect(function()
-            if not rootPart or not flightSystem.isLanding then
-                landingMonitor:Disconnect()
-                return
-            end
-            
-            local distanceToTarget = (rootPart.Position - bestLandingPos).Magnitude
-            if distanceToTarget < 2 then
-                landingMonitor:Disconnect()
-                flightSystem_completeLandingSequence(character, rootPart, humanoid, bestLandingPos)
-            end
-        end)
-        
-        -- Timeout protection
-        Debris:AddItem(landingMonitor, 5)
-    else
-        flightSystem_completeLandingSequence(character, rootPart, humanoid, bestLandingPos)
-    end
-end
-
-local function flightSystem_completeLandingSequence(character, rootPart, humanoid, landingPos)
-    -- Ensure final position is secure
     if rootPart then
-        rootPart.Position = landingPos
+        rootPart.Position = bestLandingPos
         rootPart.Velocity = Vector3.new(0, 0, 0)
         rootPart.AngularVelocity = Vector3.new(0, 0, 0)
     end
     
-    -- Clean up all flight systems
-    flightSystem_removeAllBodyMovers()
+    removeAllBodyMovers()
     
-    -- Restore character properties with delay for stability
-    spawn(function()
-        wait(0.2)
-        
-        if humanoid then
-            humanoid.PlatformStand = false
-            humanoid.WalkSpeed = flightSystem.originalWalkSpeed
-            humanoid.JumpPower = flightSystem.originalJumpPower
-            humanoid.HipHeight = flightSystem.originalHipHeight
+    if humanoid then
+        humanoid.PlatformStand = false
+        local timeout = 0
+        while humanoid.FloorMaterial == Enum.Material.Air and timeout < 5 do
+            wait(0.1)
+            timeout = timeout + 0.1
         end
         
-        -- Final position verification
-        wait(0.3)
-        if rootPart and rootPart.Position.Y < 0 then
-            rootPart.Position = Vector3.new(rootPart.Position.X, 50, rootPart.Position.Z)
+        if humanoid.FloorMaterial ~= Enum.Material.Air then
+            humanoid.WalkSpeed = originalWalkSpeed
+            humanoid.JumpPower = originalJumpPower
+            humanoid.HipHeight = originalHipHeight
+        else
+            warn("Timeout atterraggio, ripristino forzato")
+            humanoid.WalkSpeed = originalWalkSpeed
+            humanoid.JumpPower = originalJumpPower
+            humanoid.HipHeight = originalHipHeight
+            if rootPart then
+                rootPart.Position = Vector3.new(rootPart.Position.X, 50, rootPart.Position.Z)
+            end
         end
-        
-        -- Ensure character is fully functional
-        if humanoid then
-            humanoid.Sit = false
-            humanoid.PlatformStand = false
-        end
-        
-        flightSystem.isLanding = false
-        flightSystem.isFlying = false
-        isActive = false
-    end)
-end
-
-local function flightSystem_initiateForwardMovement(rootPart, target)
-    if not flightSystem.isFlying then return end
-    
-    -- Calculate movement parameters
-    local direction = (target - rootPart.Position).Unit
-    local distance = (target - rootPart.Position).Magnitude
-    
-    -- Orient character toward target
-    local lookDirection = Vector3.new(direction.X, 0, direction.Z)
-    if lookDirection.Magnitude > 0 then
-        local targetCFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + lookDirection)
-        rootPart.CFrame = rootPart.CFrame:Lerp(targetCFrame, 0.8)
     end
     
-    -- Apply movement velocity
-    flightSystem.bodyVelocity.Velocity = direction * flightSystem.FLIGHT_SPEED
-    flightSystem.bodyPosition.Position = target
-    
-    -- Monitor flight progress
-    local flightMonitor
-    flightMonitor = RunService.Heartbeat:Connect(function()
-        if not rootPart or not flightSystem.isFlying then
-            flightMonitor:Disconnect()
-            return
-        end
-        
-        local distanceToTarget = (rootPart.Position - target).Magnitude
-        if distanceToTarget < 8 then
-            flightMonitor:Disconnect()
-            flightSystem_endFlight()
-        end
-    end)
-    
-    -- Stability monitoring during flight
-    flightSystem.stabilityConnection = RunService.Heartbeat:Connect(function()
-        if not rootPart or not flightSystem.isFlying then return end
-        
-        -- Maintain flight altitude
-        if rootPart.Position.Y < target.Y - 10 then
-            flightSystem.bodyVelocity.Velocity = flightSystem.bodyVelocity.Velocity + Vector3.new(0, 15, 0)
-        end
-        
-        -- Prevent excessive speeds
-        local velocity = rootPart.Velocity
-        if velocity.Magnitude > flightSystem.FLIGHT_SPEED + 20 then
-            flightSystem.bodyVelocity.Velocity = velocity.Unit * flightSystem.FLIGHT_SPEED
-        end
-    end)
+    isLanding = false
 end
 
-local function flightSystem_startFlight(target)
-    if flightSystem.isFlying or flightSystem.isLanding or isActive then return end
+local function startFlight(target)
+    if isFlying or isLanding then return end
     
     local character = Player.Character
     if not character then return end
+    local humanoid = character:WaitForChild("Humanoid")
+    local rootPart = character:WaitForChild("HumanoidRootPart")
     
-    local humanoid = character:FindFirstChild("Humanoid")
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not rootPart then return end
+    originalWalkSpeed = humanoid.WalkSpeed
+    originalJumpPower = humanoid.JumpPower
+    originalHipHeight = humanoid.HipHeight
     
-    flightSystem.isFlying = true
-    isActive = true
-    notify("Flight System", "Starting advanced flight sequence...", 3)
-    
-    -- Store original character state
-    flightSystem.originalWalkSpeed = humanoid.WalkSpeed
-    flightSystem.originalJumpPower = humanoid.JumpPower
-    flightSystem.originalHipHeight = humanoid.HipHeight
-    
-    -- Configure character for flight
+    isFlying = true
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
     humanoid.PlatformStand = true
     humanoid.Sit = false
     
-    -- Initialize flight systems
-    flightSystem_createAdvancedBodyMovers(rootPart)
-    flightSystem_startVisibilityMonitoring(character, rootPart)
+    createAdvancedBodyMovers(rootPart)
+    startVisibilityMonitoring(character, rootPart)
     
-    -- Initial ascent phase
     local startPos = rootPart.Position
-    local floatPos = Vector3.new(startPos.X, startPos.Y + flightSystem.FLOAT_HEIGHT, startPos.Z)
+    local floatPos = Vector3.new(startPos.X, startPos.Y + FLOAT_HEIGHT, startPos.Z)
     
-    -- Smooth ascent
-    flightSystem.bodyPosition.Position = floatPos
-    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 20, 0)
+    bodyVelocity.Velocity = Vector3.new(0, 20, 0)
     
-    -- Monitor ascent completion
-    local ascentMonitor
-    ascentMonitor = RunService.Heartbeat:Connect(function()
-        if not rootPart or not flightSystem.isFlying then
+    local ascentMonitor = RunService.Heartbeat:Connect(function()
+        if not rootPart or not isFlying then
             ascentMonitor:Disconnect()
             return
         end
-        
         if (rootPart.Position - floatPos).Magnitude < 1 then
             ascentMonitor:Disconnect()
-            flightSystem_initiateForwardMovement(rootPart, target)
+            local direction = (target - rootPart.Position).Unit
+            bodyVelocity.Velocity = direction * FLIGHT_SPEED
+            
+            stabilityConnection = RunService.Heartbeat:Connect(function()
+                if not rootPart or not isFlying then return end
+                local velocity = rootPart.Velocity
+                if velocity.Magnitude > FLIGHT_SPEED then
+                    bodyVelocity.Velocity = velocity.Unit * FLIGHT_SPEED
+                end
+                if (rootPart.Position - target).Magnitude < 8 then
+                    isFlying = false
+                    performSafeLanding(character, rootPart, humanoid)
+                end
+            end)
         end
     end)
-    
-    -- Timeout protection for ascent
     Debris:AddItem(ascentMonitor, 3)
 end
 
-local function flightSystem_endFlight()
-    if not flightSystem.isFlying then return end
-    
-    flightSystem.isFlying = false
-    notify("Flight System", "Initiating safe landing sequence...", 3)
-    
-    local character = Player.Character
-    if not character then return end
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not rootPart then return end
-    
-    -- Initiate safe landing sequence
-    flightSystem_performSafeLanding(character, rootPart, humanoid)
-end
-
-local function flightSystem_emergencyStop()
-    if flightSystem.isFlying or flightSystem.isLanding then
-        flightSystem.isFlying = false
-        flightSystem.isLanding = false
-        flightSystem_removeAllBodyMovers()
-        
+local function emergencyStop()
+    if isFlying or isLanding then
+        isFlying = false
+        isLanding = false
+        removeAllBodyMovers()
         local character = Player.Character
         if character then
             local humanoid = character:FindFirstChild("Humanoid")
             if humanoid then
                 humanoid.PlatformStand = false
-                humanoid.WalkSpeed = flightSystem.originalWalkSpeed
-                humanoid.JumpPower = flightSystem.originalJumpPower
+                humanoid.WalkSpeed = originalWalkSpeed
+                humanoid.JumpPower = originalJumpPower
             end
-            
             local rootPart = character:FindFirstChild("HumanoidRootPart")
             if rootPart then
                 rootPart.Position = Vector3.new(rootPart.Position.X, 50, rootPart.Position.Z)
             end
         end
-        
-        isActive = false
     end
 end
 
--- ======= SISTEMA TELEPORT BASE =======
+-- ### Sistema Base con GUI ###
 local function setBase()
     local character = Player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         savedBase = character.HumanoidRootPart.Position
         notify("Base Position Set", "Location saved successfully", 3)
+        if BaseManagerGUI then
+            local label = BaseManagerGUI:FindFirstChild("BaseStatusLabel", true)
+            if label then
+                label.Text = string.format("Base: Set at (%.1f, %.1f, %.1f)", savedBase.X, savedBase.Y, savedBase.Z)
+            end
+        end
     else
         notify("Error", "Character not found", 3)
     end
 end
 
 local function goBase()
-    if not savedBase or isActive then 
+    if not savedBase or isFlying then 
         notify("Error", "Set base position first or flight in progress", 3)
         return 
     end
-    
-    flightSystem_startFlight(savedBase)
+    startFlight(savedBase)
 end
 
--- ======= SISTEMA LOCK BASE TO PLOTBLOCK =======
+local function createBaseManagerGUI()
+    if BaseManagerGUI then BaseManagerGUI:Destroy() end
+    
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "BaseManagerGUI"
+    gui.Parent = CoreGui
+    gui.ResetOnSpawn = false
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.3, 0, 0.2, 0)
+    frame.Position = UDim2.new(0.35, 0, 0.4, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
+    createCorner(frame, 0.1)
+    makeDraggable(frame)
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0.2, 0)
+    title.Text = "Base Manager"
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 18
+    title.Parent = frame
+    
+    local setBaseButton = Instance.new("TextButton")
+    setBaseButton.Size = UDim2.new(0.4, 0, 0.25, 0)
+    setBaseButton.Position = UDim2.new(0.05, 0, 0.3, 0)
+    setBaseButton.Text = "Set Base"
+    setBaseButton.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+    setBaseButton.TextColor3 = Color3.new(1, 1, 1)
+    setBaseButton.Font = Enum.Font.Gotham
+    setBaseButton.TextSize = 16
+    setBaseButton.Parent = frame
+    createCorner(setBaseButton, 0.2)
+    
+    setBaseButton.MouseButton1Click:Connect(function()
+        setBase()
+    end)
+    
+    local flyToBaseButton = Instance.new("TextButton")
+    flyToBaseButton.Size = UDim2.new(0.4, 0, 0.25, 0)
+    flyToBaseButton.Position = UDim2.new(0.55, 0, 0.3, 0)
+    flyToBaseButton.Text = "Fly to Base"
+    flyToBaseButton.BackgroundColor3 = Color3.fromRGB(80, 255, 80)
+    flyToBaseButton.TextColor3 = Color3.new(1, 1, 1)
+    flyToBaseButton.Font = Enum.Font.Gotham
+    flyToBaseButton.TextSize = 16
+    flyToBaseButton.Parent = frame
+    createCorner(flyToBaseButton, 0.2)
+    
+    flyToBaseButton.MouseButton1Click:Connect(function()
+        goBase()
+    end)
+    
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0.1, 0, 0.1, 0)
+    closeButton.Position = UDim2.new(0.9, 0, 0, 0)
+    closeButton.Text = "X"
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    closeButton.TextColor3 = Color3.new(1, 1, 1)
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.TextSize = 14
+    closeButton.Parent = frame
+    createCorner(closeButton, 0.5)
+    
+    closeButton.MouseButton1Click:Connect(function()
+        if BaseManagerGUI then
+            BaseManagerGUI:Destroy()
+            BaseManagerGUI = nil
+        end
+    end)
+    
+    local baseStatusLabel = Instance.new("TextLabel")
+    baseStatusLabel.Name = "BaseStatusLabel"
+    baseStatusLabel.Size = UDim2.new(0.9, 0, 0.2, 0)
+    baseStatusLabel.Position = UDim2.new(0.05, 0, 0.6, 0)
+    if savedBase then
+        baseStatusLabel.Text = string.format("Base: Set at (%.1f, %.1f, %.1f)", savedBase.X, savedBase.Y, savedBase.Z)
+    else
+        baseStatusLabel.Text = "Base: Not Set"
+    end
+    baseStatusLabel.TextColor3 = Color3.new(1, 1, 1)
+    baseStatusLabel.BackgroundTransparency = 1
+    baseStatusLabel.Font = Enum.Font.Gotham
+    baseStatusLabel.TextSize = 14
+    baseStatusLabel.Parent = frame
+    
+    BaseManagerGUI = gui
+end
+
+-- ### Sistema Lock Base to PlotBlock ###
 local function findPlotBlock()
-    -- Cerca nella base del player corrente
     local plot = workspace:FindFirstChild(Player.Name)
     if plot then
         local purchases = plot:FindFirstChild("Purchases")
@@ -483,7 +432,6 @@ local function findPlotBlock()
         end
     end
     
-    -- Ricerca alternativa in tutto il workspace
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "PlotBlock" then
             if obj:IsA("Model") and obj.PrimaryPart then
@@ -493,7 +441,6 @@ local function findPlotBlock()
             end
         end
     end
-    
     return nil
 end
 
@@ -578,7 +525,7 @@ local function createLockGUI()
     LockPlotBlockGUI = lockGUI
 end
 
--- ======= SISTEMA FAST STEAL =======
+-- ### Sistema Fast Steal ###
 local function modifyPrompt(prompt)
     if not prompt:IsDescendantOf(game:GetService("CoreGui")) then
         prompt.HoldDuration = 0
@@ -615,7 +562,7 @@ local function autoClickNearbyPrompts()
     end
 end
 
--- ======= SISTEMA KILL AURA =======
+-- ### Sistema Kill Aura ###
 local function startKillAura()
     if KillAuraActive then return end
     KillAuraActive = true
@@ -625,9 +572,7 @@ local function startKillAura()
             local char = Player.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then return end
             
-            local tool = Player.Backpack:FindFirstChildOfClass("Tool")
-            if not tool then tool = char:FindFirstChildOfClass("Tool") end
-            
+            local tool = Player.Backpack:FindFirstChildOfClass("Tool") or char:FindFirstChildOfClass("Tool")
             if tool then
                 local nearbyPlayers = {}
                 for _, player in pairs(Players:GetPlayers()) do
@@ -671,22 +616,18 @@ local function stopKillAura()
     KillAuraActive = false
 end
 
--- Tab Main
+-- ### Tab Main ###
 local MainTab = Window:CreateTab("Main", 13014546637)
 local MainSection = MainTab:CreateSection("Core Features ⚙️")
 
--- Base Teleport System in Main
 MainTab:CreateButton({
     Name = "📍 Set Base Position",
-    Callback = setBase
+    Callback = function()
+        setBase()
+        createBaseManagerGUI()
+    end
 })
 
-MainTab:CreateButton({
-    Name = "✈️ Fly to Base",
-    Callback = goBase
-})
-
--- Lock Base to PlotBlock Toggle
 local LockPlotBlockToggle = MainTab:CreateToggle({
     Name = "🔒 Lock Base",
     CurrentValue = false,
@@ -697,8 +638,6 @@ local LockPlotBlockToggle = MainTab:CreateToggle({
             createLockGUI()
             notify("Locked to PlotBlock", "Teleporting to your PlotBlock...", 3)
             lockToPlotBlock()
-            
-            -- Avvia il loop di lock
             LockPlotBlockLoop = RunService.Heartbeat:Connect(function()
                 if LockPlotBlockEnabled then
                     lockToPlotBlock()
@@ -717,7 +656,6 @@ local LockPlotBlockToggle = MainTab:CreateToggle({
     end,
 })
 
--- Toggle Fast Steal con auto-click
 MainTab:CreateToggle({
     Name = "⚡ Auto-Click Proximity",
     CurrentValue = false,
@@ -742,7 +680,6 @@ MainTab:CreateToggle({
     end,
 })
 
--- Air Jump
 MainTab:CreateToggle({
     Name = "🦘 Air Jump",
     CurrentValue = false,
@@ -759,24 +696,19 @@ MainTab:CreateToggle({
 
 Connections.JumpButton = UserInputService.JumpRequest:Connect(function()
     if not AirJumpEnabled then return end
-    
     local character = Player.Character
     if not character then return end
-    
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local rootPart = character:FindFirstChild("HumanoidRootPart")
-    
     if humanoid and rootPart and humanoid.FloorMaterial == Enum.Material.Air then
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
         bodyVelocity.Velocity = Vector3.new(0, 70, 0)
         bodyVelocity.Parent = rootPart
-        
         game:GetService("Debris"):AddItem(bodyVelocity, 0.25)
     end
 end)
 
--- Speed Boost
 local SpeedBoostToggle = MainTab:CreateToggle({
     Name = "🚀 Speed Boost",
     CurrentValue = false,
@@ -806,14 +738,12 @@ local SpeedBoostToggle = MainTab:CreateToggle({
                 SpeedBoostActive = not SpeedBoostActive
                 button.Text = SpeedBoostActive and "💨 ON" or "💨 OFF"
                 button.BackgroundColor3 = SpeedBoostActive and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
-                
                 local tween = TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(0.16, 0, 0.08, 0)})
                 tween:Play()
                 tween.Completed:Connect(function()
                     TweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(0.14, 0, 0.07, 0)}):Play()
                 end)
             end)
-            
             SpeedBoostButton = button
         else
             if SpeedBoostButton then
@@ -825,7 +755,6 @@ local SpeedBoostToggle = MainTab:CreateToggle({
     end,
 })
 
--- NoClip
 MainTab:CreateToggle({
     Name = "👻 NoClip",
     CurrentValue = false,
@@ -834,7 +763,6 @@ MainTab:CreateToggle({
         NoClipEnabled = Value
         if Value then
             notify("NoClip Enabled", "Walk through walls activated", 2)
-            
             Connections.NoClip = RunService.Stepped:Connect(function()
                 if NoClipEnabled then
                     local character = Player.Character
@@ -844,8 +772,6 @@ MainTab:CreateToggle({
                                 part.CanCollide = false
                                 part.Velocity = Vector3.new(0, 0, 0)
                                 part.RotVelocity = Vector3.new(0, 0, 0)
-                                part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                                part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                             end
                         end
                     end
@@ -865,7 +791,6 @@ MainTab:CreateToggle({
     end,
 })
 
--- Kill Aura
 MainTab:CreateToggle({
     Name = "⚔️ Kill Aura 360°",
     CurrentValue = false,
@@ -881,7 +806,6 @@ MainTab:CreateToggle({
     end,
 })
 
--- Steal Helper
 local StealHelperToggle = MainTab:CreateToggle({
     Name = "🎯 Steal Helper",
     CurrentValue = false,
@@ -913,126 +837,123 @@ local StealHelperToggle = MainTab:CreateToggle({
             gradient.Parent = mainFrame
             
             local headerFrame = Instance.new("Frame")
-    headerFrame.Size = UDim2.new(1, 0, 0.25, 0)
-    headerFrame.Position = UDim2.new(0, 0, 0, 0)
-    headerFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    headerFrame.BackgroundTransparency = 0.3
-    headerFrame.BorderSizePixel = 0
-    headerFrame.Parent = mainFrame
-    createCorner(headerFrame, 0.2)
-    
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(0.6, 0, 1, 0)
-    titleLabel.Position = UDim2.new(0.05, 0, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "🎯 Steal Helper Pro"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 18
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = headerFrame
-    
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0.3, 0, 0.8, 0)
-    closeButton.Position = UDim2.new(0.65, 0, 0.1, 0)
-    closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
-    closeButton.Text = "✕"
-    closeButton.TextColor3 = Color3.new(1, 1, 1)
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.TextSize = 16
-    closeButton.BorderSizePixel = 0
-    closeButton.Parent = headerFrame
-    createCorner(closeButton, 0.4)
-    
-    closeButton.MouseButton1Click:Connect(function()
-        StealGUI:Destroy()
-        StealGUI = nil
-        StealHelperEnabled = false
-        StealHelperToggle:Set(false)
-    end)
-    
-    local isUp = true
-    local moveButton = Instance.new("TextButton")
-    moveButton.Size = UDim2.new(0.9, 0, 0.5, 0)
-    moveButton.Position = UDim2.new(0.05, 0, 0.3, 0)
-    moveButton.Text = "⬆️ TELEPORT UP"
-    moveButton.TextSize = 20
-    moveButton.TextColor3 = Color3.new(1, 1, 1)
-    moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
-    moveButton.Font = Enum.Font.GothamBold
-    moveButton.BorderSizePixel = 0
-    moveButton.Parent = mainFrame
-    createCorner(moveButton, 0.25)
-    
-    local buttonGradient = Instance.new("UIGradient")
-    buttonGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
-    }
-    buttonGradient.Rotation = 90
-    buttonGradient.Parent = moveButton
-    
-    moveButton.MouseButton1Click:Connect(function()
-        local character = Player.Character
-        if character then
-            local rootPart = character:FindFirstChild("HumanoidRootPart")
-            if rootPart then
-                if isUp then
-                    rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 180, 0)
-                    moveButton.Text = "⬇️ TELEPORT DOWN"
-                    moveButton.BackgroundColor3 = Color3.fromRGB(170, 85, 85)
-                    buttonGradient.Color = ColorSequence.new{
-                        ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 120, 120)),
-                        ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 85, 85))
-                    }
-                else
-                    rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 60, 0)
-                    moveButton.Text = "⬆️ TELEPORT UP"
-                    moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
-                    buttonGradient.Color = ColorSequence.new{
-                        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
-                        ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
-                    }
+            headerFrame.Size = UDim2.new(1, 0, 0.25, 0)
+            headerFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+            headerFrame.BackgroundTransparency = 0.3
+            headerFrame.BorderSizePixel = 0
+            headerFrame.Parent = mainFrame
+            createCorner(headerFrame, 0.2)
+            
+            local titleLabel = Instance.new("TextLabel")
+            titleLabel.Size = UDim2.new(0.6, 0, 1, 0)
+            titleLabel.Position = UDim2.new(0.05, 0, 0, 0)
+            titleLabel.BackgroundTransparency = 1
+            titleLabel.Text = "🎯 Steal Helper Pro"
+            titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            titleLabel.Font = Enum.Font.GothamBold
+            titleLabel.TextSize = 18
+            titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            titleLabel.Parent = headerFrame
+            
+            local closeButton = Instance.new("TextButton")
+            closeButton.Size = UDim2.new(0.3, 0, 0.8, 0)
+            closeButton.Position = UDim2.new(0.65, 0, 0.1, 0)
+            closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+            closeButton.Text = "✕"
+            closeButton.TextColor3 = Color3.new(1, 1, 1)
+            closeButton.Font = Enum.Font.GothamBold
+            closeButton.TextSize = 16
+            closeButton.BorderSizePixel = 0
+            closeButton.Parent = headerFrame
+            createCorner(closeButton, 0.4)
+            
+            closeButton.MouseButton1Click:Connect(function()
+                StealGUI:Destroy()
+                StealGUI = nil
+                StealHelperEnabled = false
+                StealHelperToggle:Set(false)
+            end)
+            
+            local isUp = true
+            local moveButton = Instance.new("TextButton")
+            moveButton.Size = UDim2.new(0.9, 0, 0.5, 0)
+            moveButton.Position = UDim2.new(0.05, 0, 0.3, 0)
+            moveButton.Text = "⬆️ TELEPORT UP"
+            moveButton.TextSize = 20
+            moveButton.TextColor3 = Color3.new(1, 1, 1)
+            moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
+            moveButton.Font = Enum.Font.GothamBold
+            moveButton.BorderSizePixel = 0
+            moveButton.Parent = mainFrame
+            createCorner(moveButton, 0.25)
+            
+            local buttonGradient = Instance.new("UIGradient")
+            buttonGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
+            }
+            buttonGradient.Rotation = 90
+            buttonGradient.Parent = moveButton
+            
+            moveButton.MouseButton1Click:Connect(function()
+                local character = Player.Character
+                if character then
+                    local rootPart = character:FindFirstChild("HumanoidRootPart")
+                    if rootPart then
+                        if isUp then
+                            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 180, 0)
+                            moveButton.Text = "⬇️ TELEPORT DOWN"
+                            moveButton.BackgroundColor3 = Color3.fromRGB(170, 85, 85)
+                            buttonGradient.Color = ColorSequence.new{
+                                ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 120, 120)),
+                                ColorSequenceKeypoint.new(1, Color3.fromRGB(170, 85, 85))
+                            }
+                        else
+                            rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 60, 0)
+                            moveButton.Text = "⬆️ TELEPORT UP"
+                            moveButton.BackgroundColor3 = Color3.fromRGB(85, 170, 85)
+                            buttonGradient.Color = ColorSequence.new{
+                                ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 200, 120)),
+                                ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 170, 85))
+                            }
+                        end
+                        isUp = not isUp
+                        local tween = TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.45, 0)})
+                        tween:Play()
+                        tween.Completed:Connect(function()
+                            TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.9, 0, 0.5, 0)}):Play()
+                        end)
+                    end
                 end
-                isUp = not isUp
-                
-                local tween = TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.85, 0, 0.45, 0)})
-                tween:Play()
-                tween.Completed:Connect(function()
-                    TweenService:Create(moveButton, TweenInfo.new(0.1), {Size = UDim2.new(0.9, 0, 0.5, 0)}):Play()
-                end)
-            end
-        end
-    end)
-    
-    local coordLabel = Instance.new("TextLabel")
-    coordLabel.Size = UDim2.new(0.9, 0, 0.18, 0)
-    coordLabel.Position = UDim2.new(0.05, 0, 0.82, 0)
-    coordLabel.Text = "📍 X:0 Y:0 Z:0"
-    coordLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    coordLabel.BackgroundTransparency = 1
-    coordLabel.Font = Enum.Font.GothamBold
-    coordLabel.TextSize = 14
-    coordLabel.TextScaled = true
-    coordLabel.Parent = mainFrame
-    
-    task.spawn(function()
-        while StealGUI and StealGUI.Parent do
-            local character = Player.Character
-            if character then
-                local rootPart = character:FindFirstChild("HumanoidRootPart")
-                if rootPart then
-                    coordLabel.Text = string.format("📍 X:%d Y:%d Z:%d", 
-                        math.floor(rootPart.Position.X), 
-                        math.floor(rootPart.Position.Y), 
-                        math.floor(rootPart.Position.Z))
+            end)
+            
+            local coordLabel = Instance.new("TextLabel")
+            coordLabel.Size = UDim2.new(0.9, 0, 0.18, 0)
+            coordLabel.Position = UDim2.new(0.05, 0, 0.82, 0)
+            coordLabel.Text = "📍 X:0 Y:0 Z:0"
+            coordLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            coordLabel.BackgroundTransparency = 1
+            coordLabel.Font = Enum.Font.GothamBold
+            coordLabel.TextSize = 14
+            coordLabel.TextScaled = true
+            coordLabel.Parent = mainFrame
+            
+            task.spawn(function()
+                while StealGUI and StealGUI.Parent do
+                    local character = Player.Character
+                    if character then
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            coordLabel.Text = string.format("📍 X:%d Y:%d Z:%d", 
+                                math.floor(rootPart.Position.X), 
+                                math.floor(rootPart.Position.Y), 
+                                math.floor(rootPart.Position.Z))
+                        end
+                    end
+                    task.wait(0.3)
                 end
-            end
-            task.wait(0.3)
-        end
-    end)
-    
-    notify("Steal Helper Active", "Teleport controls enabled", 3)
+            end)
+            notify("Steal Helper Active", "Teleport controls enabled", 3)
         else
             if StealGUI then
                 StealGUI:Destroy()
@@ -1042,27 +963,22 @@ local StealHelperToggle = MainTab:CreateToggle({
     end,
 })
 
--- Tab Visual
+-- ### Tab Visual ###
 local VisualTab = Window:CreateTab("Visual", 13014546637)
 local VisualSection = VisualTab:CreateSection("Visual Settings 👁️")
 
--- Player ESP
 VisualTab:CreateToggle({
     Name = "👤 Player ESP",
     CurrentValue = false,
     Flag = "PlayerESP",
     Callback = function(Value)
         if Value then
-            -- Pulizia cache esistente
             for _, highlight in pairs(ESPCache) do
                 if highlight then highlight:Destroy() end
             end
             ESPCache = {}
-            
-            -- Funzione per aggiungere ESP
             local function addESP(player)
                 if player == Player then return end
-                
                 local character = player.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local highlight = Instance.new("Highlight")
@@ -1073,19 +989,13 @@ VisualTab:CreateToggle({
                     highlight.OutlineTransparency = 0
                     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                     highlight.Parent = character
-                    
                     ESPCache[player] = highlight
                 end
             end
-            
-            -- Aggiungi ESP per tutti i giocatori esistenti
             for _, player in ipairs(Players:GetPlayers()) do
                 addESP(player)
             end
-            
-            -- Connessioni per nuovi giocatori
             Connections.PlayerAdded_ESP = Players.PlayerAdded:Connect(addESP)
-            
             notify("Player ESP Enabled", "All players highlighted", 2)
         else
             cleanupConnection("PlayerAdded_ESP")
@@ -1097,7 +1007,6 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Name ESP
 local NameESPCache = {}
 VisualTab:CreateToggle({
     Name = "📛 Name ESP",
@@ -1105,20 +1014,14 @@ VisualTab:CreateToggle({
     Flag = "NameESP",
     Callback = function(Value)
         if Value then
-            -- Funzione per aggiungere Name ESP
             local function addNameESP(player)
                 if player == Player then return end
-                
                 local character = player.Character
                 if character and character:FindFirstChild("Head") then
                     local head = character.Head
-                    
-                    -- Rimuovi vecchi elementi se esistono
                     if NameESPCache[player] then
                         NameESPCache[player]:Destroy()
                     end
-                    
-                    -- Crea nuovo BillboardGui
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "NameESP"
                     billboard.Size = UDim2.new(0, 200, 0, 50)
@@ -1126,7 +1029,6 @@ VisualTab:CreateToggle({
                     billboard.AlwaysOnTop = true
                     billboard.MaxDistance = 500
                     billboard.Parent = head
-                    
                     local nameLabel = Instance.new("TextLabel")
                     nameLabel.Size = UDim2.new(1, 0, 1, 0)
                     nameLabel.BackgroundTransparency = 1
@@ -1138,17 +1040,12 @@ VisualTab:CreateToggle({
                     nameLabel.TextSize = 18
                     nameLabel.TextScaled = true
                     nameLabel.Parent = billboard
-                    
                     NameESPCache[player] = billboard
                 end
             end
-            
-            -- Aggiungi per tutti i giocatori
             for _, player in ipairs(Players:GetPlayers()) do
                 addNameESP(player)
             end
-            
-            -- Connessioni
             Connections.PlayerAdded_NameESP = Players.PlayerAdded:Connect(addNameESP)
             Connections.CharacterAdded_NameESP = Players.PlayerAdded:Connect(function(player)
                 player.CharacterAdded:Connect(function(char)
@@ -1156,7 +1053,6 @@ VisualTab:CreateToggle({
                     addNameESP(player)
                 end)
             end)
-            
             notify("Name ESP Enabled", "Player names visible", 2)
         else
             cleanupConnection("PlayerAdded_NameESP")
@@ -1182,11 +1078,10 @@ VisualTab:CreateToggle({
     end,
 })
 
--- Tab Misc
+-- ### Tab Misc ###
 local MiscTab = Window:CreateTab("Misc", 13014546637)
 local UtilitySection = MiscTab:CreateSection("Utility Features 🛠️")
 
--- Anti-AFK
 MiscTab:CreateToggle({
     Name = "🚫 Anti AFK",
     CurrentValue = false,
@@ -1195,7 +1090,6 @@ MiscTab:CreateToggle({
         AntiAFKEnabled = Value
         if Value then
             notify("Anti-AFK Enabled", "Idle protection active", 2)
-            
             task.spawn(function()
                 while AntiAFKEnabled do
                     local actions = {
@@ -1206,11 +1100,9 @@ MiscTab:CreateToggle({
                         {key = "Space", duration = 0.08}
                     }
                     local randomAction = actions[math.random(#actions)]
-                    
                     VirtualInputManager:SendKeyEvent(true, randomAction.key, false, game)
                     task.wait(randomAction.duration)
                     VirtualInputManager:SendKeyEvent(false, randomAction.key, false, game)
-                    
                     task.wait(math.random(25, 35))
                 end
             end)
@@ -1220,7 +1112,6 @@ MiscTab:CreateToggle({
     end,
 })
 
--- Auto Collect Money
 MiscTab:CreateToggle({
     Name = "💰 Auto Collect Money",
     CurrentValue = false,
@@ -1235,7 +1126,7 @@ MiscTab:CreateToggle({
     end,
 })
 
--- Tab Server
+-- ### Tab Server ###
 local ServerTab = Window:CreateTab("Server", 13014546637)
 local ServerSection = ServerTab:CreateSection("Server Controls 🔄")
 
@@ -1263,7 +1154,6 @@ ServerTab:CreateButton({
             local success, result = pcall(function()
                 return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
             end)
-            
             if success and result and result.data then
                 for _, server in ipairs(result.data) do
                     if server.playing < server.maxPlayers and server.id ~= game.JobId then
@@ -1273,7 +1163,6 @@ ServerTab:CreateButton({
             end
             return servers
         end
-        
         local servers = findNewServer()
         if #servers > 0 then
             local randomServer = servers[math.random(1, #servers)]
@@ -1286,12 +1175,11 @@ ServerTab:CreateButton({
     end
 })
 
--- Loop principale
+-- ### Loop Principale ###
 Connections.MainLoop = RunService.Heartbeat:Connect(function()
     local character = Player.Character
     if not character then return end
     
-    -- Speed Boost
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if humanoid then
         if SpeedBoostActive then
@@ -1303,7 +1191,6 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- Auto Collect Money
     if AutoCollectEnabled then
         for _, obj in pairs(Workspace:GetDescendants()) do
             if obj.Name:lower():find("money") or obj.Name:lower():find("coin") or obj.Name:lower():find("cash") then
@@ -1318,40 +1205,33 @@ Connections.MainLoop = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Cleanup
+-- ### Cleanup ###
 local function cleanup()
     for _, connection in pairs(Connections) do
         if connection then connection:Disconnect() end
     end
-    
     if StealGUI then StealGUI:Destroy() end
     if SpeedBoostButton then SpeedBoostButton.Parent:Destroy() end
-    
+    if BaseManagerGUI then BaseManagerGUI:Destroy() end
     for _, highlight in pairs(ESPCache) do
         if highlight then highlight:Destroy() end
     end
-    
     for _, billboard in pairs(NameESPCache) do
         if billboard then billboard:Destroy() end
     end
-    
     if FastStealConnection then FastStealConnection:Disconnect() end
     stopKillAura()
-    
     isActive = false
-    flightSystem_emergencyStop()
+    emergencyStop()
     LockPlotBlockEnabled = false
-    
     if LockPlotBlockGUI then
         LockPlotBlockGUI:Destroy()
         LockPlotBlockGUI = nil
     end
-    
     if LockPlotBlockLoop then
         LockPlotBlockLoop:Disconnect()
         LockPlotBlockLoop = nil
     end
-    
     local character = Player.Character
     if character then
         for _, part in pairs(character:GetChildren()) do
@@ -1359,7 +1239,6 @@ local function cleanup()
                 part.CanCollide = true
             end
         end
-        
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid.WalkSpeed = OriginalWalkSpeed
@@ -1369,7 +1248,6 @@ local function cleanup()
     end
 end
 
--- Pulsante Unload
 MiscTab:CreateButton({
     Name = "🔴 Unload Interface",
     Callback = function()
@@ -1378,9 +1256,8 @@ MiscTab:CreateButton({
     end,
 })
 
--- Handle character respawn
 Player.CharacterAdded:Connect(function(newCharacter)
-    flightSystem_emergencyStop()
+    emergencyStop()
 end)
 
 notify("OnlyRoblox Tools Loaded", "Thanks for using my script! ✨", 5)
