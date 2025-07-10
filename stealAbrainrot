@@ -127,11 +127,11 @@ for i, tabName in ipairs(tabs) do
     tabButton.TextScaled = true
     tabButton.Font = Enum.Font.Gotham
     tabButton.Parent = tabFrame
-    
+
     local tabCorner = Instance.new("UICorner")
     tabCorner.CornerRadius = UDim.new(0, 5)
     tabCorner.Parent = tabButton
-    
+
     tabButtons[tabName] = tabButton
 end
 
@@ -143,7 +143,7 @@ contentFrame.Position = UDim2.new(0, 0, 0, 80)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Function to create buttons
+-- Funzione per creare bottoni (con cambio di colore al click)
 local function createButton(name, position, parent, callback)
     local button = Instance.new("TextButton")
     button.Name = name
@@ -156,19 +156,23 @@ local function createButton(name, position, parent, callback)
     button.TextScaled = true
     button.Font = Enum.Font.Gotham
     button.Parent = parent
-    
+
     local buttonCorner = Instance.new("UICorner")
     buttonCorner.CornerRadius = UDim.new(0, 8)
     buttonCorner.Parent = button
-    
-    button.MouseButton1Click:Connect(callback)
-    
+
+    button.MouseButton1Click:Connect(function()
+        if callback then
+            callback()
+        end
+        button.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+    end)
+
     return button
 end
 
 -- Tab Content Frames
 local tabContents = {}
-
 for _, tabName in ipairs(tabs) do
     local tabContent = Instance.new("Frame")
     tabContent.Name = tabName .. "Content"
@@ -177,20 +181,16 @@ for _, tabName in ipairs(tabs) do
     tabContent.BackgroundTransparency = 1
     tabContent.Visible = (tabName == "Main")
     tabContent.Parent = contentFrame
-    
     tabContents[tabName] = tabContent
 end
 
 -- Main Tab Content
 local infiniteJumpButton = createButton("Infinite Jump", UDim2.new(0, 10, 0, 10), tabContents["Main"], function()
     infiniteJumpEnabled = not infiniteJumpEnabled
-    infiniteJumpButton.BackgroundColor3 = infiniteJumpEnabled and Color3.fromRGB(40, 167, 69) or Color3.fromRGB(60, 60, 60)
 end)
 
 local speedHackButton = createButton("Speed Hack", UDim2.new(0, 10, 0, 55), tabContents["Main"], function()
     speedHackEnabled = not speedHackEnabled
-    speedHackButton.BackgroundColor3 = speedHackEnabled and Color3.fromRGB(40, 167, 69) or Color3.fromRGB(60, 60, 60)
-    
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         if speedHackEnabled then
             player.Character.Humanoid.WalkSpeed = originalWalkSpeed * 1.5
@@ -202,22 +202,18 @@ end)
 
 local floatButton = createButton("Float", UDim2.new(0, 10, 0, 100), tabContents["Main"], function()
     floatEnabled = not floatEnabled
-    floatButton.BackgroundColor3 = floatEnabled and Color3.fromRGB(40, 167, 69) or Color3.fromRGB(60, 60, 60)
-    
-    -- Create Float GUI
-    createFloatGUI()
+    if floatEnabled then
+        createFloatGUI()
+    end
 end)
 
 local teleportButton = createButton("Teleport", UDim2.new(0, 10, 0, 145), tabContents["Main"], function()
-    -- Create Teleport GUI
     createTeleportGUI()
 end)
 
 -- Visual Tab Content
 local espButton = createButton("ESP Players", UDim2.new(0, 10, 0, 10), tabContents["Visual"], function()
     espEnabled = not espEnabled
-    espButton.BackgroundColor3 = espEnabled and Color3.fromRGB(40, 167, 69) or Color3.fromRGB(60, 60, 60)
-    
     if espEnabled then
         enableESP()
     else
@@ -248,11 +244,11 @@ function createFloatGUI()
     floatGui.Active = true
     floatGui.Draggable = true
     floatGui.Parent = screenGui
-    
+
     local floatCorner = Instance.new("UICorner")
     floatCorner.CornerRadius = UDim.new(0, 10)
     floatCorner.Parent = floatGui
-    
+
     local floatTitle = Instance.new("TextLabel")
     floatTitle.Size = UDim2.new(1, -30, 0, 30)
     floatTitle.Position = UDim2.new(0, 10, 0, 5)
@@ -262,7 +258,7 @@ function createFloatGUI()
     floatTitle.TextScaled = true
     floatTitle.Font = Enum.Font.GothamBold
     floatTitle.Parent = floatGui
-    
+
     local floatCloseButton = Instance.new("TextButton")
     floatCloseButton.Size = UDim2.new(0, 20, 0, 20)
     floatCloseButton.Position = UDim2.new(1, -25, 0, 5)
@@ -273,25 +269,25 @@ function createFloatGUI()
     floatCloseButton.TextScaled = true
     floatCloseButton.Font = Enum.Font.GothamBold
     floatCloseButton.Parent = floatGui
-    
+
     local floatCloseCorner = Instance.new("UICorner")
     floatCloseCorner.CornerRadius = UDim.new(0, 5)
     floatCloseCorner.Parent = floatCloseButton
-    
+
     local upButton = createButton("Up", UDim2.new(0, 10, 0, 40), floatGui, function()
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 165, 0)
         end
     end)
     upButton.Size = UDim2.new(1, -20, 0, 30)
-    
+
     local downButton = createButton("Down", UDim2.new(0, 10, 0, 80), floatGui, function()
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame - Vector3.new(0, 50, 0)
         end
     end)
     downButton.Size = UDim2.new(1, -20, 0, 30)
-    
+
     floatCloseButton.MouseButton1Click:Connect(function()
         floatGui:Destroy()
     end)
@@ -308,11 +304,11 @@ function createTeleportGUI()
     tpGui.Active = true
     tpGui.Draggable = true
     tpGui.Parent = screenGui
-    
+
     local tpCorner = Instance.new("UICorner")
     tpCorner.CornerRadius = UDim.new(0, 10)
     tpCorner.Parent = tpGui
-    
+
     local tpTitle = Instance.new("TextLabel")
     tpTitle.Size = UDim2.new(1, -30, 0, 30)
     tpTitle.Position = UDim2.new(0, 10, 0, 5)
@@ -322,7 +318,7 @@ function createTeleportGUI()
     tpTitle.TextScaled = true
     tpTitle.Font = Enum.Font.GothamBold
     tpTitle.Parent = tpGui
-    
+
     local tpCloseButton = Instance.new("TextButton")
     tpCloseButton.Size = UDim2.new(0, 20, 0, 20)
     tpCloseButton.Position = UDim2.new(1, -25, 0, 5)
@@ -333,86 +329,55 @@ function createTeleportGUI()
     tpCloseButton.TextScaled = true
     tpCloseButton.Font = Enum.Font.GothamBold
     tpCloseButton.Parent = tpGui
-    
+
     local tpCloseCorner = Instance.new("UICorner")
     tpCloseCorner.CornerRadius = UDim.new(0, 5)
     tpCloseCorner.Parent = tpCloseButton
-    
+
     local setBaseButton = createButton("Set Base", UDim2.new(0, 10, 0, 40), tpGui, function()
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             basePosition = player.Character.HumanoidRootPart.Position
-            -- Visual feedback
-            setBaseButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-            wait(0.2)
-            setBaseButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         end
     end)
-    
+
     local tpBaseButton = createButton("TP Base", UDim2.new(0, 10, 0, 80), tpGui, function()
         if basePosition and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            -- Show timer overlay and execute advanced teleport with bypass
             createTimerOverlay(5, function()
-                local function teleportWithAdvancedBypass()
-                    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-                    if not rootPart then return end
-                    
-                    -- Multiple bypass methods
-                    local methods = {
-                        -- Method 1: Direct CFrame
-                        function()
+                local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then return end
+
+                -- Metodi di bypass multipli
+                local methods = {
+                    function() rootPart.CFrame = CFrame.new(basePosition) end,
+                    function()
+                        local bv = Instance.new("BodyVelocity", rootPart)
+                        bv.MaxForce = Vector3.new(4000,4000,4000)
+                        rootPart.CFrame = CFrame.new(basePosition)
+                        wait(0.1) bv:Destroy()
+                    end,
+                    function()
+                        rootPart.Anchored = true
+                        rootPart.CFrame = CFrame.new(basePosition)
+                        wait(0.1) rootPart.Anchored = false
+                    end,
+                    function()
+                        local hm = player.Character:FindFirstChild("Humanoid")
+                        if hm then
+                            hm.PlatformStand = true
                             rootPart.CFrame = CFrame.new(basePosition)
-                        end,
-                        
-                        -- Method 2: Velocity bypass
-                        function()
-                            local bodyVelocity = Instance.new("BodyVelocity")
-                            bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-                            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                            bodyVelocity.Parent = rootPart
-                            
-                            rootPart.CFrame = CFrame.new(basePosition)
-                            
-                            wait(0.1)
-                            bodyVelocity:Destroy()
-                        end,
-                        
-                        -- Method 3: Anchor bypass
-                        function()
-                            rootPart.Anchored = true
-                            rootPart.CFrame = CFrame.new(basePosition)
-                            wait(0.1)
-                            rootPart.Anchored = false
-                        end,
-                        
-                        -- Method 4: Humanoid bypass
-                        function()
-                            local humanoid = player.Character:FindFirstChild("Humanoid")
-                            if humanoid then
-                                humanoid.PlatformStand = true
-                                rootPart.CFrame = CFrame.new(basePosition)
-                                wait(0.1)
-                                humanoid.PlatformStand = false
-                            end
+                            wait(0.1) hm.PlatformStand = false
                         end
-                    }
-                    
-                    -- Try each method until successful
-                    for i, method in ipairs(methods) do
-                        pcall(method)
-                        wait(0.1)
-                        
-                        -- Check if teleport was successful
-                        if rootPart and (rootPart.Position - basePosition).Magnitude < 5 then
-                            break
-                        end
-                    end
+                    end,
+                }
+
+                for _, method in ipairs(methods) do
+                    pcall(method); wait(0.1)
+                    if (rootPart.Position - basePosition).Magnitude < 5 then break end
                 end
-                
-                teleportWithAdvancedBypass()
             end)
         end
     end)
-    
+
     tpCloseButton.MouseButton1Click:Connect(function()
         tpGui:Destroy()
     end)
@@ -425,190 +390,124 @@ function enableESP()
             createESPForPlayer(otherPlayer)
         end
     end
-    
-    -- Connect to new players
-    connections.playerAdded = Players.PlayerAdded:Connect(function(newPlayer)
-        newPlayer.CharacterAdded:Connect(function(character)
-            if espEnabled then
-                wait(1)
-                createESPForPlayer(newPlayer)
-            end
+    connections.playerAdded = Players.PlayerAdded:Connect(function(np)
+        np.CharacterAdded:Connect(function(char)
+            if espEnabled then wait(1); createESPForPlayer(np) end
         end)
     end)
 end
 
 function disableESP()
     for _, espObject in pairs(espObjects) do
-        if espObject then
-            espObject:Destroy()
-        end
+        if espObject then espObject:Destroy() end
     end
     espObjects = {}
-    
-    if connections.playerAdded then
-        connections.playerAdded:Disconnect()
-    end
+    if connections.playerAdded then connections.playerAdded:Disconnect() end
 end
 
-function createESPForPlayer(targetPlayer)
-    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return
-    end
-    
-    local character = targetPlayer.Character
-    local rootPart = character.HumanoidRootPart
-    
-    -- Create highlight
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ESP_" .. targetPlayer.Name
-    highlight.FillColor = Color3.fromRGB(0, 162, 255)
-    highlight.OutlineColor = Color3.fromRGB(0, 162, 255)
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
-    highlight.Parent = character
-    
-    espObjects[targetPlayer.Name] = highlight
-    
-    -- Clean up when character is removed
-    character.AncestryChanged:Connect(function()
-        if not character.Parent then
-            if espObjects[targetPlayer.Name] then
-                espObjects[targetPlayer.Name]:Destroy()
-                espObjects[targetPlayer.Name] = nil
-            end
+function createESPForPlayer(tp)
+    if not (tp.Character and tp.Character:FindFirstChild("HumanoidRootPart")) then return end
+    local h = Instance.new("Highlight", tp.Character)
+    h.Name = "ESP_" .. tp.Name
+    h.FillColor = Color3.fromRGB(0,162,255)
+    h.OutlineColor = Color3.fromRGB(0,162,255)
+    h.FillTransparency = 0.5
+    h.OutlineTransparency = 0
+    espObjects[tp.Name] = h
+    tp.Character.AncestryChanged:Connect(function()
+        if not tp.Character.Parent then
+            if espObjects[tp.Name] then espObjects[tp.Name]:Destroy(); espObjects[tp.Name] = nil end
         end
     end)
 end
 
 -- Timer Overlay Function
 function createTimerOverlay(duration, callback)
-    local timerGui = Instance.new("Frame")
+    local timerGui = Instance.new("Frame", screenGui)
     timerGui.Name = "TimerOverlay"
     timerGui.Size = UDim2.new(0, 200, 0, 80)
     timerGui.Position = UDim2.new(0.5, -100, 0.1, 0)
     timerGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     timerGui.BackgroundTransparency = 0.3
     timerGui.BorderSizePixel = 0
-    timerGui.Parent = screenGui
-    
-    local timerCorner = Instance.new("UICorner")
+
+    local timerCorner = Instance.new("UICorner", timerGui)
     timerCorner.CornerRadius = UDim.new(0, 15)
-    timerCorner.Parent = timerGui
-    
-    local timerText = Instance.new("TextLabel")
+
+    local timerText = Instance.new("TextLabel", timerGui)
     timerText.Size = UDim2.new(1, 0, 0.6, 0)
     timerText.Position = UDim2.new(0, 0, 0, 0)
     timerText.BackgroundTransparency = 1
     timerText.Text = "Teleporting..."
-    timerText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    timerText.TextColor3 = Color3.fromRGB(255,255,255)
     timerText.TextScaled = true
     timerText.Font = Enum.Font.GothamBold
-    timerText.Parent = timerGui
-    
-    local countdownText = Instance.new("TextLabel")
+
+    local countdownText = Instance.new("TextLabel", timerGui)
     countdownText.Size = UDim2.new(1, 0, 0.4, 0)
     countdownText.Position = UDim2.new(0, 0, 0.6, 0)
     countdownText.BackgroundTransparency = 1
     countdownText.Text = tostring(duration)
-    countdownText.TextColor3 = Color3.fromRGB(255, 100, 100)
+    countdownText.TextColor3 = Color3.fromRGB(255,100,100)
     countdownText.TextScaled = true
     countdownText.Font = Enum.Font.GothamBold
-    countdownText.Parent = timerGui
-    
+
     local timeLeft = duration
-    local timerConnection
-    
-    timerConnection = RunService.Heartbeat:Connect(function()
-        timeLeft = timeLeft - 1/60
+    local conn
+    conn = RunService.Heartbeat:Connect(function(dt)
+        timeLeft = timeLeft - dt
         countdownText.Text = string.format("%.1f", math.max(0, timeLeft))
-        
         if timeLeft <= 0 then
-            timerConnection:Disconnect()
+            conn:Disconnect()
             timerGui:Destroy()
-            if callback then
-                callback()
-            end
+            if callback then callback() end
         end
     end)
-    
-    -- Execute callback immediately but show timer
-    if callback then
-        callback()
-    end
+
+    if callback then callback() end
 end
 
--- Infinite Jump Function
-local jumpConnection = nil
+-- Infinite Jump Logic
 local function handleInfiniteJump()
-    if infiniteJumpEnabled and player.Character and player.Character:FindFirstChild("Humanoid") then
-        local humanoid = player.Character.Humanoid
-        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-        
-        if rootPart and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            -- Create upward velocity for smooth flying
-            local bodyVelocity = rootPart:FindFirstChild("InfiniteJumpVelocity")
-            if not bodyVelocity then
-                bodyVelocity = Instance.new("BodyVelocity")
-                bodyVelocity.Name = "InfiniteJumpVelocity"
-                bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
-                bodyVelocity.Velocity = Vector3.new(0, 50, 0)
-                bodyVelocity.Parent = rootPart
-            end
-            bodyVelocity.Velocity = Vector3.new(0, 50, 0)
-        else
-            -- Remove velocity when not jumping
-            if rootPart then
-                local bodyVelocity = rootPart:FindFirstChild("InfiniteJumpVelocity")
-                if bodyVelocity then
-                    bodyVelocity:Destroy()
-                end
-            end
+    if infiniteJumpEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            local root = player.Character.HumanoidRootPart
+            local bv = root:FindFirstChild("InfiniteJumpVelocity") or Instance.new("BodyVelocity", root)
+            bv.Name = "InfiniteJumpVelocity"
+            bv.MaxForce = Vector3.new(0, math.huge, 0)
+            bv.Velocity = Vector3.new(0, 50, 0)
         end
     else
-        -- Clean up when disabled
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local bodyVelocity = player.Character.HumanoidRootPart:FindFirstChild("InfiniteJumpVelocity")
-            if bodyVelocity then
-                bodyVelocity:Destroy()
-            end
+        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            local bv = root:FindFirstChild("InfiniteJumpVelocity")
+            if bv then bv:Destroy() end
         end
     end
 end
 
 -- Tab Switching
-for tabName, tabButton in pairs(tabButtons) do
-    tabButton.MouseButton1Click:Connect(function()
-        for _, content in pairs(tabContents) do
-            content.Visible = false
-        end
-        
-        for _, button in pairs(tabButtons) do
-            button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        end
-        
-        tabContents[tabName].Visible = true
-        tabButton.BackgroundColor3 = Color3.fromRGB(0, 123, 255)
+for name, btn in pairs(tabButtons) do
+    btn.MouseButton1Click:Connect(function()
+        for _, c in pairs(tabContents) do c.Visible = false end
+        for _, b in pairs(tabButtons) do b.BackgroundColor3 = Color3.fromRGB(45,45,45) end
+        tabContents[name].Visible = true
+        btn.BackgroundColor3 = Color3.fromRGB(0,123,255)
     end)
 end
-
--- Set initial tab
-tabButtons["Main"].BackgroundColor3 = Color3.fromRGB(0, 123, 255)
+tabButtons["Main"].BackgroundColor3 = Color3.fromRGB(0,123,255)
 
 -- Minimize/Close Functions
 local isMinimized = false
-
 minimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
-    
     if isMinimized then
-        local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 400, 0, 40)})
-        tween:Play()
+        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0,400,0,40)}):Play()
         tabFrame.Visible = false
         contentFrame.Visible = false
         minimizeButton.Text = "+"
     else
-        local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 400, 0, 300)})
-        tween:Play()
+        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0,400,0,300)}):Play()
         tabFrame.Visible = true
         contentFrame.Visible = true
         minimizeButton.Text = "-"
@@ -616,33 +515,19 @@ minimizeButton.MouseButton1Click:Connect(function()
 end)
 
 closeButton.MouseButton1Click:Connect(function()
-    -- Clean up
     disableESP()
-    for _, connection in pairs(connections) do
-        if connection then
-            connection:Disconnect()
-        end
-    end
-    
+    for _, conn in pairs(connections) do if conn then conn:Disconnect() end end
     screenGui:Destroy()
 end)
 
--- Main Loop
-connections.heartbeat = RunService.Heartbeat:Connect(function()
-    handleInfiniteJump()
-end)
-
--- Player Character Spawned
-connections.characterAdded = player.CharacterAdded:Connect(function(character)
+-- Main Loop & Events
+connections.heartbeat = RunService.Heartbeat:Connect(handleInfiniteJump)
+connections.characterAdded = player.CharacterAdded:Connect(function(char)
     wait(1)
-    if speedHackEnabled and character:FindFirstChild("Humanoid") then
-        character.Humanoid.WalkSpeed = originalWalkSpeed * 1.5
+    if speedHackEnabled and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = originalWalkSpeed * 1.5
     end
-    
-    if espEnabled then
-        wait(1)
-        enableESP()
-    end
+    if espEnabled then wait(1); enableESP() end
 end)
 
 print("Steal a brainrot Script loaded successfully!")
