@@ -6,6 +6,8 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
@@ -20,6 +22,8 @@ local floatPosition = nil
 local basePosition = nil
 local connections = {}
 local espObjects = {}
+local mobileJumpButton = nil
+local mobileJumping = false
 
 -- GUI Creation
 local screenGui = Instance.new("ScreenGui")
@@ -113,13 +117,13 @@ tabFrame.Parent = mainFrame
 
 -- Tab Buttons
 local tabButtons = {}
-local tabs = {"Main", "Visual", "Misc"}
+local tabs = {"Main", "Visual", "Misc", "Server"} -- Added "Server" tab
 
 for i, tabName in ipairs(tabs) do
     local tabButton = Instance.new("TextButton")
     tabButton.Name = tabName .. "Tab"
-    tabButton.Size = UDim2.new(1/3, -2, 1, -4)
-    tabButton.Position = UDim2.new((i-1)/3, 2, 0, 2)
+    tabButton.Size = UDim2.new(1/4, -2, 1, -4) -- Changed to 1/4 for 4 tabs
+    tabButton.Position = UDim2.new((i-1)/4, 2, 0, 2) -- Changed to 1/4
     tabButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     tabButton.BorderSizePixel = 0
     tabButton.Text = tabName
@@ -199,6 +203,10 @@ end
 -- Main Tab Content
 local infiniteJumpButton = createButton("Infinite Jump", UDim2.new(0, 10, 0, 10), tabContents["Main"], function()
     infiniteJumpEnabled = not infiniteJumpEnabled
+    -- Update mobile jump button visibility
+    if mobileJumpButton then
+        mobileJumpButton.Visible = infiniteJumpEnabled
+    end
     return infiniteJumpEnabled
 end)
 
@@ -240,7 +248,6 @@ local espButton = createButton("ESP Players", UDim2.new(0, 10, 0, 10), tabConten
 end)
 
 -- Misc Tab Content
--- TODO: Implementare la funzionalità "coice" per i comandi admin (scelte o comandi vocali?)
 local soonLabel = Instance.new("TextLabel")
 soonLabel.Name = "SoonLabel"
 soonLabel.Size = UDim2.new(1, -20, 0, 50)
@@ -251,6 +258,72 @@ soonLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 soonLabel.TextScaled = true
 soonLabel.Font = Enum.Font.GothamBold
 soonLabel.Parent = tabContents["Misc"]
+
+-- Server Tab Content
+local leaveButton = createButton("Leave Game", UDim2.new(0, 10, 0, 10), tabContents["Server"], function()
+    TeleportService:Teleport(0) -- Teleport to home screen
+end)
+
+local rejoinButton = createButton("Rejoin Server", UDim2.new(0, 10, 0, 55), tabContents["Server"], function()
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+end)
+
+local serverHopButton = createButton("Server Hop", UDim2.new(0, 10, 0, 100), tabContents["Server"], function()
+    -- Find a random server to join
+    local servers = {}
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"))
+    end)
+    
+    if success and result and result.data then
+        for _, server in ipairs(result.data) do
+            if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                table.insert(servers, server)
+            end
+        end
+        
+        if #servers > 0 then
+            local randomServer = servers[math.random(1, #servers)]
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer.id, player)
+        else
+            createNotification("No available servers found!", 2)
+        end
+    else
+        createNotification("Failed to fetch servers", 2)
+    end
+end)
+
+-- Mobile Jump Button
+if UserInputService.TouchEnabled then
+    mobileJumpButton = Instance.new("TextButton")
+    mobileJumpButton.Name = "MobileJumpButton"
+    mobileJumpButton.Size = UDim2.new(0, 100, 0, 50)
+    mobileJumpButton.Position = UDim2.new(1, -110, 1, -60)
+    mobileJumpButton.BackgroundColor3 = Color3.fromRGB(0, 123, 255)
+    mobileJumpButton.BorderSizePixel = 0
+    mobileJumpButton.Text = "JUMP"
+    mobileJumpButton.TextColor3 = Color3.new(1,1,1)
+    mobileJumpButton.TextScaled = true
+    mobileJumpButton.Visible = false -- Initially hidden
+    mobileJumpButton.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = mobileJumpButton
+    
+    -- Button press events
+    mobileJumpButton.MouseButton1Down:Connect(function()
+        mobileJumping = true
+    end)
+    
+    mobileJumpButton.MouseButton1Up:Connect(function()
+        mobileJumping = false
+    end)
+    
+    mobileJumpButton.MouseLeave:Connect(function()
+        mobileJumping = false
+    end)
+end
 
 -- Float GUI Function
 function createFloatGUI()
@@ -508,10 +581,12 @@ function createNotification(text, duration)
     return notifGui
 end
 
--- Infinite Jump Logic
+-- Infinite Jump Logic (Updated for mobile support)
 local function handleInfiniteJump()
     if infiniteJumpEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        local shouldJump = UserInputService:IsKeyDown(Enum.KeyCode.Space) or mobileJumping
+        
+        if shouldJump then
             local root = player.Character.HumanoidRootPart
             local bv = root:FindFirstChild("InfiniteJumpVelocity") or Instance.new("BodyVelocity", root)
             bv.Name = "InfiniteJumpVelocity"
@@ -560,6 +635,7 @@ end)
 closeButton.MouseButton1Click:Connect(function()
     disableESP()
     for _, conn in pairs(connections) do if conn then conn:Disconnect() end end
+    if mobileJumpButton then mobileJumpButton:Destroy() end
     screenGui:Destroy()
 end)
 
