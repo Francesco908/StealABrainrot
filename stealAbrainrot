@@ -1,5 +1,5 @@
 -- Steal a brainrot Script
--- Advanced Admin GUI with All Features (Fixed Teleport System)
+-- Advanced Admin GUI with All Features (Fixed Teleport System + Auto Lock)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -17,6 +17,8 @@ local infiniteJumpEnabled = false
 local speedHackEnabled = false
 local floatEnabled = false
 local espEnabled = false
+local autoLockEnabled = false   -- aggiunta per auto lock
+local autoLockConnection = nil  -- aggiunta per auto lock
 local originalWalkSpeed = 16
 local floatPosition = nil
 local basePosition = nil
@@ -235,6 +237,18 @@ local teleportButton = createButton("Teleport", UDim2.new(0, 10, 0, 145), tabCon
     createTeleportGUI()
     -- Non restituisce nulla
 end)
+
+-- *** AUTO LOCK BUTTON ***
+local autoLockButton = createButton("Auto Lock", UDim2.new(0, 10, 0, 190), tabContents["Main"], function()
+    autoLockEnabled = not autoLockEnabled
+    if autoLockEnabled then
+        startAutoLock()
+    else
+        stopAutoLock()
+    end
+    return autoLockEnabled
+end)
+-- *** FINE AUTO LOCK BUTTON ***
 
 -- Visual Tab Content
 local espButton = createButton("ESP Players", UDim2.new(0, 10, 0, 10), tabContents["Visual"], function()
@@ -604,6 +618,42 @@ local function handleInfiniteJump()
     end
 end
 
+-- *** AUTO LOCK LOGIC ***
+function startAutoLock()
+    autoLockEnabled = true
+    if autoLockConnection then autoLockConnection:Disconnect() end
+    autoLockConnection = RunService.Heartbeat:Connect(function()
+        if not autoLockEnabled then return end
+        local plotBlock = nil
+        -- Cerca tra tutti i PlotBlock sotto Purchases
+        for _, purchase in pairs(workspace:GetChildren()) do
+            if purchase.Name == "Purchases" then
+                for _, block in pairs(purchase:GetChildren()) do
+                    if block.Name == "PlotBlock" and block:FindFirstChild("main") then
+                        -- Puoi aggiungere qui un filtro per l'ownership se serve
+                        plotBlock = block
+                        break
+                    end
+                end
+            end
+            if plotBlock then break end
+        end
+        if plotBlock and plotBlock:FindFirstChild("main") then
+            local pos = plotBlock.main.Position + Vector3.new(0, 10, 0) -- 10 sopra
+            teleportToPosition(pos)
+        end
+    end)
+end
+
+function stopAutoLock()
+    autoLockEnabled = false
+    if autoLockConnection then
+        autoLockConnection:Disconnect()
+        autoLockConnection = nil
+    end
+end
+-- *** FINE AUTO LOCK LOGIC ***
+
 -- Tab Switching
 for name, btn in pairs(tabButtons) do
     btn.MouseButton1Click:Connect(function()
@@ -634,6 +684,7 @@ end)
 
 closeButton.MouseButton1Click:Connect(function()
     disableESP()
+    stopAutoLock() -- <-- aggiunta per auto lock
     for _, conn in pairs(connections) do if conn then conn:Disconnect() end end
     if mobileJumpButton then mobileJumpButton:Destroy() end
     screenGui:Destroy()
