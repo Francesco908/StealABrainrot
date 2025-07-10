@@ -201,6 +201,9 @@ local speedHackButton = createButton("Speed Hack", UDim2.new(0, 10, 0, 55), tabC
 end)
 
 local floatButton = createButton("Float", UDim2.new(0, 10, 0, 100), tabContents["Main"], function()
+    floatEnabled = not floatEnabled
+    floatButton.BackgroundColor3 = floatEnabled and Color3.fromRGB(40, 167, 69) or Color3.fromRGB(60, 60, 60)
+    
     -- Create Float GUI
     createFloatGUI()
 end)
@@ -280,12 +283,14 @@ function createFloatGUI()
             player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 165, 0)
         end
     end)
+    upButton.Size = UDim2.new(1, -20, 0, 30)
     
     local downButton = createButton("Down", UDim2.new(0, 10, 0, 80), floatGui, function()
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame - Vector3.new(0, 50, 0)
         end
     end)
+    downButton.Size = UDim2.new(1, -20, 0, 30)
     
     floatCloseButton.MouseButton1Click:Connect(function()
         floatGui:Destroy()
@@ -345,35 +350,66 @@ function createTeleportGUI()
     
     local tpBaseButton = createButton("TP Base", UDim2.new(0, 10, 0, 80), tpGui, function()
         if basePosition and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            -- Advanced teleport with bypass
-            local function teleportWithBypass()
-                local attempts = 0
-                local maxAttempts = 10
-                
-                local function attemptTeleport()
-                    attempts = attempts + 1
-                    if attempts > maxAttempts then
-                        return
-                    end
-                    
+            -- Show timer overlay and execute advanced teleport with bypass
+            createTimerOverlay(5, function()
+                local function teleportWithAdvancedBypass()
                     local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-                    if rootPart then
-                        local originalPosition = rootPart.Position
-                        rootPart.CFrame = CFrame.new(basePosition)
+                    if not rootPart then return end
+                    
+                    -- Multiple bypass methods
+                    local methods = {
+                        -- Method 1: Direct CFrame
+                        function()
+                            rootPart.CFrame = CFrame.new(basePosition)
+                        end,
+                        
+                        -- Method 2: Velocity bypass
+                        function()
+                            local bodyVelocity = Instance.new("BodyVelocity")
+                            bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+                            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                            bodyVelocity.Parent = rootPart
+                            
+                            rootPart.CFrame = CFrame.new(basePosition)
+                            
+                            wait(0.1)
+                            bodyVelocity:Destroy()
+                        end,
+                        
+                        -- Method 3: Anchor bypass
+                        function()
+                            rootPart.Anchored = true
+                            rootPart.CFrame = CFrame.new(basePosition)
+                            wait(0.1)
+                            rootPart.Anchored = false
+                        end,
+                        
+                        -- Method 4: Humanoid bypass
+                        function()
+                            local humanoid = player.Character:FindFirstChild("Humanoid")
+                            if humanoid then
+                                humanoid.PlatformStand = true
+                                rootPart.CFrame = CFrame.new(basePosition)
+                                wait(0.1)
+                                humanoid.PlatformStand = false
+                            end
+                        end
+                    }
+                    
+                    -- Try each method until successful
+                    for i, method in ipairs(methods) do
+                        pcall(method)
+                        wait(0.1)
                         
                         -- Check if teleport was successful
-                        wait(0.1)
-                        if (rootPart.Position - basePosition).Magnitude > 10 then
-                            -- Teleport failed, try again
-                            attemptTeleport()
+                        if rootPart and (rootPart.Position - basePosition).Magnitude < 5 then
+                            break
                         end
                     end
                 end
                 
-                attemptTeleport()
-            end
-            
-            teleportWithBypass()
+                teleportWithAdvancedBypass()
+            end)
         end
     end)
     
@@ -444,13 +480,97 @@ function createESPForPlayer(targetPlayer)
     end)
 end
 
+-- Timer Overlay Function
+function createTimerOverlay(duration, callback)
+    local timerGui = Instance.new("Frame")
+    timerGui.Name = "TimerOverlay"
+    timerGui.Size = UDim2.new(0, 200, 0, 80)
+    timerGui.Position = UDim2.new(0.5, -100, 0.1, 0)
+    timerGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    timerGui.BackgroundTransparency = 0.3
+    timerGui.BorderSizePixel = 0
+    timerGui.Parent = screenGui
+    
+    local timerCorner = Instance.new("UICorner")
+    timerCorner.CornerRadius = UDim.new(0, 15)
+    timerCorner.Parent = timerGui
+    
+    local timerText = Instance.new("TextLabel")
+    timerText.Size = UDim2.new(1, 0, 0.6, 0)
+    timerText.Position = UDim2.new(0, 0, 0, 0)
+    timerText.BackgroundTransparency = 1
+    timerText.Text = "Teleporting..."
+    timerText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    timerText.TextScaled = true
+    timerText.Font = Enum.Font.GothamBold
+    timerText.Parent = timerGui
+    
+    local countdownText = Instance.new("TextLabel")
+    countdownText.Size = UDim2.new(1, 0, 0.4, 0)
+    countdownText.Position = UDim2.new(0, 0, 0.6, 0)
+    countdownText.BackgroundTransparency = 1
+    countdownText.Text = tostring(duration)
+    countdownText.TextColor3 = Color3.fromRGB(255, 100, 100)
+    countdownText.TextScaled = true
+    countdownText.Font = Enum.Font.GothamBold
+    countdownText.Parent = timerGui
+    
+    local timeLeft = duration
+    local timerConnection
+    
+    timerConnection = RunService.Heartbeat:Connect(function()
+        timeLeft = timeLeft - 1/60
+        countdownText.Text = string.format("%.1f", math.max(0, timeLeft))
+        
+        if timeLeft <= 0 then
+            timerConnection:Disconnect()
+            timerGui:Destroy()
+            if callback then
+                callback()
+            end
+        end
+    end)
+    
+    -- Execute callback immediately but show timer
+    if callback then
+        callback()
+    end
+end
+
 -- Infinite Jump Function
+local jumpConnection = nil
 local function handleInfiniteJump()
     if infiniteJumpEnabled and player.Character and player.Character:FindFirstChild("Humanoid") then
         local humanoid = player.Character.Humanoid
+        local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
         
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        if rootPart and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            -- Create upward velocity for smooth flying
+            local bodyVelocity = rootPart:FindFirstChild("InfiniteJumpVelocity")
+            if not bodyVelocity then
+                bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Name = "InfiniteJumpVelocity"
+                bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+                bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+                bodyVelocity.Parent = rootPart
+            end
+            bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+        else
+            -- Remove velocity when not jumping
+            if rootPart then
+                local bodyVelocity = rootPart:FindFirstChild("InfiniteJumpVelocity")
+                if bodyVelocity then
+                    bodyVelocity:Destroy()
+                end
+            end
+        end
+    else
+        -- Clean up when disabled
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local bodyVelocity = player.Character.HumanoidRootPart:FindFirstChild("InfiniteJumpVelocity")
+            if bodyVelocity then
+                bodyVelocity:Destroy()
+            end
         end
     end
 end
