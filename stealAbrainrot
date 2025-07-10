@@ -44,7 +44,6 @@ local savedBase = nil
 local isActive = false
 local LockPlotBlockEnabled = false
 local LockPlotBlockGUI = nil
-local LockPlotBlockLoop = nil
 local LockPosition = nil
 
 -- Flight System Variables
@@ -53,8 +52,8 @@ local flightSystem = {
     bodyVelocity = nil,
     bodyAngularVelocity = nil,
     currentTween = nil,
-    FLIGHT_SPEED = 55,
-    FLOAT_HEIGHT = 8
+    FLIGHT_SPEED = 47, -- Increased flight speed
+    FLOAT_HEIGHT = 20  -- Increased float height
 }
 
 -- Funzioni di utilità
@@ -156,7 +155,7 @@ local function flightSystem_stopFlight()
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return end
     
-    -- Find safe landing position first
+    -- Find safe landing position
     local currentPos = rootPart.Position
     local safePos = currentPos
     
@@ -165,7 +164,7 @@ local function flightSystem_stopFlight()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {character}
     
-    local ray = workspace:Raycast(currentPos, Vector3.new(0, -200, 0), raycastParams)
+    local ray = workspace:Raycast(currentPos, Vector3.new(0, -500, 0), raycastParams)
     
     if ray and ray.Instance then
         -- Safe landing position 6 studs above ground
@@ -217,15 +216,15 @@ local function flightSystem_startFlight(target)
     -- Create flight system
     flightSystem_createBodyMovers(rootPart)
     
-    -- Float up first
+    -- Float up first to increased height
     local startPos = rootPart.Position
     local floatPos = Vector3.new(startPos.X, startPos.Y + flightSystem.FLOAT_HEIGHT, startPos.Z)
     
     -- Set initial upward velocity
-    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 15, 0)
+    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 25, 0)  -- Faster ascent
     
     -- Wait for float, then move to target
-    delay(1, function()
+    delay(0.8, function()  -- Shorter delay for faster flight
         if not flightSystem.isFlying then return end
         
         -- Calculate direction to target
@@ -237,7 +236,7 @@ local function flightSystem_startFlight(target)
             rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + lookDirection)
         end
         
-        -- Move to target with constant velocity
+        -- Move to target with constant increased velocity
         flightSystem.bodyVelocity.Velocity = direction * flightSystem.FLIGHT_SPEED
         
         -- Auto-land when close to target
@@ -248,7 +247,7 @@ local function flightSystem_startFlight(target)
                 return
             end
             
-            if (rootPart.Position - target).Magnitude < 10 then
+            if (rootPart.Position - target).Magnitude < 12 then
                 landingCheck:Disconnect()
                 flightSystem_stopFlight()
             end
@@ -276,44 +275,14 @@ local function goBase()
     flightSystem_startFlight(savedBase)
 end
 
--- ======= SISTEMA LOCK BASE TO PLOTBLOCK =======
-local function findPlotBlock()
-    -- Cerca nella base del player corrente
-    local plot = workspace:FindFirstChild(Player.Name)
-    if plot then
-        local purchases = plot:FindFirstChild("Purchases")
-        if purchases then
-            local plotBlock = purchases:FindFirstChild("PlotBlock")
-            if plotBlock then
-                if plotBlock:IsA("Model") and plotBlock.PrimaryPart then
-                    return plotBlock.PrimaryPart.Position
-                elseif plotBlock:IsA("BasePart") then
-                    return plotBlock.Position
-                end
-            end
-        end
-    end
-    
-    -- Ricerca alternativa in tutto il workspace
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == "PlotBlock" then
-            if obj:IsA("Model") and obj.PrimaryPart then
-                return obj.PrimaryPart.Position
-            elseif obj:IsA("BasePart") then
-                return obj.Position
-            end
-        end
-    end
-    
-    return nil
-end
-
+-- ======= SISTEMA LOCK BASE =======
 local function setLockPosition()
-    LockPosition = findPlotBlock()
-    if LockPosition then
-        notify("Lock Position Set", "PlotBlock position saved", 3)
+    local character = Player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        LockPosition = character.HumanoidRootPart.Position
+        notify("Lock Position Set", "Current position saved as lock point", 3)
     else
-        notify("Error", "PlotBlock not found", 3)
+        notify("Error", "Character not found", 3)
     end
 end
 
@@ -331,7 +300,7 @@ local function teleportToLock()
     
     character.HumanoidRootPart.CFrame = CFrame.new(LockPosition)
     character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-    notify("Teleported", "Moved to PlotBlock position", 2)
+    notify("Teleported", "Moved to lock position", 2)
 end
 
 local function createLockGUI()
@@ -362,7 +331,7 @@ local function createLockGUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0.7, 0, 1, 0)
     title.Position = UDim2.new(0.05, 0, 0, 0)
-    title.Text = "🔒 LOCK TO PLOTBLOCK"
+    title.Text = "🔒 LOCK POSITION"
     title.TextColor3 = Color3.fromRGB(255, 100, 100)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
@@ -540,14 +509,14 @@ MainTab:CreateButton({
 
 -- Lock Base to PlotBlock Toggle
 local LockPlotBlockToggle = MainTab:CreateToggle({
-    Name = "🔒 Lock Base",
+    Name = "🔒 Lock Position",
     CurrentValue = false,
     Flag = "LockPlotBlock",
     Callback = function(Value)
         LockPlotBlockEnabled = Value
         if Value then
             createLockGUI()
-            notify("Lock to PlotBlock", "Set lock position and teleport", 3)
+            notify("Lock Position", "Set lock position and teleport", 3)
         else
             if LockPlotBlockGUI then
                 LockPlotBlockGUI:Destroy()
