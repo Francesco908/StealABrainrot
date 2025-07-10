@@ -20,6 +20,7 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local TeleportService = game:GetService("TeleportService")
+local Debris = game:GetService("Debris")
 local Player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -49,11 +50,23 @@ local LockPlotBlockLoop = nil
 -- Flight System Variables
 local flightSystem = {
     isFlying = false,
+    isLanding = false,
     bodyVelocity = nil,
+    bodyPosition = nil,
     bodyAngularVelocity = nil,
-    currentTween = nil,
-    FLIGHT_SPEED = 45,
-    FLOAT_HEIGHT = 8
+    stabilityConnection = nil,
+    visibilityConnection = nil,
+    
+    FLIGHT_SPEED = 70,
+    FLOAT_HEIGHT = 8,
+    LANDING_SPEED = 12,
+    SAFE_LANDING_HEIGHT = 8,
+    VISIBILITY_CHECK_INTERVAL = 0.1,
+    POSITION_CORRECTION_FORCE = 2000,
+    
+    originalWalkSpeed = 16,
+    originalJumpPower = 50,
+    originalHipHeight = 0
 }
 
 -- Funzioni di utilità
@@ -112,109 +125,231 @@ local function makeDraggable(gui)
     end)
 end
 
--- ======= FLIGHT SYSTEM =======
-local function flightSystem_createBodyMovers(rootPart)
-    -- Body velocity for movement
+-- ======= ADVANCED FLIGHT SYSTEM =======
+local function flightSystem_createAdvancedBodyMovers(rootPart)
+    -- Primary movement control
     flightSystem.bodyVelocity = Instance.new("BodyVelocity")
-    flightSystem.bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+    flightSystem.bodyVelocity.MaxForce = Vector3.new(5000, 5000, 5000)
     flightSystem.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     flightSystem.bodyVelocity.Parent = rootPart
     
-    -- Body angular velocity for rotation control
+    -- Position stabilization
+    flightSystem.bodyPosition = Instance.new("BodyPosition")
+    flightSystem.bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+    flightSystem.bodyPosition.Position = rootPart.Position
+    flightSystem.bodyPosition.D = 3000
+    flightSystem.bodyPosition.P = 12000
+    flightSystem.bodyPosition.Parent = rootPart
+    
+    -- Rotation control
     flightSystem.bodyAngularVelocity = Instance.new("BodyAngularVelocity")
-    flightSystem.bodyAngularVelocity.MaxTorque = Vector3.new(0, 4000, 0)
+    flightSystem.bodyAngularVelocity.MaxTorque = Vector3.new(0, 5000, 0)
     flightSystem.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
     flightSystem.bodyAngularVelocity.Parent = rootPart
 end
 
-local function flightSystem_removeBodyMovers()
+local function flightSystem_removeAllBodyMovers()
     if flightSystem.bodyVelocity then
         flightSystem.bodyVelocity:Destroy()
         flightSystem.bodyVelocity = nil
+    end
+    if flightSystem.bodyPosition then
+        flightSystem.bodyPosition:Destroy()
+        flightSystem.bodyPosition = nil
     end
     if flightSystem.bodyAngularVelocity then
         flightSystem.bodyAngularVelocity:Destroy()
         flightSystem.bodyAngularVelocity = nil
     end
-    if flightSystem.currentTween then
-        flightSystem.currentTween:Cancel()
-        flightSystem.currentTween = nil
+    if flightSystem.stabilityConnection then
+        flightSystem.stabilityConnection:Disconnect()
+        flightSystem.stabilityConnection = nil
+    end
+    if flightSystem.visibilityConnection then
+        flightSystem.visibilityConnection:Disconnect()
+        flightSystem.visibilityConnection = nil
     end
 end
 
-local function flightSystem_stopFlight()
-    if not flightSystem.isFlying then return end
+local function flightSystem_startVisibilityMonitoring(character, rootPart)
+    flightSystem.visibilityConnection = RunService.Heartbeat:Connect(function()
+        if not character or not rootPart then return end
+        
+        -- Ensure character remains visible
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") and part.Transparency > 0.9 then
+                part.Transparency = 0
+            end
+        end
+        
+        -- Prevent character from going off-screen or underground
+        local position = rootPart.Position
+        if position.Y < -50 or position.Y > 1000 then
+            rootPart.Position = Vector3.new(position.X, 50, position.Z)
+        end
+        
+        -- Maintain proper character orientation
+        if rootPart.CFrame.LookVector.Y > 0.8 or rootPart.CFrame.LookVector.Y < -0.8 then
+            rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z))
+        end
+    end)
+end
+
+local function flightSystem_performSafeLanding(character, rootPart, humanoid)
+    if flightSystem.isLanding then return end
+    flightSystem.isLanding = true
     
-    flightSystem.isFlying = false
-    isActive = false
-    
-    local character = Player.Character
-    if not character then return end
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not rootPart then return end
-    
-    -- Find safe landing position first
+    -- Find optimal landing position
     local currentPos = rootPart.Position
-    local safePos = currentPos
+    local bestLandingPos = currentPos
     
-    -- Cast ray downward to find ground
+    -- Multiple raycast attempts for reliable ground detection
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {character}
     
-    local ray = workspace:Raycast(currentPos, Vector3.new(0, -200, 0), raycastParams)
+    local rayDirections = {
+        Vector3.new(0, -300, 0),
+        Vector3.new(5, -300, 0),
+        Vector3.new(-5, -300, 0),
+        Vector3.new(0, -300, 5),
+        Vector3.new(0, -300, -5)
+    }
     
-    if ray and ray.Instance then
-        -- Safe landing position 6 studs above ground
-        safePos = Vector3.new(currentPos.X, ray.Position.Y + 6, currentPos.Z)
-    else
-        -- If no ground found, go to spawn or safe height
-        safePos = Vector3.new(currentPos.X, math.max(currentPos.Y, 50), currentPos.Z)
+    local groundFound = false
+    for _, direction in pairs(rayDirections) do
+        local ray = workspace:Raycast(currentPos, direction, raycastParams)
+        if ray and ray.Instance then
+            bestLandingPos = Vector3.new(currentPos.X, ray.Position.Y + flightSystem.SAFE_LANDING_HEIGHT, currentPos.Z)
+            groundFound = true
+            break
+        end
     end
     
-    -- Smooth descent to safe position
-    if flightSystem.bodyVelocity then
-        local descentDirection = (safePos - currentPos).Unit
-        flightSystem.bodyVelocity.Velocity = descentDirection * 15
+    -- Fallback to safe altitude if no ground found
+    if not groundFound then
+        bestLandingPos = Vector3.new(currentPos.X, math.max(currentPos.Y, 50), currentPos.Z)
+    end
+    
+    -- Smooth descent with continuous monitoring
+    if flightSystem.bodyVelocity and flightSystem.bodyPosition then
+        flightSystem.bodyPosition.Position = bestLandingPos
+        flightSystem.bodyVelocity.Velocity = Vector3.new(0, -flightSystem.LANDING_SPEED, 0)
         
-        -- Wait for approach to safe position
-        spawn(function()
-            while flightSystem.bodyVelocity and (rootPart.Position - safePos).Magnitude > 3 do
-                wait(0.1)
+        -- Monitor landing progress
+        local landingMonitor
+        landingMonitor = RunService.Heartbeat:Connect(function()
+            if not rootPart or not flightSystem.isLanding then
+                landingMonitor:Disconnect()
+                return
             end
             
-            -- Final positioning
-            if rootPart then
-                rootPart.Position = safePos
-            end
-            
-            -- Clean up after positioning
-            flightSystem_removeBodyMovers()
-            
-            -- Restore character state
-            humanoid.PlatformStand = false
-            humanoid.WalkSpeed = OriginalWalkSpeed
-            humanoid.JumpPower = OriginalJumpPower
-            
-            -- Double check position after a brief delay
-            wait(0.5)
-            if rootPart and rootPart.Position.Y < 0 then
-                rootPart.Position = Vector3.new(rootPart.Position.X, 50, rootPart.Position.Z)
+            local distanceToTarget = (rootPart.Position - bestLandingPos).Magnitude
+            if distanceToTarget < 2 then
+                landingMonitor:Disconnect()
+                flightSystem_completeLandingSequence(character, rootPart, humanoid, bestLandingPos)
             end
         end)
+        
+        -- Timeout protection
+        Debris:AddItem(landingMonitor, 5)
     else
-        -- Fallback if no body velocity
-        rootPart.Position = safePos
-        humanoid.PlatformStand = false
-        humanoid.WalkSpeed = OriginalWalkSpeed
-        humanoid.JumpPower = OriginalJumpPower
+        flightSystem_completeLandingSequence(character, rootPart, humanoid, bestLandingPos)
     end
 end
 
+local function flightSystem_completeLandingSequence(character, rootPart, humanoid, landingPos)
+    -- Ensure final position is secure
+    if rootPart then
+        rootPart.Position = landingPos
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        rootPart.AngularVelocity = Vector3.new(0, 0, 0)
+    end
+    
+    -- Clean up all flight systems
+    flightSystem_removeAllBodyMovers()
+    
+    -- Restore character properties with delay for stability
+    spawn(function()
+        wait(0.2)
+        
+        if humanoid then
+            humanoid.PlatformStand = false
+            humanoid.WalkSpeed = flightSystem.originalWalkSpeed
+            humanoid.JumpPower = flightSystem.originalJumpPower
+            humanoid.HipHeight = flightSystem.originalHipHeight
+        end
+        
+        -- Final position verification
+        wait(0.3)
+        if rootPart and rootPart.Position.Y < 0 then
+            rootPart.Position = Vector3.new(rootPart.Position.X, 50, rootPart.Position.Z)
+        end
+        
+        -- Ensure character is fully functional
+        if humanoid then
+            humanoid.Sit = false
+            humanoid.PlatformStand = false
+        end
+        
+        flightSystem.isLanding = false
+        flightSystem.isFlying = false
+        isActive = false
+    end)
+end
+
+local function flightSystem_initiateForwardMovement(rootPart, target)
+    if not flightSystem.isFlying then return end
+    
+    -- Calculate movement parameters
+    local direction = (target - rootPart.Position).Unit
+    local distance = (target - rootPart.Position).Magnitude
+    
+    -- Orient character toward target
+    local lookDirection = Vector3.new(direction.X, 0, direction.Z)
+    if lookDirection.Magnitude > 0 then
+        local targetCFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + lookDirection)
+        rootPart.CFrame = rootPart.CFrame:Lerp(targetCFrame, 0.8)
+    end
+    
+    -- Apply movement velocity
+    flightSystem.bodyVelocity.Velocity = direction * flightSystem.FLIGHT_SPEED
+    flightSystem.bodyPosition.Position = target
+    
+    -- Monitor flight progress
+    local flightMonitor
+    flightMonitor = RunService.Heartbeat:Connect(function()
+        if not rootPart or not flightSystem.isFlying then
+            flightMonitor:Disconnect()
+            return
+        end
+        
+        local distanceToTarget = (rootPart.Position - target).Magnitude
+        if distanceToTarget < 8 then
+            flightMonitor:Disconnect()
+            flightSystem_endFlight()
+        end
+    end)
+    
+    -- Stability monitoring during flight
+    flightSystem.stabilityConnection = RunService.Heartbeat:Connect(function()
+        if not rootPart or not flightSystem.isFlying then return end
+        
+        -- Maintain flight altitude
+        if rootPart.Position.Y < target.Y - 10 then
+            flightSystem.bodyVelocity.Velocity = flightSystem.bodyVelocity.Velocity + Vector3.new(0, 15, 0)
+        end
+        
+        -- Prevent excessive speeds
+        local velocity = rootPart.Velocity
+        if velocity.Magnitude > flightSystem.FLIGHT_SPEED + 20 then
+            flightSystem.bodyVelocity.Velocity = velocity.Unit * flightSystem.FLIGHT_SPEED
+        end
+    end)
+end
+
 local function flightSystem_startFlight(target)
-    if flightSystem.isFlying or isActive then return end
+    if flightSystem.isFlying or flightSystem.isLanding or isActive then return end
     
     local character = Player.Character
     if not character then return end
@@ -225,58 +360,89 @@ local function flightSystem_startFlight(target)
     
     flightSystem.isFlying = true
     isActive = true
-    notify("Flight System", "Starting flight sequence...", 3)
+    notify("Flight System", "Starting advanced flight sequence...", 3)
     
-    -- Store original state
-    OriginalWalkSpeed = humanoid.WalkSpeed
-    OriginalJumpPower = humanoid.JumpPower
+    -- Store original character state
+    flightSystem.originalWalkSpeed = humanoid.WalkSpeed
+    flightSystem.originalJumpPower = humanoid.JumpPower
+    flightSystem.originalHipHeight = humanoid.HipHeight
     
-    -- Disable default movement
+    -- Configure character for flight
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
     humanoid.PlatformStand = true
+    humanoid.Sit = false
     
-    -- Create flight system
-    flightSystem_createBodyMovers(rootPart)
+    -- Initialize flight systems
+    flightSystem_createAdvancedBodyMovers(rootPart)
+    flightSystem_startVisibilityMonitoring(character, rootPart)
     
-    -- Float up first
+    -- Initial ascent phase
     local startPos = rootPart.Position
     local floatPos = Vector3.new(startPos.X, startPos.Y + flightSystem.FLOAT_HEIGHT, startPos.Z)
     
-    -- Set initial upward velocity
-    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 15, 0)
+    -- Smooth ascent
+    flightSystem.bodyPosition.Position = floatPos
+    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 20, 0)
     
-    -- Wait for float, then move to target
-    delay(1, function()
-        if not flightSystem.isFlying then return end
-        
-        -- Calculate direction to target
-        local direction = (target - rootPart.Position).Unit
-        
-        -- Face target direction
-        local lookDirection = Vector3.new(direction.X, 0, direction.Z)
-        if lookDirection.Magnitude > 0 then
-            rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + lookDirection)
+    -- Monitor ascent completion
+    local ascentMonitor
+    ascentMonitor = RunService.Heartbeat:Connect(function()
+        if not rootPart or not flightSystem.isFlying then
+            ascentMonitor:Disconnect()
+            return
         end
         
-        -- Move to target with constant velocity
-        flightSystem.bodyVelocity.Velocity = direction * flightSystem.FLIGHT_SPEED
+        if (rootPart.Position - floatPos).Magnitude < 1 then
+            ascentMonitor:Disconnect()
+            flightSystem_initiateForwardMovement(rootPart, target)
+        end
+    end)
+    
+    -- Timeout protection for ascent
+    Debris:AddItem(ascentMonitor, 3)
+end
+
+local function flightSystem_endFlight()
+    if not flightSystem.isFlying then return end
+    
+    flightSystem.isFlying = false
+    notify("Flight System", "Initiating safe landing sequence...", 3)
+    
+    local character = Player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not rootPart then return end
+    
+    -- Initiate safe landing sequence
+    flightSystem_performSafeLanding(character, rootPart, humanoid)
+end
+
+local function flightSystem_emergencyStop()
+    if flightSystem.isFlying or flightSystem.isLanding then
+        flightSystem.isFlying = false
+        flightSystem.isLanding = false
+        flightSystem_removeAllBodyMovers()
         
-        -- Auto-land when close to target
-        local landingCheck
-        landingCheck = RunService.Heartbeat:Connect(function()
-            if not flightSystem.isFlying or not rootPart or not rootPart.Parent then
-                landingCheck:Disconnect()
-                return
+        local character = Player.Character
+        if character then
+            local humanoid = character:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid.PlatformStand = false
+                humanoid.WalkSpeed = flightSystem.originalWalkSpeed
+                humanoid.JumpPower = flightSystem.originalJumpPower
             end
             
-            if (rootPart.Position - target).Magnitude < 10 then
-                landingCheck:Disconnect()
-                flightSystem_stopFlight()
-                notify("Flight System", "Arrived at destination!", 3)
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                rootPart.Position = Vector3.new(rootPart.Position.X, 50, rootPart.Position.Z)
             end
-        end)
-    end)
+        end
+        
+        isActive = false
+    end
 end
 
 -- ======= SISTEMA TELEPORT BASE =======
@@ -292,7 +458,7 @@ end
 
 local function goBase()
     if not savedBase or isActive then 
-        notify("Error", "Set base position first or teleport in progress", 3)
+        notify("Error", "Set base position first or flight in progress", 3)
         return 
     end
     
@@ -1173,7 +1339,7 @@ local function cleanup()
     stopKillAura()
     
     isActive = false
-    flightSystem_stopFlight()
+    flightSystem_emergencyStop()
     LockPlotBlockEnabled = false
     
     if LockPlotBlockGUI then
@@ -1213,8 +1379,8 @@ MiscTab:CreateButton({
 })
 
 -- Handle character respawn
-player.CharacterAdded:Connect(function(newCharacter)
-    flightSystem_stopFlight()
+Player.CharacterAdded:Connect(function(newCharacter)
+    flightSystem_emergencyStop()
 end)
 
 notify("OnlyRoblox Tools Loaded", "Thanks for using my script! ✨", 5)
