@@ -163,9 +163,21 @@ local function createButton(name, position, parent, callback)
 
     button.MouseButton1Click:Connect(function()
         if callback then
-            callback()
+            local state = callback()
+            if type(state) == "boolean" then
+                if state then
+                    button.BackgroundColor3 = Color3.fromRGB(40, 167, 69) -- Verde per "on"
+                else
+                    button.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- Normale per "off"
+                end
+            else
+                -- Cambia temporaneamente a verde per pulsanti senza stato
+                local originalColor = button.BackgroundColor3
+                button.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+                wait(0.5)
+                button.BackgroundColor3 = originalColor
+            end
         end
-        button.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
     end)
 
     return button
@@ -187,6 +199,7 @@ end
 -- Main Tab Content
 local infiniteJumpButton = createButton("Infinite Jump", UDim2.new(0, 10, 0, 10), tabContents["Main"], function()
     infiniteJumpEnabled = not infiniteJumpEnabled
+    return infiniteJumpEnabled
 end)
 
 local speedHackButton = createButton("Speed Hack", UDim2.new(0, 10, 0, 55), tabContents["Main"], function()
@@ -198,6 +211,7 @@ local speedHackButton = createButton("Speed Hack", UDim2.new(0, 10, 0, 55), tabC
             player.Character.Humanoid.WalkSpeed = originalWalkSpeed
         end
     end
+    return speedHackEnabled
 end)
 
 local floatButton = createButton("Float", UDim2.new(0, 10, 0, 100), tabContents["Main"], function()
@@ -205,10 +219,12 @@ local floatButton = createButton("Float", UDim2.new(0, 10, 0, 100), tabContents[
     if floatEnabled then
         createFloatGUI()
     end
+    return floatEnabled
 end)
 
 local teleportButton = createButton("Teleport", UDim2.new(0, 10, 0, 145), tabContents["Main"], function()
     createTeleportGUI()
+    -- Non restituisce nulla
 end)
 
 -- Visual Tab Content
@@ -219,9 +235,11 @@ local espButton = createButton("ESP Players", UDim2.new(0, 10, 0, 10), tabConten
     else
         disableESP()
     end
+    return espEnabled
 end)
 
 -- Misc Tab Content
+-- TODO: Implementare la funzionalità "coice" per i comandi admin (scelte o comandi vocali?)
 local soonLabel = Instance.new("TextLabel")
 soonLabel.Name = "SoonLabel"
 soonLabel.Size = UDim2.new(1, -20, 0, 50)
@@ -338,6 +356,7 @@ function createTeleportGUI()
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             basePosition = player.Character.HumanoidRootPart.Position
         end
+        -- Non restituisce nulla
     end)
 
     local tpBaseButton = createButton("TP Base", UDim2.new(0, 10, 0, 80), tpGui, function()
@@ -376,6 +395,7 @@ function createTeleportGUI()
                 end
             end)
         end
+        -- Non restituisce nulla
     end)
 
     tpCloseButton.MouseButton1Click:Connect(function()
@@ -409,8 +429,8 @@ function createESPForPlayer(tp)
     if not (tp.Character and tp.Character:FindFirstChild("HumanoidRootPart")) then return end
     local h = Instance.new("Highlight", tp.Character)
     h.Name = "ESP_" .. tp.Name
-    h.FillColor = Color3.fromRGB(0,162,255)
-    h.OutlineColor = Color3.fromRGB(0,162,255)
+    h.FillColor = Color3.fromRGB(0, 162, 255)
+    h.OutlineColor = Color3.fromRGB(0, 162, 255)
     h.FillTransparency = 0.5
     h.OutlineTransparency = 0
     espObjects[tp.Name] = h
@@ -431,26 +451,29 @@ function createTimerOverlay(duration, callback)
     timerGui.BackgroundTransparency = 0.3
     timerGui.BorderSizePixel = 0
 
-    local timerCorner = Instance.new("UICorner", timerGui)
+    local timerCorner = Instance.new("UICorner")
     timerCorner.CornerRadius = UDim.new(0, 15)
+    timerCorner.Parent = timerGui
 
-    local timerText = Instance.new("TextLabel", timerGui)
+    local timerText = Instance.new("TextLabel")
     timerText.Size = UDim2.new(1, 0, 0.6, 0)
     timerText.Position = UDim2.new(0, 0, 0, 0)
     timerText.BackgroundTransparency = 1
     timerText.Text = "Teleporting..."
-    timerText.TextColor3 = Color3.fromRGB(255,255,255)
+    timerText.TextColor3 = Color3.fromRGB(255, 255, 255)
     timerText.TextScaled = true
     timerText.Font = Enum.Font.GothamBold
+    timerText.Parent = timerGui
 
-    local countdownText = Instance.new("TextLabel", timerGui)
+    local countdownText = Instance.new("TextLabel")
     countdownText.Size = UDim2.new(1, 0, 0.4, 0)
     countdownText.Position = UDim2.new(0, 0, 0.6, 0)
     countdownText.BackgroundTransparency = 1
     countdownText.Text = tostring(duration)
-    countdownText.TextColor3 = Color3.fromRGB(255,100,100)
+    countdownText.TextColor3 = Color3.fromRGB(255, 100, 100)
     countdownText.TextScaled = true
     countdownText.Font = Enum.Font.GothamBold
+    countdownText.Parent = timerGui
 
     local timeLeft = duration
     local conn
@@ -490,24 +513,24 @@ end
 for name, btn in pairs(tabButtons) do
     btn.MouseButton1Click:Connect(function()
         for _, c in pairs(tabContents) do c.Visible = false end
-        for _, b in pairs(tabButtons) do b.BackgroundColor3 = Color3.fromRGB(45,45,45) end
+        for _, b in pairs(tabButtons) do b.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
         tabContents[name].Visible = true
-        btn.BackgroundColor3 = Color3.fromRGB(0,123,255)
+        btn.BackgroundColor3 = Color3.fromRGB(0, 123, 255)
     end)
 end
-tabButtons["Main"].BackgroundColor3 = Color3.fromRGB(0,123,255)
+tabButtons["Main"].BackgroundColor3 = Color3.fromRGB(0, 123, 255)
 
 -- Minimize/Close Functions
 local isMinimized = false
 minimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
-        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0,400,0,40)}):Play()
+        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 400, 0, 40)}):Play()
         tabFrame.Visible = false
         contentFrame.Visible = false
         minimizeButton.Text = "+"
     else
-        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0,400,0,300)}):Play()
+        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 400, 0, 300)}):Play()
         tabFrame.Visible = true
         contentFrame.Visible = true
         minimizeButton.Text = "-"
