@@ -1,510 +1,518 @@
--- Water Hub - Enhanced Admin Script
--- Modern Fluent UI Design with Full Functionality
-
+-- Servizi di Roblox necessari
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+local DataStoreService = game:GetService("DataStoreService")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local SoundService = game:GetService("SoundService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
--- Variables
-local waterHub = {}
-local connections = {}
-local isFlying = false
-local flySpeed = 50
+-- Variabili per lo stato delle funzionalità
+local isFloating = false
+local isAirJump = false
 local isInvisible = false
-local hasAirJump = false
-local espEnabled = false
-local espConnections = {}
-local lockTarget = nil
-local lockPosition = nil
-local autoLockEnabled = false
-local speedBoostEnabled = false
-local originalWalkSpeed = 16
+local isBoosted = false
+local isPlayerESP = false
+local isNameESP = false
+local lockedPlayer = nil
 
--- Create click sound
-local clickSound = Instance.new("Sound")
-clickSound.SoundId = "rbxassetid://270882215" -- Soft click sound
-clickSound.Volume = 0.3
-clickSound.Parent = SoundService
+-- Creazione del GUI principale
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "WaterHub"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
 
--- Create Main GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "WaterHub"
-screenGui.Parent = playerGui
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 400, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
 
--- Main Frame (Fluent UI with transparency)
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 450, 0, 400)
-mainFrame.Position = UDim2.new(0.5, -225, 0.5, -200)
-mainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-mainFrame.BackgroundTransparency = 0.2
-mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Parent = screenGui
-
--- Add corner rounding
-local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 12)
-mainCorner.Parent = mainFrame
-
--- Add subtle shadow effect
-local shadow = Instance.new("ImageLabel")
-shadow.Name = "Shadow"
-shadow.Image = "rbxassetid://1316045217"
-shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-shadow.ImageTransparency = 0.8
-shadow.ScaleType = Enum.ScaleType.Slice
-shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-shadow.Size = UDim2.new(1, 20, 1, 20)
-shadow.Position = UDim2.new(0, -10, 0, -10)
-shadow.BackgroundTransparency = 1
-shadow.ZIndex = -1
-shadow.Parent = mainFrame
-
--- Title Bar
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.Position = UDim2.new(0, 0, 0, 0)
-titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-titleBar.BackgroundTransparency = 0.2
-titleBar.BorderSizePixel = 0
-titleBar.Parent = mainFrame
-
-local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 12)
-titleCorner.Parent = titleBar
-
--- Title Text
-local titleText = Instance.new("TextLabel")
-titleText.Name = "TitleText"
-titleText.Size = UDim2.new(1, -80, 1, 0)
-titleText.Position = UDim2.new(0, 15, 0, 0)
-titleText.BackgroundTransparency = 1
-titleText.Text = "WATER HUB"
-titleText.TextColor3 = Color3.fromRGB(200, 200, 255)
-titleText.TextScaled = true
-titleText.Font = Enum.Font.GothamBold
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-titleText.Parent = titleBar
-
--- Minimize Button
-local minimizeButton = Instance.new("ImageButton")
-minimizeButton.Name = "MinimizeButton"
-minimizeButton.Size = UDim2.new(0, 30, 0, 30)
-minimizeButton.Position = UDim2.new(1, -70, 0, 5)
-minimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-minimizeButton.BorderSizePixel = 0
-minimizeButton.Image = "rbxassetid://3926305904"
-minimizeButton.ImageRectOffset = Vector2.new(124, 204)
-minimizeButton.ImageRectSize = Vector2.new(36, 36)
-minimizeButton.ImageColor3 = Color3.fromRGB(200, 200, 200)
-minimizeButton.Parent = titleBar
-
-local minimizeCorner = Instance.new("UICorner")
-minimizeCorner.CornerRadius = UDim.new(0, 6)
-minimizeCorner.Parent = minimizeButton
-
--- Close Button
-local closeButton = Instance.new("ImageButton")
-closeButton.Name = "CloseButton"
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -35, 0, 5)
-closeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-closeButton.BorderSizePixel = 0
-closeButton.Image = "rbxassetid://3926305904"
-closeButton.ImageRectOffset = Vector2.new(284, 4)
-closeButton.ImageRectSize = Vector2.new(24, 24)
-closeButton.ImageColor3 = Color3.fromRGB(200, 200, 200)
-closeButton.Parent = titleBar
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 6)
-closeCorner.Parent = closeButton
-
--- Tab Container
-local tabContainer = Instance.new("Frame")
-tabContainer.Name = "TabContainer"
-tabContainer.Size = UDim2.new(1, 0, 0, 40)
-tabContainer.Position = UDim2.new(0, 0, 0, 40)
-tabContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-tabContainer.BackgroundTransparency = 0.2
-tabContainer.BorderSizePixel = 0
-tabContainer.Parent = mainFrame
-
--- Content Frame
-local contentFrame = Instance.new("Frame")
-contentFrame.Name = "ContentFrame"
-contentFrame.Size = UDim2.new(1, -20, 1, -90)
-contentFrame.Position = UDim2.new(0, 10, 0, 85)
-contentFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-contentFrame.BackgroundTransparency = 0.2
-contentFrame.BorderSizePixel = 0
-contentFrame.Parent = mainFrame
-
--- Content corner
-local contentCorner = Instance.new("UICorner")
-contentCorner.CornerRadius = UDim.new(0, 8)
-contentCorner.Parent = contentFrame
-
--- Tab System
-local tabs = {"Main", "ESP", "Misc", "Server"}
-local tabButtons = {}
-local tabContents = {}
-local activeTab = "Main"
-
--- Create Tab Buttons
-for i, tabName in ipairs(tabs) do
-    local tabButton = Instance.new("TextButton")
-    tabButton.Name = tabName .. "Tab"
-    tabButton.Size = UDim2.new(0.25, -2, 1, -4)
-    tabButton.Position = UDim2.new((i-1) * 0.25, 0, 0, 2)
-    tabButton.BackgroundColor3 = tabName == activeTab and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(50, 50, 50)
-    tabButton.BackgroundTransparency = tabName == activeTab and 0 or 0.3
-    tabButton.BorderSizePixel = 0
-    tabButton.Text = tabName
-    tabButton.TextColor3 = Color3.fromRGB(220, 220, 220)
-    tabButton.TextScaled = true
-    tabButton.Font = Enum.Font.GothamMedium
-    tabButton.Parent = tabContainer
-    
-    tabButtons[tabName] = tabButton
-    
-    -- Create content frame for each tab
-    local content = Instance.new("ScrollingFrame")
-    content.Name = tabName .. "Content"
-    content.Size = UDim2.new(1, -10, 1, -10)
-    content.Position = UDim2.new(0, 5, 0, 5)
-    content.BackgroundTransparency = 1
-    content.BorderSizePixel = 0
-    content.ScrollBarThickness = 5
-    content.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
-    content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    content.Visible = tabName == activeTab
-    content.Parent = contentFrame
-    
-    -- Add layout to content
-    local uiListLayout = Instance.new("UIListLayout")
-    uiListLayout.Padding = UDim.new(0, 10)
-    uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    uiListLayout.Parent = content
-    
-    local uiPadding = Instance.new("UIPadding")
-    uiPadding.PaddingTop = UDim.new(0, 5)
-    uiPadding.PaddingLeft = UDim.new(0, 5)
-    uiPadding.PaddingRight = UDim.new(0, 5)
-    uiPadding.Parent = content
-    
-    tabContents[tabName] = content
-end
-
--- Helper Function to Create Buttons
-local function createButton(parent, text, callback)
-    local button = Instance.new("TextButton")
-    button.Name = text .. "Button"
-    button.Size = UDim2.new(1, 0, 0, 40)
-    button.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    button.BackgroundTransparency = 0.2
-    button.BorderSizePixel = 0
-    button.Text = text
-    button.TextColor3 = Color3.fromRGB(220, 220, 255)
-    button.TextScaled = true
-    button.Font = Enum.Font.GothamMedium
-    button.LayoutOrder = #parent:GetChildren()
-    button.Parent = parent
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = button
-    
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 80, 100)}):Play()
-    end)
-    
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 80)}):Play()
-    end)
-    
-    button.MouseButton1Click:Connect(function()
-        clickSound:Play()
-        callback()
-    end)
-    
-    return button
-end
-
--- Helper Function to Create Toggle Buttons
-local function createToggle(parent, text, callback)
-    local frame = Instance.new("Frame")
-    frame.Name = text .. "Frame"
-    frame.Size = UDim2.new(1, 0, 0, 40)
-    frame.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    frame.BackgroundTransparency = 0.2
-    frame.BorderSizePixel = 0
-    frame.LayoutOrder = #parent:GetChildren()
-    frame.Parent = parent
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.7, 0, 1, 0)
-    label.Position = UDim2.new(0, 15, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(220, 220, 255)
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamMedium
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-    
-    local toggle = Instance.new("TextButton")
-    toggle.Name = "Toggle"
-    toggle.Size = UDim2.new(0, 60, 0, 30)
-    toggle.Position = UDim2.new(1, -70, 0.5, -15)
-    toggle.BackgroundColor3 = Color3.fromRGB(100, 30, 30)
-    toggle.BorderSizePixel = 0
-    toggle.Text = "OFF"
-    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggle.TextScaled = true
-    toggle.Font = Enum.Font.GothamBold
-    toggle.Parent = frame
-    
-    local toggleCorner = Instance.new("UICorner")
-    toggleCorner.CornerRadius = UDim.new(0, 15)
-    toggleCorner.Parent = toggle
-    
-    local isOn = false
-    
-    toggle.MouseButton1Click:Connect(function()
-        clickSound:Play()
-        isOn = not isOn
-        if isOn then
-            TweenService:Create(toggle, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(30, 100, 30),
-                Position = UDim2.new(1, -30, 0.5, -15)
-            }):Play()
-            toggle.Text = "ON"
-        else
-            TweenService:Create(toggle, TweenInfo.new(0.2), {
-                BackgroundColor3 = Color3.fromRGB(100, 30, 30),
-                Position = UDim2.new(1, -70, 0.5, -15)
-            }):Play()
-            toggle.Text = "OFF"
+-- Funzione per rendere il frame trascinabile
+local function makeDraggable(frame)
+    local dragging = false
+    local dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
         end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+end
+makeDraggable(MainFrame)
+
+-- Barra del titolo
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TitleBar.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0.8, 0, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Water Hub"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 18
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Parent = TitleBar
+
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(0.85, 0, 0, 0)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeButton.Parent = TitleBar
+local isMinimized = false
+MinimizeButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    MainFrame.Size = isMinimized and UDim2.new(0, 400, 0, 30) or UDim2.new(0, 400, 0, 300)
+end)
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(0.925, 0, 0, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Parent = TitleBar
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Schede
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, 0, 0, 40)
+TabBar.Position = UDim2.new(0, 0, 0, 30)
+TabBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+TabBar.Parent = MainFrame
+
+local tabs = {"Main", "ESP", "Misc", "_SERVER_"}
+local tabFrames = {}
+local currentTab = nil
+
+for i, tabName in ipairs(tabs) do
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(0.25, 0, 1, 0)
+    TabButton.Position = UDim2.new(0.25 * (i-1), 0, 0, 0)
+    TabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    TabButton.Text = tabName
+    TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TabButton.Parent = TabBar
+
+    local TabFrame = Instance.new("Frame")
+    TabFrame.Size = UDim2.new(1, 0, 1, -70)
+    TabFrame.Position = UDim2.new(0, 0, 0, 70)
+    TabFrame.BackgroundTransparency = 1
+    TabFrame.Visible = false
+    TabFrame.Parent = MainFrame
+    tabFrames[tabName] = TabFrame
+
+    TabButton.MouseButton1Click:Connect(function()
+        if currentTab then
+            tabFrames[currentTab].Visible = false
+        end
+        TabFrame.Visible = true
+        currentTab = tabName
+    end)
+end
+tabFrames["Main"].Visible = true
+currentTab = "Main"
+
+-- Funzione per creare pulsanti toggle
+local function createToggle(parent, name, posY, callback)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Size = UDim2.new(0.9, 0, 0, 30)
+    ToggleFrame.Position = UDim2.new(0.05, 0, 0, posY)
+    ToggleFrame.BackgroundTransparency = 1
+    ToggleFrame.Parent = parent
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextSize = 16
+    Label.Parent = ToggleFrame
+
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(0.2, 0, 0.8, 0)
+    ToggleButton.Position = UDim2.new(0.8, 0, 0.1, 0)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    ToggleButton.Text = "OFF"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.Parent = ToggleFrame
+
+    local isOn = false
+    ToggleButton.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        ToggleButton.Text = isOn and "ON" or "OFF"
+        ToggleButton.BackgroundColor3 = isOn and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(100, 100, 100)
         callback(isOn)
     end)
-    
-    return toggle
 end
 
--- ESP Functions (same as before)
+-- Scheda Main
+local MainTab = tabFrames["Main"]
+local HelperStealButton = Instance.new("TextButton")
+HelperStealButton.Size = UDim2.new(0.9, 0, 0, 30)
+HelperStealButton.Position = UDim2.new(0.05, 0, 0, 10)
+HelperStealButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+HelperStealButton.Text = "Helper Steal"
+HelperStealButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+HelperStealButton.Parent = MainTab
 
--- Flight System (same as before)
+local HelperStealGui = Instance.new("Frame")
+HelperStealGui.Size = UDim2.new(0, 200, 0, 150)
+HelperStealGui.Position = UDim2.new(0.5, -100, 0.5, -75)
+HelperStealGui.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+HelperStealGui.Visible = false
+HelperStealGui.Parent = ScreenGui
+makeDraggable(HelperStealGui)
 
--- Helper GUI System (same as before)
+local HSTitle = Instance.new("TextLabel")
+HSTitle.Size = UDim2.new(1, 0, 0, 30)
+HSTitle.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+HSTitle.Text = "Helper Steal"
+HSTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+HSTitle.Parent = HelperStealGui
 
--- Auto Lock GUI (same as before)
-
--- Populate Main Tab
-local mainContent = tabContents["Main"]
-
--- Helper Button
-createButton(mainContent, "Helper", function()
-    createHelperGUI()
-end)
-
--- Float Toggle
-createToggle(mainContent, "Float", function(enabled)
-    isFlying = enabled
-    if enabled then
-        startFlying()
+local GoUpButton = Instance.new("TextButton")
+GoUpButton.Size = UDim2.new(0.8, 0, 0, 40)
+GoUpButton.Position = UDim2.new(0.1, 0, 0, 40)
+GoUpButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+GoUpButton.Text = "Go Up (165)"
+GoUpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+GoUpButton.Parent = HelperStealGui
+GoUpButton.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0, 165, 0)
     end
 end)
 
--- Air Jump Toggle
-createToggle(mainContent, "Air Jump", function(enabled)
-    hasAirJump = enabled
-    if enabled then
-        connections.airJump = UserInputService.JumpRequest:Connect(function()
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 50, 0)
+local GoDownButton = Instance.new("TextButton")
+GoDownButton.Size = UDim2.new(0.8, 0, 0, 40)
+GoDownButton.Position = UDim2.new(0.1, 0, 0, 90)
+GoDownButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+GoDownButton.Text = "Go Down (50)"
+GoDownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+GoDownButton.Parent = HelperStealGui
+GoDownButton.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame - Vector3.new(0, 50, 0)
+    end
+end)
+
+local HSCloseButton = Instance.new("TextButton")
+HSCloseButton.Size = UDim2.new(0, 30, 0, 30)
+HSCloseButton.Position = UDim2.new(1, -30, 0, 0)
+HSCloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+HSCloseButton.Text = "X"
+HSCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+HSCloseButton.Parent = HelperStealGui
+HSCloseButton.MouseButton1Click:Connect(function()
+    HelperStealGui.Visible = false
+end)
+
+HelperStealButton.MouseButton1Click:Connect(function()
+    HelperStealGui.Visible = true
+end)
+
+createToggle(MainTab, "Float", 50, function(state)
+    isFloating = state
+    if state then
+        RunService:BindToRenderStep("Float", Enum.RenderPriority.Character.Value + 1, function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
             end
         end)
     else
-        if connections.airJump then
-            connections.airJump:Disconnect()
-        end
+        RunService:UnbindFromRenderStep("Float")
     end
 end)
 
--- Invisible Player Toggle
-createToggle(mainContent, "Invisible Player", function(enabled)
-    isInvisible = enabled
-    if player.Character then
-        for _, part in pairs(player.Character:GetChildren()) do
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                part.Transparency = enabled and 1 or 0
-            elseif part:IsA("Accessory") then
-                part.Handle.Transparency = enabled and 1 or 0
+createToggle(MainTab, "Air Jump", 90, function(state)
+    isAirJump = state
+end)
+
+local UserInputService = game:GetService("UserInputService")
+UserInputService.JumpRequest:Connect(function()
+    if isAirJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+createToggle(MainTab, "Invisible Player", 130, function(state)
+    isInvisible = state
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("Decal") then
+                part.Transparency = state and 1 or 0
             end
         end
     end
 end)
 
--- Speed Boost Toggle
-createToggle(mainContent, "Speed Boost (50%)", function(enabled)
-    speedBoostEnabled = enabled
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        local humanoid = player.Character.Humanoid
-        if enabled then
-            originalWalkSpeed = humanoid.WalkSpeed
-            humanoid.WalkSpeed = originalWalkSpeed * 1.5
-        else
-            humanoid.WalkSpeed = originalWalkSpeed
+local AutoLockButton = Instance.new("TextButton")
+AutoLockButton.Size = UDim2.new(0.9, 0, 0, 30)
+AutoLockButton.Position = UDim2.new(0.05, 0, 0, 170)
+AutoLockButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+AutoLockButton.Text = "Auto Lock"
+AutoLockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoLockButton.Parent = MainTab
+
+local AutoLockGui = Instance.new("Frame")
+AutoLockGui.Size = UDim2.new(0, 200, 0, 150)
+AutoLockGui.Position = UDim2.new(0.5, -100, 0.5, -75)
+AutoLockGui.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+AutoLockGui.Visible = false
+AutoLockGui.Parent = ScreenGui
+makeDraggable(AutoLockGui)
+
+local ALTitle = Instance.new("TextLabel")
+ALTitle.Size = UDim2.new(1, 0, 0, 30)
+ALTitle.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ALTitle.Text = "Auto Lock"
+ALTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ALTitle.Parent = AutoLockGui
+
+local SetLockButton = Instance.new("TextButton")
+SetLockButton.Size = UDim2.new(0.8, 0, 0, 40)
+SetLockButton.Position = UDim2.new(0.1, 0, 0, 40)
+SetLockButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+SetLockButton.Text = "Set Lock"
+SetLockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SetLockButton.Parent = AutoLockGui
+SetLockButton.MouseButton1Click:Connect(function()
+    local mouse = LocalPlayer:GetMouse()
+    mouse.Button1Down:Connect(function()
+        local target = mouse.Target
+        if target and target.Parent and Players:GetPlayerFromCharacter(target.Parent) then
+            lockedPlayer = Players:GetPlayerFromCharacter(target.Parent)
+            SetLockButton.Text = "Locked: " .. lockedPlayer.Name
+        end
+    end)
+end)
+
+local TPLockButton = Instance.new("TextButton")
+TPLockButton.Size = UDim2.new(0.8, 0, 0, 40)
+TPLockButton.Position = UDim2.new(0.1, 0, 0, 90)
+TPLockButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+TPLockButton.Text = "TP Lock"
+TPLockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TPLockButton.Parent = AutoLockGui
+TPLockButton.MouseButton1Click:Connect(function()
+    if lockedPlayer and lockedPlayer.Character and lockedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local targetPos = lockedPlayer.Character.HumanoidRootPart.Position
+            local tween = TweenService:Create(char.HumanoidRootPart, TweenInfo.new(1), {CFrame = CFrame.new(targetPos)})
+            tween:Play()
+            char.Humanoid.WalkSpeed = char.Humanoid.WalkSpeed * 1.2 -- Piccolo boost
+            wait(1)
+            char.Humanoid.WalkSpeed = char.Humanoid.WalkSpeed / 1.2
         end
     end
 end)
 
--- Auto Lock Button
-createButton(mainContent, "Auto Lock", function()
-    createAutoLockGUI()
+local ALCloseButton = Instance.new("TextButton")
+ALCloseButton.Size = UDim2.new(0, 30, 0, 30)
+ALCloseButton.Position = UDim2.new(1, -30, 0, 0)
+ALCloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ALCloseButton.Text = "X"
+ALCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ALCloseButton.Parent = AutoLockGui
+ALCloseButton.MouseButton1Click:Connect(function()
+    AutoLockGui.Visible = false
 end)
 
--- Populate ESP Tab
-local espContent = tabContents["ESP"]
+AutoLockButton.MouseButton1Click:Connect(function()
+    AutoLockGui.Visible = true
+end)
 
--- ESP Players Toggle
-createToggle(espContent, "ESP Players", function(enabled)
-    espEnabled = enabled
-    if enabled then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player then
-                createESP(p)
-            end
-        end
-        
-        espConnections.playerAdded = Players.PlayerAdded:Connect(function(p)
-            if espEnabled then
-                createESP(p)
-            end
-        end)
-        
-        espConnections.playerRemoving = Players.PlayerRemoving:Connect(function(p)
-            removeESP(p)
-        end)
-    else
-        for _, p in pairs(Players:GetPlayers()) do
-            removeESP(p)
-        end
-        
-        for _, connection in pairs(espConnections) do
-            connection:Disconnect()
-        end
-        espConnections = {}
+createToggle(MainTab, "Boost", 210, function(state)
+    isBoosted = state
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = state and 24 or 16 -- 50% boost da 16 a 24
     end
 end)
 
--- ESP Names Toggle
-createToggle(espContent, "ESP Names", function(enabled)
-    -- This is handled within the ESP creation function
+-- Scheda ESP
+local ESPTab = tabFrames["ESP"]
+createToggle(ESPTab, "Player ESP", 10, function(state)
+    isPlayerESP = state
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild("ESPHighlight")
+            if state and not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Name = "ESPHighlight"
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                highlight.Parent = player.Character
+            elseif not state and highlight then
+                highlight:Destroy()
+            end
+        end
+    end
 end)
 
--- Populate Misc Tab
-local miscContent = tabContents["Misc"]
-local soonLabel = Instance.new("TextLabel")
-soonLabel.Size = UDim2.new(1, 0, 1, 0)
-soonLabel.BackgroundTransparency = 1
-soonLabel.Text = "Coming Soon..."
-soonLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-soonLabel.TextScaled = true
-soonLabel.Font = Enum.Font.GothamMedium
-soonLabel.Parent = miscContent
+createToggle(ESPTab, "Name ESP", 50, function(state)
+    isNameESP = state
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local billboard = player.Character:FindFirstChild("NameESP")
+            if state and not billboard then
+                billboard = Instance.new("BillboardGui")
+                billboard.Name = "NameESP"
+                billboard.Size = UDim2.new(0, 100, 0, 20)
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.AlwaysOnTop = true
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1, 0, 1, 0)
+                label.BackgroundTransparency = 1
+                label.Text = player.Name
+                label.TextColor3 = Color3.fromRGB(255, 0, 0)
+                label.TextSize = 14
+                label.Parent = billboard
+                billboard.Parent = player.Character:FindFirstChild("Head") or player.Character
+            elseif not state and billboard then
+                billboard:Destroy()
+            end
+        end
+    end
+end)
 
--- Populate Server Tab
-local serverContent = tabContents["Server"]
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(char)
+        if isPlayerESP then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ESPHighlight"
+            highlight.FillColor = Color3.fromRGB(255, 0, 0)
+            highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+            highlight.Parent = char
+        end
+        if isNameESP then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "NameESP"
+            billboard.Size = UDim2.new(0, 100, 0, 20)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Text = player.Name
+            label.TextColor3 = Color3.fromRGB(255, 0, 0)
+            label.TextSize = 14
+            label.Parent = billboard
+            billboard.Parent = char:FindFirstChild("Head") or char
+        end
+    end)
+end)
 
--- Leave Server Button
-createButton(serverContent, "Leave Server", function()
+-- Scheda Misc
+local MiscTab = tabFrames["Misc"]
+local SoonLabel = Instance.new("TextLabel")
+SoonLabel.Size = UDim2.new(0.9, 0, 0, 30)
+SoonLabel.Position = UDim2.new(0.05, 0, 0, 10)
+SoonLabel.BackgroundTransparency = 1
+SoonLabel.Text = "soon.."
+SoonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SoonLabel.TextSize = 16
+SoonLabel.Parent = MiscTab
+
+-- Scheda Server
+local ServerTab = tabFrames["_SERVER_"]
+local LeaveButton = Instance.new("TextButton")
+LeaveButton.Size = UDim2.new(0.9, 0, 0, 30)
+LeaveButton.Position = UDim2.new(0.05, 0, 0, 10)
+LeaveButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+LeaveButton.Text = "Leave Server"
+LeaveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+LeaveButton.Parent = ServerTab
+LeaveButton.MouseButton1Click:Connect(function()
     game:Shutdown()
 end)
 
--- Rejoin Server Button
-createButton(serverContent, "Rejoin Server", function()
-    TeleportService:Teleport(game.PlaceId, player)
+local RejoinButton = Instance.new("TextButton")
+RejoinButton.Size = UDim2.new(0.9, 0, 0, 30)
+RejoinButton.Position = UDim2.new(0.05, 0, 0, 50)
+RejoinButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+RejoinButton.Text = "Rejoin Server"
+RejoinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+RejoinButton.Parent = ServerTab
+RejoinButton.MouseButton1Click:Connect(function()
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
 end)
 
--- Server Hop Button
-createButton(serverContent, "Server Hop", function()
-    local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
-    if servers and servers.data then
-        for _, server in pairs(servers.data) do
-            if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, player)
-                break
+local ServerHopButton = Instance.new("TextButton")
+ServerHopButton.Size = UDim2.new(0.9, 0, 0, 30)
+ServerHopButton.Position = UDim2.new(0.05, 0, 0, 90)
+ServerHopButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ServerHopButton.Text = "Server Hop"
+ServerHopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ServerHopButton.Parent = ServerTab
+ServerHopButton.MouseButton1Click:Connect(function()
+    local servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+    for _, server in pairs(servers.data) do
+        if server.id ~= game.JobId then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+            break
+        end
+    end
+end)
+
+-- Persistenza per Auto Lock
+local LockDataStore = DataStoreService:GetDataStore("AutoLockData")
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if isInvisible then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("Decal") then
+                part.Transparency = 1
             end
         end
     end
+    if isBoosted then
+        char:WaitForChild("Humanoid").WalkSpeed = 24
+    end
+    local success, data = pcall(function()
+        return LockDataStore:GetAsync(LocalPlayer.UserId)
+    end)
+    if success and data then
+        lockedPlayer = Players:GetPlayerByUserId(data)
+    end
 end)
 
--- Tab System Logic
-for tabName, button in pairs(tabButtons) do
-    button.MouseButton1Click:Connect(function()
-        clickSound:Play()
-        -- Update active tab
-        activeTab = tabName
-        
-        -- Update button colors
-        for name, btn in pairs(tabButtons) do
-            btn.BackgroundColor3 = name == activeTab and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(50, 50, 50)
-            btn.BackgroundTransparency = name == activeTab and 0 or 0.3
-        end
-        
-        -- Update content visibility
-        for name, content in pairs(tabContents) do
-            content.Visible = name == activeTab
+SetLockButton.MouseButton1Click:Connect(function()
+    local mouse = LocalPlayer:GetMouse()
+    mouse.Button1Down:Connect(function()
+        local target = mouse.Target
+        if target and target.Parent and Players:GetPlayerFromCharacter(target.Parent) then
+            lockedPlayer = Players:GetPlayerFromCharacter(target.Parent)
+            SetLockButton.Text = "Locked: " .. lockedPlayer.Name
+            pcall(function()
+                LockDataStore:SetAsync(LocalPlayer.UserId, lockedPlayer.UserId)
+            end)
         end
     end)
-end
-
--- Minimize/Close functionality
-local isMinimized = false
-minimizeButton.MouseButton1Click:Connect(function()
-    clickSound:Play()
-    isMinimized = not isMinimized
-    local targetSize = isMinimized and UDim2.new(0, 450, 0, 40) or UDim2.new(0, 450, 0, 400)
-    
-    TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = targetSize}):Play()
-    
-    tabContainer.Visible = not isMinimized
-    contentFrame.Visible = not isMinimized
 end)
-
-closeButton.MouseButton1Click:Connect(function()
-    clickSound:Play()
-    -- Clean up connections
-    for _, connection in pairs(connections) do
-        connection:Disconnect()
-    end
-    for _, connection in pairs(espConnections) do
-        connection:Disconnect()
-    end
-    
-    screenGui:Destroy()
-end)
-
--- Character respawn handling (same as before)
-
-print("Water Hub loaded successfully!")
