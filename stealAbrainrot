@@ -45,6 +45,7 @@ local isActive = false
 local LockPlotBlockEnabled = false
 local LockPlotBlockGUI = nil
 local LockPlotBlockLoop = nil
+local LockPosition = nil
 
 -- Flight System Variables
 local flightSystem = {
@@ -83,7 +84,7 @@ end
 local function makeDraggable(gui)
     local dragging, dragInput, dragStart, startPos
     gui.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = gui.Position
@@ -95,7 +96,7 @@ local function makeDraggable(gui)
         end
     end)
     gui.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
@@ -174,43 +175,20 @@ local function flightSystem_stopFlight()
         safePos = Vector3.new(currentPos.X, math.max(currentPos.Y, 50), currentPos.Z)
     end
     
-    -- Smooth descent to safe position
-    if flightSystem.bodyVelocity then
-        local descentDirection = (safePos - currentPos).Unit
-        flightSystem.bodyVelocity.Velocity = descentDirection * 15
-        
-        -- Wait for approach to safe position
-        spawn(function()
-            while flightSystem.bodyVelocity and (rootPart.Position - safePos).Magnitude > 3 do
-                wait(0.1)
-            end
-            
-            -- Final positioning
-            if rootPart then
-                rootPart.Position = safePos
-            end
-            
-            -- Clean up after positioning
-            flightSystem_removeBodyMovers()
-            
-            -- Restore character state
-            humanoid.PlatformStand = false
-            humanoid.WalkSpeed = OriginalWalkSpeed
-            humanoid.JumpPower = OriginalJumpPower
-            
-            -- Double check position after a brief delay
-            wait(0.5)
-            if rootPart and rootPart.Position.Y < 0 then
-                rootPart.Position = Vector3.new(rootPart.Position.X, 50, rootPart.Position.Z)
-            end
-        end)
-    else
-        -- Fallback if no body velocity
-        rootPart.Position = safePos
-        humanoid.PlatformStand = false
-        humanoid.WalkSpeed = OriginalWalkSpeed
-        humanoid.JumpPower = OriginalJumpPower
-    end
+    -- Clean up flight system first
+    flightSystem_removeBodyMovers()
+    
+    -- Restore character state
+    humanoid.PlatformStand = false
+    humanoid.WalkSpeed = OriginalWalkSpeed
+    humanoid.JumpPower = OriginalJumpPower
+    
+    -- Position character safely
+    rootPart.CFrame = CFrame.new(safePos)
+    rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.RotVelocity = Vector3.new(0, 0, 0)
+    
+    notify("Flight System", "Landed safely!", 3)
 end
 
 local function flightSystem_startFlight(target)
@@ -273,7 +251,6 @@ local function flightSystem_startFlight(target)
             if (rootPart.Position - target).Magnitude < 10 then
                 landingCheck:Disconnect()
                 flightSystem_stopFlight()
-                notify("Flight System", "Arrived at destination!", 3)
             end
         end)
     end)
@@ -331,20 +308,30 @@ local function findPlotBlock()
     return nil
 end
 
-local function lockToPlotBlock()
-    local character = Player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then 
-        return 
+local function setLockPosition()
+    LockPosition = findPlotBlock()
+    if LockPosition then
+        notify("Lock Position Set", "PlotBlock position saved", 3)
+    else
+        notify("Error", "PlotBlock not found", 3)
     end
-    
-    local plotBlockPos = findPlotBlock()
-    if not plotBlockPos then
-        notify("Error", "PlotBlock not found in Purchases", 3)
+end
+
+local function teleportToLock()
+    if not LockPosition then
+        notify("Error", "Set lock position first", 3)
         return
     end
     
-    character.HumanoidRootPart.CFrame = CFrame.new(plotBlockPos)
+    local character = Player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then 
+        notify("Error", "Character not found", 3)
+        return 
+    end
+    
+    character.HumanoidRootPart.CFrame = CFrame.new(LockPosition)
     character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    notify("Teleported", "Moved to PlotBlock position", 2)
 end
 
 local function createLockGUI()
@@ -356,7 +343,7 @@ local function createLockGUI()
     lockGUI.ResetOnSpawn = false
     
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0.25, 0, 0.12, 0)
+    mainFrame.Size = UDim2.new(0.25, 0, 0.15, 0)
     mainFrame.Position = UDim2.new(0.5, 0, 0.05, 0)
     mainFrame.AnchorPoint = Vector2.new(0.5, 0)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
@@ -375,7 +362,7 @@ local function createLockGUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0.7, 0, 1, 0)
     title.Position = UDim2.new(0.05, 0, 0, 0)
-    title.Text = "🔒 LOCKED TO PLOTBLOCK"
+    title.Text = "🔒 LOCK TO PLOTBLOCK"
     title.TextColor3 = Color3.fromRGB(255, 100, 100)
     title.BackgroundTransparency = 1
     title.Font = Enum.Font.GothamBold
@@ -398,16 +385,47 @@ local function createLockGUI()
         LockPlotBlockToggle:Set(false)
     end)
     
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(0.9, 0, 0.6, 0)
-    statusLabel.Position = UDim2.new(0.05, 0, 0.35, 0)
-    statusLabel.Text = "Position locked to your PlotBlock in Purchases"
-    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextSize = 14
-    statusLabel.TextWrapped = true
-    statusLabel.Parent = mainFrame
+    local buttonContainer = Instance.new("Frame")
+    buttonContainer.Size = UDim2.new(0.9, 0, 0.5, 0)
+    buttonContainer.Position = UDim2.new(0.05, 0, 0.35, 0)
+    buttonContainer.BackgroundTransparency = 1
+    buttonContainer.Parent = mainFrame
+    
+    local setLockBtn = Instance.new("TextButton")
+    setLockBtn.Size = UDim2.new(0.45, 0, 0.9, 0)
+    setLockBtn.Position = UDim2.new(0, 0, 0, 0)
+    setLockBtn.Text = "🔒 SET LOCK"
+    setLockBtn.TextColor3 = Color3.new(1, 1, 1)
+    setLockBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 255)
+    setLockBtn.Font = Enum.Font.GothamBold
+    setLockBtn.TextSize = 14
+    setLockBtn.Parent = buttonContainer
+    createCorner(setLockBtn, 0.2)
+    
+    local tpLockBtn = Instance.new("TextButton")
+    tpLockBtn.Size = UDim2.new(0.45, 0, 0.9, 0)
+    tpLockBtn.Position = UDim2.new(0.55, 0, 0, 0)
+    tpLockBtn.Text = "🚀 TP TO LOCK"
+    tpLockBtn.TextColor3 = Color3.new(1, 1, 1)
+    tpLockBtn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+    tpLockBtn.Font = Enum.Font.GothamBold
+    tpLockBtn.TextSize = 14
+    tpLockBtn.Parent = buttonContainer
+    createCorner(tpLockBtn, 0.2)
+    
+    setLockBtn.MouseButton1Click:Connect(function()
+        setLockPosition()
+        setLockBtn.Text = "✔️ LOCK SET"
+        task.wait(1)
+        setLockBtn.Text = "🔒 SET LOCK"
+    end)
+    
+    tpLockBtn.MouseButton1Click:Connect(function()
+        teleportToLock()
+        tpLockBtn.Text = "🚀 TELEPORTING..."
+        task.wait(1)
+        tpLockBtn.Text = "🚀 TP TO LOCK"
+    end)
     
     LockPlotBlockGUI = lockGUI
 end
@@ -529,23 +547,11 @@ local LockPlotBlockToggle = MainTab:CreateToggle({
         LockPlotBlockEnabled = Value
         if Value then
             createLockGUI()
-            notify("Locked to PlotBlock", "Teleporting to your PlotBlock...", 3)
-            lockToPlotBlock()
-            
-            -- Avvia il loop di lock
-            LockPlotBlockLoop = RunService.Heartbeat:Connect(function()
-                if LockPlotBlockEnabled then
-                    lockToPlotBlock()
-                end
-            end)
+            notify("Lock to PlotBlock", "Set lock position and teleport", 3)
         else
             if LockPlotBlockGUI then
                 LockPlotBlockGUI:Destroy()
                 LockPlotBlockGUI = nil
-            end
-            if LockPlotBlockLoop then
-                LockPlotBlockLoop:Disconnect()
-                LockPlotBlockLoop = nil
             end
         end
     end,
@@ -1181,11 +1187,6 @@ local function cleanup()
         LockPlotBlockGUI = nil
     end
     
-    if LockPlotBlockLoop then
-        LockPlotBlockLoop:Disconnect()
-        LockPlotBlockLoop = nil
-    end
-    
     local character = Player.Character
     if character then
         for _, part in pairs(character:GetChildren()) do
@@ -1213,7 +1214,7 @@ MiscTab:CreateButton({
 })
 
 -- Handle character respawn
-player.CharacterAdded:Connect(function(newCharacter)
+Player.CharacterAdded:Connect(function(newCharacter)
     flightSystem_stopFlight()
 end)
 
