@@ -1,7 +1,9 @@
 -- Water Hub - Roblox Script
 -- Optimized for mobile users with comprehensive features
 
-local Library = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 -- Services
 local Players = game:GetService("Players")
@@ -46,7 +48,7 @@ local FloatingButton = nil
 local MainGUIEnabled = true
 
 -- Create Window
-local Window = Library:CreateWindow({
+local Window = Fluent:CreateWindow({
     Title = "Water Hub",
     SubTitle = "Premium Mobile Script",
     TabWidth = 160,
@@ -55,6 +57,24 @@ local Window = Library:CreateWindow({
     Theme = "Darker",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
+
+-- Addons setup
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("WaterHub")
+SaveManager:SetFolder("WaterHub/Config")
+
+-- Tabs
+local Tabs = {
+    Main = Window:AddTab({Title = "Main", Icon = "home"}),
+    ESP = Window:AddTab({Title = "ESP", Icon = "eye"}),
+    Misc = Window:AddTab({Title = "Misc", Icon = "settings"}),
+    Settings = Window:AddTab({Title = "Configuration", Icon = "settings"})
+}
+
+local Options = Fluent.Options
 
 -- Create floating reopen button
 local function CreateFloatingButton()
@@ -123,35 +143,6 @@ local function MakeDraggable(frame, handle)
         end
     end)
 end
-
--- Main Tab
-local MainTab = Window:AddTab({
-    Title = "Main",
-    Icon = "home"
-})
-
--- ESP Tab
-local ESPTab = Window:AddTab({
-    Title = "ESP",
-    Icon = "eye"
-})
-
--- Misc Tab
-local MiscTab = Window:AddTab({
-    Title = "Misc",
-    Icon = "settings"
-})
-
--- Add close button to Misc tab
-MiscTab:AddButton({
-    Title = "Close GUI",
-    Description = "Minimizes the GUI and shows reopen button",
-    Callback = function()
-        Window:Minimize()
-        CreateFloatingButton()
-        MainGUIEnabled = false
-    end
-})
 
 -- Helper Functions
 local function GetCharacter()
@@ -285,6 +276,20 @@ local function CreateStealHelperGui()
     Title.Font = Enum.Font.GothamBold
     Title.Parent = Frame
     
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 30, 0, 30)
+    CloseButton.Position = UDim2.new(1, -35, 0, 5)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(120, 50, 50)
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 18
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.Parent = Frame
+    
+    local UICornerClose = Instance.new("UICorner")
+    UICornerClose.CornerRadius = UDim.new(0, 15)
+    UICornerClose.Parent = CloseButton
+    
     local UpButton = Instance.new("TextButton")
     UpButton.Size = UDim2.new(0.9, 0, 0, 40)
     UpButton.Position = UDim2.new(0.05, 0, 0.3, 0)
@@ -328,6 +333,11 @@ local function CreateStealHelperGui()
         end
     end)
     
+    CloseButton.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+        StealHelperGui = nil
+    end)
+    
     StealHelperGui = ScreenGui
 end
 
@@ -360,6 +370,20 @@ local function CreateAutoLockGui()
     Title.TextSize = 22
     Title.Font = Enum.Font.GothamBold
     Title.Parent = Frame
+    
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 30, 0, 30)
+    CloseButton.Position = UDim2.new(1, -35, 0, 5)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(120, 50, 50)
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 18
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.Parent = Frame
+    
+    local UICornerClose = Instance.new("UICorner")
+    UICornerClose.CornerRadius = UDim.new(0, 15)
+    UICornerClose.Parent = CloseButton
     
     local LockButton = Instance.new("TextButton")
     LockButton.Size = UDim2.new(0.9, 0, 0, 40)
@@ -407,11 +431,14 @@ local function CreateAutoLockGui()
             LockPointSet = true
             StatusLabel.Text = "Lock point set!"
             StatusLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
+            
+            -- Save lock point permanently
+            SaveManager:Save()
         end
     end)
     
     LockButton.MouseButton1Click:Connect(function()
-        if not LockPointSet then
+        if not LockPointSet or not Settings.LockPoint then
             StatusLabel.Text = "Set lock point first!"
             StatusLabel.TextColor3 = Color3.fromRGB(255, 150, 150)
             return
@@ -431,6 +458,11 @@ local function CreateAutoLockGui()
                 end
             end)
         end
+    end)
+    
+    CloseButton.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+        AutoLockGui = nil
     end)
     
     AutoLockGui = ScreenGui
@@ -499,7 +531,7 @@ local function CreateESP(player)
 end
 
 -- Main Tab Features
-MainTab:AddToggle("AutoCollectMoney", {
+Tabs.Main:AddToggle("AutoCollectMoney", {
     Title = "Auto Collect Money",
     Description = "Automatically collect money items",
     Default = false,
@@ -511,7 +543,7 @@ MainTab:AddToggle("AutoCollectMoney", {
     end
 })
 
-MainTab:AddToggle("SpeedBoost", {
+Tabs.Main:AddToggle("SpeedBoost", {
     Title = "Speed Boost",
     Description = "Persistent speed boost",
     Default = false,
@@ -528,7 +560,7 @@ MainTab:AddToggle("SpeedBoost", {
     end
 })
 
-MainTab:AddToggle("JumpBoost", {
+Tabs.Main:AddToggle("JumpBoost", {
     Title = "Jump Boost",
     Description = "Increase jump power",
     Default = false,
@@ -545,7 +577,7 @@ MainTab:AddToggle("JumpBoost", {
     end
 })
 
-MainTab:AddToggle("InfinityJump", {
+Tabs.Main:AddToggle("InfinityJump", {
     Title = "Infinity Jump",
     Description = "Jump infinitely",
     Default = false,
@@ -557,7 +589,7 @@ MainTab:AddToggle("InfinityJump", {
     end
 })
 
-MainTab:AddToggle("GodMode", {
+Tabs.Main:AddToggle("GodMode", {
     Title = "God Mode",
     Description = "Invincibility mode",
     Default = false,
@@ -569,7 +601,7 @@ MainTab:AddToggle("GodMode", {
     end
 })
 
-MainTab:AddToggle("Float", {
+Tabs.Main:AddToggle("Float", {
     Title = "Float",
     Description = "Float in the air",
     Default = false,
@@ -581,16 +613,21 @@ MainTab:AddToggle("Float", {
     end
 })
 
-MainTab:AddButton({
+Tabs.Main:AddButton({
     Title = "Steal Helper",
     Description = "Open steal helper GUI",
     Callback = function()
         CreateStealHelperGui()
+        Fluent:Notify({
+            Title = "Steal Helper",
+            Content = "Steal helper GUI opened",
+            Duration = 3
+        })
     end
 })
 
 -- ESP Tab Features
-ESPTab:AddToggle("ESPPlayers", {
+Tabs.ESP:AddToggle("ESPPlayers", {
     Title = "ESP Players",
     Description = "Show player ESP boxes",
     Default = false,
@@ -607,25 +644,61 @@ ESPTab:AddToggle("ESPPlayers", {
                     end
                 end
             end
+            Fluent:Notify({
+                Title = "ESP",
+                Content = "Player ESP disabled",
+                Duration = 3
+            })
+        else
+            Fluent:Notify({
+                Title = "ESP",
+                Content = "Player ESP enabled",
+                Duration = 3
+            })
         end
     end
 })
 
-ESPTab:AddToggle("ESPNames", {
+Tabs.ESP:AddToggle("ESPNames", {
     Title = "ESP Names",
     Description = "Show player names",
     Default = false,
     Callback = function(Value)
         Settings.ESP.Names = Value
+        Fluent:Notify({
+            Title = "ESP",
+            Content = Value and "Names enabled" or "Names disabled",
+            Duration = 3
+        })
     end
 })
 
 -- Misc Tab Features
-MiscTab:AddButton({
+Tabs.Misc:AddButton({
     Title = "Auto Lock",
     Description = "Open auto lock GUI",
     Callback = function()
         CreateAutoLockGui()
+        Fluent:Notify({
+            Title = "Auto Lock",
+            Content = "Auto lock GUI opened",
+            Duration = 3
+        })
+    end
+})
+
+Tabs.Misc:AddButton({
+    Title = "Close GUI",
+    Description = "Minimizes the GUI and shows reopen button",
+    Callback = function()
+        Window:Minimize()
+        CreateFloatingButton()
+        MainGUIEnabled = false
+        Fluent:Notify({
+            Title = "Water Hub",
+            Content = "GUI minimized. Tap ≡ to reopen",
+            Duration = 5
+        })
     end
 })
 
@@ -685,12 +758,45 @@ Player.CharacterAdded:Connect(function(newChar)
     if not MainGUIEnabled then
         CreateFloatingButton()
     end
+    
+    -- Restore lock point if set
+    if Settings.LockPoint then
+        LockPointSet = true
+    end
 end)
 
--- Notification
-Library:Notify({
+-- Build configuration sections
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+-- Save lock point in settings
+SaveManager:SetAutoLoadConfig(true, function(config)
+    if config.LockPoint then
+        Settings.LockPoint = config.LockPoint
+        LockPointSet = true
+    end
+end)
+
+SaveManager:SetAutoSaveConfig(true, function(config)
+    config.LockPoint = Settings.LockPoint
+    return config
+end)
+
+-- Initial notifications
+Fluent:Notify({
     Title = "Water Hub",
-    Content = "Script loaded successfully!",
-    Duration = 5,
-    SubContent = "Press ≡ button to reopen GUI"
+    Content = "Premium script loaded!",
+    SubContent = "Tap ≡ button to reopen GUI",
+    Duration = 8
 })
+
+Fluent:Notify({
+    Title = "Mobile Optimized",
+    Content = "All features adapted for touch devices",
+    Duration = 6
+})
+
+Window:SelectTab(1)
+
+-- Load configuration
+SaveManager:LoadAutoloadConfig()
