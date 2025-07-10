@@ -52,7 +52,7 @@ local flightSystem = {
     bodyVelocity = nil,
     bodyAngularVelocity = nil,
     currentTween = nil,
-    FLIGHT_SPEED = 25,
+    FLIGHT_SPEED = 35,
     FLOAT_HEIGHT = 8
 }
 
