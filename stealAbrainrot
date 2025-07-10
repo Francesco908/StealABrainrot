@@ -1,6 +1,3 @@
--- Steal a brainrot Script
--- Advanced Admin GUI with All Features (Fixed Teleport System + Auto Escape)
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -19,11 +16,13 @@ local floatEnabled = false
 local espEnabled = false
 local originalWalkSpeed = 16
 local basePosition = nil
+local checkpoints = {}
 local connections = {}
 local espObjects = {}
 local mobileJumpButton = nil
 local mobileJumping = false
 local teleporting = false
+local autoEscapeCooldown = false
 
 -- GUI Creation
 local screenGui = Instance.new("ScreenGui")
@@ -42,7 +41,6 @@ mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
 
--- Corner Radius
 local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 10)
 mainCorner.Parent = mainFrame
@@ -60,7 +58,6 @@ local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 10)
 titleCorner.Parent = titleBar
 
--- Title Text
 local titleText = Instance.new("TextLabel")
 titleText.Name = "TitleText"
 titleText.Size = UDim2.new(1, -80, 1, 0)
@@ -72,7 +69,6 @@ titleText.TextScaled = true
 titleText.Font = Enum.Font.GothamBold
 titleText.Parent = titleBar
 
--- Minimize Button
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Name = "MinimizeButton"
 minimizeButton.Size = UDim2.new(0, 30, 0, 30)
@@ -89,7 +85,6 @@ local minimizeCorner = Instance.new("UICorner")
 minimizeCorner.CornerRadius = UDim.new(0, 5)
 minimizeCorner.Parent = minimizeButton
 
--- Close Button
 local closeButton = Instance.new("TextButton")
 closeButton.Name = "CloseButton"
 closeButton.Size = UDim2.new(0, 30, 0, 30)
@@ -115,7 +110,6 @@ tabFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 tabFrame.BorderSizePixel = 0
 tabFrame.Parent = mainFrame
 
--- Tab Buttons
 local tabButtons = {}
 local tabs = {"Main", "Visual", "Misc", "Server"}
 
@@ -147,7 +141,6 @@ contentFrame.Position = UDim2.new(0, 0, 0, 80)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Funzione per creare bottoni
 local function createButton(name, position, parent, callback)
     local button = Instance.new("TextButton")
     button.Name = name
@@ -203,7 +196,7 @@ end
 local infiniteJumpButton = createButton("Infinite Jump", UDim2.new(0, 10, 0, 10), tabContents["Main"], function()
     infiniteJumpEnabled = not infiniteJumpEnabled
     if mobileJumpButton then
-        mobileJumpButton.Visible = infiniteJumpEnabled
+        formăobileJumpButton.Visible = infiniteJumpEnabled
     end
     return infiniteJumpEnabled
 end)
@@ -233,12 +226,19 @@ local teleportButton = createButton("Teleport", UDim2.new(0, 10, 0, 145), tabCon
     createTeleportGUI()
 end)
 
--- AUTO ESCAPE BUTTON
 local autoEscapeButton = createButton("Auto Escape", UDim2.new(0, 10, 0, 190), tabContents["Main"], function()
-    if basePosition and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        autoEscapeSequence()
+    if checkpoints[1] and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        autoEscapeSequence(checkpoints[#checkpoints])
     else
-        createNotification("Set base position first!", 2)
+        createNotification("Set a checkpoint first!", 2)
+    end
+end)
+
+local shortTeleportButton = createButton("Short TP", UDim2.new(0, 10, 0, 235), tabContents["Main"], function()
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local root = player.Character.HumanoidRootPart
+        local forwardVector = root.CFrame.LookVector * 15
+        root.CFrame = CFrame.new(root.Position + forwardVector)
     end
 end)
 
@@ -270,7 +270,7 @@ local leaveButton = createButton("Leave Game", UDim2.new(0, 10, 0, 10), tabConte
     TeleportService:Teleport(0)
 end)
 
-local rejoinButton = createButton("Rejoin Server", UDim2.new(0, 10, 0, 55), tabContents["Server"], function()
+local zastosowanieButton = createButton("Rejoin Server", UDim2.new(0, 10, 0, 55), tabContents["Server"], function()
     TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
 end)
 
@@ -329,11 +329,11 @@ if UserInputService.TouchEnabled then
     end)
 end
 
--- Float GUI Function (quadrata)
+-- Float GUI Function
 function createFloatGUI()
     local floatGui = Instance.new("Frame")
     floatGui.Name = "FloatGUI"
-    floatGui.Size = UDim2.new(0, 200, 0, 200) -- Quadrato
+    floatGui.Size = UDim2.new(0, 200, 0, 200)
     floatGui.Position = UDim2.new(0.5, -100, 0.5, -100)
     floatGui.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     floatGui.BorderSizePixel = 0
@@ -353,7 +353,7 @@ function createFloatGUI()
     floatTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     floatTitle.TextScaled = true
     floatTitle.Font = Enum.Font.GothamBold
-    floatTitle.Parent = floatGui
+    float आनेTitle.Parent = floatGui
 
     local floatCloseButton = Instance.new("TextButton")
     floatCloseButton.Size = UDim2.new(0, 20, 0, 20)
@@ -372,7 +372,9 @@ function createFloatGUI()
 
     local upButton = createButton("Up", UDim2.new(0, 10, 0, 40), floatGui, function()
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 165, 0)
+            local root = player.Character.HumanoidRootPart
+            local forwardVector = root.CFrame.LookVector * 10
+            root.CFrame = root.CFrame + Vector3.new(0, 50, 0) + forwardVector
         end
     end)
     upButton.Size = UDim2.new(1, -20, 0, 30)
@@ -394,8 +396,8 @@ end
 function createTeleportGUI()
     local tpGui = Instance.new("Frame")
     tpGui.Name = "TeleportGUI"
-    tpGui.Size = UDim2.new(0, 200, 0, 120)
-    tpGui.Position = UDim2.new(0.5, -100, 0.5, -60)
+    tpGui.Size = UDim2.new(0, 200, 0, 160)
+    tpGui.Position = UDim2.new(0.5, -100, 0.5, -80)
     tpGui.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     tpGui.BorderSizePixel = 0
     tpGui.Active = true
@@ -440,12 +442,19 @@ function createTeleportGUI()
         end
     end)
 
-    local tpBaseButton = createButton("TP Base", UDim2.new(0, 10, 0, 80), tpGui, function()
-        if basePosition and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            teleportToBase()
-            tpGui:Destroy() -- Chiudi la GUI dopo il teletrasporto
+    local setCheckpointButton = createButton("Set Checkpoint", UDim2.new(0, 10, 0, 80), tpGui, function()
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            table.insert(checkpoints, player.Character.HumanoidRootPart.Position)
+            createNotification("Checkpoint " .. #checkpoints .. " set!", 2)
+        end
+    end)
+
+    local tpBaseButton = createButton("TP to Last Checkpoint", UDim2.new(0, 10, 0, 120), tpGui, function()
+        if checkpoints[1] and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            teleportToBase(checkpoints[#checkpoints])
+            tpGui:Destroy()
         else
-            createNotification("Set base position first!", 2)
+            createNotification("Set a checkpoint first!", 2)
         end
     end)
 
@@ -492,8 +501,8 @@ function createESPForPlayer(tp)
     end)
 end
 
--- Teletrasporto migliorato con volo
-function teleportToBase()
+-- Enhanced Teleport to Base
+function teleportToBase(targetPosition)
     if teleporting then return end
     teleporting = true
     
@@ -503,7 +512,6 @@ function teleportToBase()
     local root = character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not root then return end
     
-    -- Crea overlay di volo
     local flightOverlay = Instance.new("Frame")
     flightOverlay.Name = "FlightOverlay"
     flightOverlay.Size = UDim2.new(1, 0, 1, 0)
@@ -517,37 +525,34 @@ function teleportToBase()
     flightText.Size = UDim2.new(0, 300, 0, 100)
     flightText.Position = UDim2.new(0.5, -150, 0.5, -50)
     flightText.BackgroundTransparency = 1
-    flightText.Text = "FLYING TO BASE"
+    flightText.Text = "FLYING TO CHECKPOINT"
     flightText.TextColor3 = Color3.new(1, 1, 1)
     flightText.TextScaled = true
-    flightText.Font = Enum.Font.GothamBold
+    flight coletflightText.Font = Enum.Font.GothamBold
     flightText.ZIndex = 11
     flightText.Parent = flightOverlay
     
-    -- Vola a 165 studs di altezza
     local highPosition = Vector3.new(root.Position.X, 165, root.Position.Z)
     root.CFrame = CFrame.new(highPosition)
     
-    -- Vola orizzontalmente verso la base a 165 studs
-    local targetHighPosition = Vector3.new(basePosition.X, 165, basePosition.Z)
+    local targetHighPosition = Vector3.new(targetPosition.X, 165, targetPosition.Z)
     local tween = TweenService:Create(root, TweenInfo.new(3, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetHighPosition)})
     tween:Play()
     tween.Completed:Wait()
     
-    -- Scendi alla base
-    local downTween = TweenService:Create(root, TweenInfo.new(2, Enum.EasingStyle.Quad), {CFrame = CFrame.new(basePosition)})
+    local downTween = TweenService:Create(root, TweenInfo.new(2, Enum.EasingStyle.Quad), {CFrame = CFrame.new(targetPosition)})
     downTween:Play()
     downTween.Completed:Wait()
     
-    -- Rimuovi overlay
     flightOverlay:Destroy()
     teleporting = false
 end
 
--- Sequenza Auto Escape
-function autoEscapeSequence()
-    if teleporting then return end
+-- Enhanced Auto Escape
+function autoEscapeSequence(targetPosition)
+    if teleporting or autoEscapeCooldown then return end
     teleporting = true
+    autoEscapeCooldown = true
     
     local character = player.Character
     if not character then return end
@@ -555,7 +560,6 @@ function autoEscapeSequence()
     local root = character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not root then return end
     
-    -- Crea overlay di escape
     local escapeOverlay = Instance.new("Frame")
     escapeOverlay.Name = "EscapeOverlay"
     escapeOverlay.Size = UDim2.new(1, 0, 1, 0)
@@ -576,26 +580,35 @@ function autoEscapeSequence()
     escapeText.ZIndex = 11
     escapeText.Parent = escapeOverlay
     
-    -- Vola a 165 studs di altezza
     local highPosition = Vector3.new(root.Position.X, 165, root.Position.Z)
     root.CFrame = CFrame.new(highPosition)
     task.wait(0.5)
     
-    -- Vola orizzontalmente verso la base a 165 studs
-    local targetHighPosition = Vector3.new(basePosition.X, 165, basePosition.Z)
+    local targetHighPosition = Vector3.new(targetPosition.X, 165, targetPosition.Z)
     local tween = TweenService:Create(root, TweenInfo.new(2, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetHighPosition)})
     tween:Play()
     tween.Completed:Wait()
     
-    -- Scendi alla base
-    local downTween = TweenService:Create(root, TweenInfo.new(1.5, Enum.EasingStyle.Quad), {CFrame = CFrame.new(basePosition)})
+    local downTween = TweenService:Create(root, TweenInfo.new(1.5, Enum.EasingStyle.Quad), {CFrame = CFrame.new(targetPosition)})
     downTween:Play()
     downTween.Completed:Wait()
     
-    -- Rimuovi overlay
     escapeOverlay:Destroy()
     teleporting = false
+    task.delay(15, function() autoEscapeCooldown = false end)
 end
+
+-- Auto Escape Trigger
+RunService.Heartbeat:Connect(function()
+    if player.Character and player.Character:FindFirstChild("Humanoid") and checkpoints[1] then
+        local humanoid = player.Character.Humanoid
+        if humanoid.FloorMaterial == Enum.Material.Air and humanoid.RootPart.Velocity.Y < -50 then
+            autoEscapeSequence(checkpoints[#checkpoints])
+        elseif humanoid.Health < 20 then
+            autoEscapeSequence(checkpoints[#checkpoints])
+        end
+    end
+end)
 
 -- Notification System
 function createNotification(text, duration)
