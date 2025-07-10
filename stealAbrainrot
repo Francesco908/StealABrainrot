@@ -1,9 +1,10 @@
--- Steal a brainrot Script v3
+-- Steal a brainrot Script v4
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
+local HttpService = game:GetService("HttpService")
 
 -- Configurazione colori
 local COLORS = {
@@ -18,7 +19,7 @@ local COLORS = {
 
 -- Creazione GUI principale
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "StealBrainrotV3"
+ScreenGui.Name = "StealBrainrotV4"
 ScreenGui.Parent = game.CoreGui
 
 local MainFrame = Instance.new("Frame")
@@ -40,19 +41,74 @@ UIStroke.Color = COLORS.Accent
 UIStroke.Thickness = 1
 UIStroke.Parent = MainFrame
 
+-- Titolo con pulsanti di controllo
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 25)
+TitleBar.Position = UDim2.new(0, 0, 0, 0)
+TitleBar.BackgroundTransparency = 1
+TitleBar.Parent = MainFrame
+
 local Title = Instance.new("TextLabel")
-Title.Text = "🧠 Steal a brainrot v3"
+Title.Text = "🧠 Steal a brainrot v4"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextColor3 = COLORS.Text
 Title.BackgroundTransparency = 1
-Title.Size = UDim2.new(1, 0, 0, 25)
-Title.Position = UDim2.new(0, 0, 0, 5)
-Title.Parent = MainFrame
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Position = UDim2.new(0, 5, 0, 0)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
+
+-- Pulsante minimizza
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Text = "─"
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.TextSize = 16
+MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
+MinimizeButton.Position = UDim2.new(0.85, 0, 0, 0)
+MinimizeButton.BackgroundTransparency = 1
+MinimizeButton.TextColor3 = COLORS.Text
+MinimizeButton.Parent = TitleBar
+
+-- Pulsante chiudi
+local CloseButton = Instance.new("TextButton")
+CloseButton.Text = "✕"
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 14
+CloseButton.Size = UDim2.new(0, 25, 0, 25)
+CloseButton.Position = UDim2.new(0.95, 0, 0, 0)
+CloseButton.BackgroundTransparency = 1
+CloseButton.TextColor3 = COLORS.Text
+CloseButton.Parent = TitleBar
+
+-- Stato minimizzato
+local isMinimized = false
+local originalSize = MainFrame.Size
+local minimizedSize = UDim2.new(0, 300, 0, 25)
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MainFrame.Size = minimizedSize
+        for _, frame in pairs(TabFrames) do
+            frame.Visible = false
+        end
+    else
+        MainFrame.Size = originalSize
+        for name, frame in pairs(TabFrames) do
+            frame.Visible = (name == currentTab)
+        end
+    end
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
 
 local Tabs = {"Main", "Visual", "Misc"}
 local TabButtons = {}
 local TabFrames = {}
+local currentTab = "Main"
 
 -- Creazione pulsanti tab
 for i, tabName in ipairs(Tabs) do
@@ -71,10 +127,12 @@ for i, tabName in ipairs(Tabs) do
     TabCorner.CornerRadius = UDim.new(0, 5)
     TabCorner.Parent = TabButton
     
-    local TabFrame = Instance.new("Frame")
+    local TabFrame = Instance.new("ScrollingFrame")
     TabFrame.Size = UDim2.new(1, -10, 1, -65)
     TabFrame.Position = UDim2.new(0, 5, 0, 60)
     TabFrame.BackgroundTransparency = 1
+    TabFrame.ScrollBarThickness = 4
+    TabFrame.CanvasSize = UDim2.new(0, 0, 0, 300)
     TabFrame.Visible = (i == 1)
     TabFrame.Parent = MainFrame
     
@@ -87,6 +145,7 @@ for i, tabName in ipairs(Tabs) do
             btn.BackgroundColor3 = COLORS.Button
         end
         TabButton.BackgroundColor3 = COLORS.TabActive
+        currentTab = tabName
     end)
     
     TabButtons[tabName] = TabButton
@@ -143,8 +202,8 @@ end
 -- Creazione Steal Helper (GUI speciale)
 local StealHelper = Instance.new("Frame")
 StealHelper.Name = "StealHelper"
-StealHelper.Size = UDim2.new(0, 90, 0, 90)
-StealHelper.Position = UDim2.new(0.5, -45, 0.6, 0)
+StealHelper.Size = UDim2.new(0, 100, 0, 100)
+StealHelper.Position = UDim2.new(0.5, -50, 0.6, 0)
 StealHelper.BackgroundColor3 = COLORS.Background
 StealHelper.BackgroundTransparency = 0.1
 StealHelper.Visible = false
@@ -253,33 +312,37 @@ end)
   ========================
 ]]
 local MainTab = TabFrames["Main"]
+local yPosition = 5
 
 -- Steal Helper Button
-CreateButton(MainTab, "🎮 Steal Helper", UDim2.new(0, 10, 0, 5), function(active)
+CreateButton(MainTab, "🎮 Steal Helper", UDim2.new(0, 10, 0, yPosition), function(active)
     StealHelper.Visible = active
 end)
+yPosition = yPosition + 35
 
 -- Anti Ragdoll (Funzionante) 💀
-CreateButton(MainTab, "💀 Anti Ragdoll", UDim2.new(0, 10, 0, 40), function(active)
+CreateButton(MainTab, "💀 Anti Ragdoll", UDim2.new(0, 10, 0, yPosition), function(active)
     if active then
         LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
     else
         LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
     end
 end)
+yPosition = yPosition + 35
 
 -- Speed Boost 🚀
-CreateButton(MainTab, "🚀 Speed Boost", UDim2.new(0, 10, 0, 75), function(active)
+CreateButton(MainTab, "🚀 Speed Boost", UDim2.new(0, 10, 0, yPosition), function(active)
     if active then
         LocalPlayer.Character.Humanoid.WalkSpeed = 32
     else
         LocalPlayer.Character.Humanoid.WalkSpeed = 16
     end
 end)
+yPosition = yPosition + 35
 
 -- AntiSteal con KillAura 🛡️
 local ANTI_STEAL_POSITION = Vector3.new(0, 5, 0)
-CreateButton(MainTab, "🛡️ AntiSteal", UDim2.new(0, 10, 0, 110), function(active)
+CreateButton(MainTab, "🛡️ AntiSteal", UDim2.new(0, 10, 0, yPosition), function(active)
     if active then
         local killAuraConn
         killAuraConn = RunService.Heartbeat:Connect(function()
@@ -296,13 +359,89 @@ CreateButton(MainTab, "🛡️ AntiSteal", UDim2.new(0, 10, 0, 110), function(ac
         end)
     end
 end)
+yPosition = yPosition + 35
 
 -- Anti Trap 🧪
-CreateButton(MainTab, "🧪 Anti Trap", UDim2.new(0, 10, 0, 145), function(active)
+CreateButton(MainTab, "🧪 Anti Trap", UDim2.new(0, 10, 0, yPosition), function(active)
     if active then
         LocalPlayer.Character.Humanoid:SetAttribute("AntiTrap", true)
     else
         LocalPlayer.Character.Humanoid:SetAttribute("AntiTrap", false)
+    end
+end)
+yPosition = yPosition + 35
+
+-- AI-Powered Trap Detection 🤖
+CreateButton(MainTab, "🤖 AI Trap Finder", UDim2.new(0, 10, 0, yPosition), function(active)
+    if active then
+        -- Funzione AI avanzata per rilevare trappole
+        local function FindTrapsWithAI()
+            -- API Key per Google Generative AI
+            local API_KEY = "AIzaSyCs7MOursJk-vCG9ycl_vDBtbDUJUz_0KE"
+            local API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+            
+            -- Raccogli informazioni sul gioco
+            local gameInfo = "Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+            local playerCount = "Players: " .. #Players:GetPlayers()
+            local environmentDesc = "Environment: " .. workspace:GetFullName()
+            
+            -- Crea prompt per l'AI
+            local prompt = {
+                contents = {
+                    parts = {
+                        {text = "You are an expert in Roblox game security analysis. Analyze the following game information and provide a detailed list of potential trap mechanisms, their locations, and how to neutralize them. Game details:\n\n" ..
+                                gameInfo .. "\n" ..
+                                playerCount .. "\n" ..
+                                environmentDesc .. "\n\n" ..
+                                "Provide your analysis in JSON format with the following structure: " ..
+                                '{"traps": [{"name": "trap_name", "location": "position", "type": "trap_type", "neutralization": "method"}]}'}
+                    }
+                }
+            }
+            
+            -- Invia richiesta all'API AI
+            local success, response = pcall(function()
+                return HttpService:PostAsync(
+                    API_URL .. "?key=" .. API_KEY,
+                    HttpService:JSONEncode(prompt),
+                    Enum.HttpContentType.ApplicationJson,
+                    false
+                )
+            end)
+            
+            if success then
+                local jsonResponse = HttpService:JSONDecode(response)
+                if jsonResponse and jsonResponse.candidates and jsonResponse.candidates[1] then
+                    local content = jsonResponse.candidates[1].content
+                    if content and content.parts and content.parts[1] then
+                        local analysisText = content.parts[1].text
+                        
+                        -- Estrai dati JSON dalla risposta
+                        local jsonStart, jsonEnd = analysisText:find("{.+}")
+                        if jsonStart then
+                            local jsonData = analysisText:sub(jsonStart, jsonEnd)
+                            local trapData = HttpService:JSONDecode(jsonData)
+                            
+                            if trapData and trapData.traps then
+                                -- Neutralizza le trappole trovate
+                                for _, trap in ipairs(trapData.traps) do
+                                    print("🤖 AI Found Trap:", trap.name, "at", trap.location, "-", trap.neutralization)
+                                    -- Aggiungi qui la logica per neutralizzare la trappola
+                                end
+                            end
+                        end
+                    end
+                end
+            else
+                warn("🤖 AI Error:", response)
+            end
+        end
+        
+        -- Esegui la scansione periodica
+        while active do
+            FindTrapsWithAI()
+            wait(10) -- Scansiona ogni 10 secondi
+        end
     end
 end)
 
