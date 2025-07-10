@@ -17,8 +17,8 @@ local infiniteJumpEnabled = false
 local speedHackEnabled = false
 local floatEnabled = false
 local espEnabled = false
-local autoLockEnabled = false   -- aggiunta per auto lock
-local autoLockConnection = nil  -- aggiunta per auto lock
+local autoLockEnabled = false
+local autoLockConnection = nil
 local originalWalkSpeed = 16
 local floatPosition = nil
 local basePosition = nil
@@ -26,6 +26,8 @@ local connections = {}
 local espObjects = {}
 local mobileJumpButton = nil
 local mobileJumping = false
+local teleporting = false -- Added to prevent multiple teleports
+local autoLockCooldown = 0 -- Added cooldown for auto lock
 
 -- GUI Creation
 local screenGui = Instance.new("ScreenGui")
@@ -119,13 +121,13 @@ tabFrame.Parent = mainFrame
 
 -- Tab Buttons
 local tabButtons = {}
-local tabs = {"Main", "Visual", "Misc", "Server"} -- Added "Server" tab
+local tabs = {"Main", "Visual", "Misc", "Server"}
 
 for i, tabName in ipairs(tabs) do
     local tabButton = Instance.new("TextButton")
     tabButton.Name = tabName .. "Tab"
-    tabButton.Size = UDim2.new(1/4, -2, 1, -4) -- Changed to 1/4 for 4 tabs
-    tabButton.Position = UDim2.new((i-1)/4, 2, 0, 2) -- Changed to 1/4
+    tabButton.Size = UDim2.new(1/4, -2, 1, -4)
+    tabButton.Position = UDim2.new((i-1)/4, 2, 0, 2)
     tabButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     tabButton.BorderSizePixel = 0
     tabButton.Text = tabName
@@ -149,7 +151,7 @@ contentFrame.Position = UDim2.new(0, 0, 0, 80)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Funzione per creare bottoni (con cambio di colore al click)
+-- Funzione per creare bottoni
 local function createButton(name, position, parent, callback)
     local button = Instance.new("TextButton")
     button.Name = name
@@ -172,12 +174,11 @@ local function createButton(name, position, parent, callback)
             local state = callback()
             if type(state) == "boolean" then
                 if state then
-                    button.BackgroundColor3 = Color3.fromRGB(40, 167, 69) -- Verde per "on"
+                    button.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
                 else
-                    button.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- Normale per "off"
+                    button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
                 end
             else
-                -- Cambia temporaneamente a verde per pulsanti senza stato
                 local originalColor = button.BackgroundColor3
                 button.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
                 task.wait(0.5)
@@ -205,7 +206,6 @@ end
 -- Main Tab Content
 local infiniteJumpButton = createButton("Infinite Jump", UDim2.new(0, 10, 0, 10), tabContents["Main"], function()
     infiniteJumpEnabled = not infiniteJumpEnabled
-    -- Update mobile jump button visibility
     if mobileJumpButton then
         mobileJumpButton.Visible = infiniteJumpEnabled
     end
@@ -235,10 +235,9 @@ end)
 
 local teleportButton = createButton("Teleport", UDim2.new(0, 10, 0, 145), tabContents["Main"], function()
     createTeleportGUI()
-    -- Non restituisce nulla
 end)
 
--- *** AUTO LOCK BUTTON ***
+-- AUTO LOCK BUTTON
 local autoLockButton = createButton("Auto Lock", UDim2.new(0, 10, 0, 190), tabContents["Main"], function()
     autoLockEnabled = not autoLockEnabled
     if autoLockEnabled then
@@ -248,7 +247,6 @@ local autoLockButton = createButton("Auto Lock", UDim2.new(0, 10, 0, 190), tabCo
     end
     return autoLockEnabled
 end)
--- *** FINE AUTO LOCK BUTTON ***
 
 -- Visual Tab Content
 local espButton = createButton("ESP Players", UDim2.new(0, 10, 0, 10), tabContents["Visual"], function()
@@ -275,7 +273,7 @@ soonLabel.Parent = tabContents["Misc"]
 
 -- Server Tab Content
 local leaveButton = createButton("Leave Game", UDim2.new(0, 10, 0, 10), tabContents["Server"], function()
-    TeleportService:Teleport(0) -- Teleport to home screen
+    TeleportService:Teleport(0)
 end)
 
 local rejoinButton = createButton("Rejoin Server", UDim2.new(0, 10, 0, 55), tabContents["Server"], function()
@@ -283,7 +281,6 @@ local rejoinButton = createButton("Rejoin Server", UDim2.new(0, 10, 0, 55), tabC
 end)
 
 local serverHopButton = createButton("Server Hop", UDim2.new(0, 10, 0, 100), tabContents["Server"], function()
-    -- Find a random server to join
     local servers = {}
     local success, result = pcall(function()
         return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"))
@@ -318,14 +315,13 @@ if UserInputService.TouchEnabled then
     mobileJumpButton.Text = "JUMP"
     mobileJumpButton.TextColor3 = Color3.new(1,1,1)
     mobileJumpButton.TextScaled = true
-    mobileJumpButton.Visible = false -- Initially hidden
+    mobileJumpButton.Visible = false
     mobileJumpButton.Parent = screenGui
     
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 8)
     corner.Parent = mobileJumpButton
     
-    -- Button press events
     mobileJumpButton.MouseButton1Down:Connect(function()
         mobileJumping = true
     end)
@@ -451,7 +447,7 @@ function createTeleportGUI()
 
     local tpBaseButton = createButton("TP Base", UDim2.new(0, 10, 0, 80), tpGui, function()
         if basePosition and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            teleportToPosition(basePosition)
+            teleportWithCountdown(basePosition)
         else
             createNotification("Set base position first!", 2)
         end
@@ -500,64 +496,68 @@ function createESPForPlayer(tp)
     end)
 end
 
--- Enhanced Teleport Function with Multiple Bypass Methods
-function teleportToPosition(position)
-    if not player.Character then 
-        createNotification("Character not found!", 2)
-        return 
-    end
-    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then 
-        createNotification("HumanoidRootPart not found!", 2)
-        return 
-    end
-
-    createNotification("Teleporting...", 3)
+-- NEW: TELEPORT WITH COUNTDOWN
+function teleportWithCountdown(position)
+    if teleporting then return end
+    teleporting = true
     
-    -- Prendi il controllo della fisica
-    local humanoid = player.Character:FindFirstChild("Humanoid")
+    -- Create countdown overlay
+    local countdownGui = Instance.new("Frame")
+    countdownGui.Name = "TeleportCountdown"
+    countdownGui.Size = UDim2.new(1, 0, 1, 0)
+    countdownGui.Position = UDim2.new(0, 0, 0, 0)
+    countdownGui.BackgroundColor3 = Color3.new(0, 0, 0)
+    countdownGui.BackgroundTransparency = 0.5
+    countdownGui.ZIndex = 10
+    countdownGui.Parent = screenGui
+    
+    local countdownText = Instance.new("TextLabel")
+    countdownText.Size = UDim2.new(0, 300, 0, 100)
+    countdownText.Position = UDim2.new(0.5, -150, 0.5, -50)
+    countdownText.BackgroundTransparency = 1
+    countdownText.Text = "TELEPORTING IN 3"
+    countdownText.TextColor3 = Color3.new(1, 1, 1)
+    countdownText.TextScaled = true
+    countdownText.Font = Enum.Font.GothamBold
+    countdownText.ZIndex = 11
+    countdownText.Parent = countdownGui
+    
+    -- Freeze player
+    local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
     if humanoid then
         humanoid.PlatformStand = true
     end
     
-    -- Metodo 1: Impostazione diretta
-    rootPart.CFrame = CFrame.new(position)
-    task.wait(0.1)
-    
-    -- Metodo 2: Network ownership
-    if rootPart:CanSetNetworkOwnership() then
-        rootPart:SetNetworkOwner(player)
-    end
-    rootPart.CFrame = CFrame.new(position)
-    task.wait(0.1)
-    
-    -- Metodo 3: BodyVelocity
-    local bv = Instance.new("BodyVelocity")
-    bv.Velocity = Vector3.new(0, 0, 0)
-    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    bv.P = 9e9
-    bv.Parent = rootPart
-    rootPart.CFrame = CFrame.new(position)
-    task.wait(0.1)
-    bv:Destroy()
-    
-    -- Metodo 4: TweenService per movimento fluido
-    local tween = TweenService:Create(rootPart, TweenInfo.new(0.5), {CFrame = CFrame.new(position)})
-    tween:Play()
-    tween.Completed:Wait()
-    
-    -- Metodo 5: Impostazione ripetuta
-    for i = 1, 5 do
-        rootPart.CFrame = CFrame.new(position)
-        task.wait()
+    -- Countdown sequence
+    for i = 3, 1, -1 do
+        countdownText.Text = "TELEPORTING IN "..i
+        task.wait(1)
     end
     
-    -- Ripristina fisica
+    -- Perform teleport
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local root = player.Character.HumanoidRootPart
+        
+        -- Set network ownership
+        if root:CanSetNetworkOwnership() then
+            root:SetNetworkOwner(player)
+        end
+        
+        -- Tween teleport
+        local tween = TweenService:Create(root, TweenInfo.new(0.5), {CFrame = CFrame.new(position)})
+        tween:Play()
+        tween.Completed:Wait()
+        
+        -- Ensure position
+        root.CFrame = CFrame.new(position)
+    end
+    
+    -- Cleanup
+    countdownGui:Destroy()
     if humanoid then
         humanoid.PlatformStand = false
     end
-    
-    createNotification("Teleported successfully!", 2)
+    teleporting = false
 end
 
 -- Notification System
@@ -595,7 +595,7 @@ function createNotification(text, duration)
     return notifGui
 end
 
--- Infinite Jump Logic (Updated for mobile support)
+-- Infinite Jump Logic
 local function handleInfiniteJump()
     if infiniteJumpEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local shouldJump = UserInputService:IsKeyDown(Enum.KeyCode.Space) or mobileJumping
@@ -618,29 +618,47 @@ local function handleInfiniteJump()
     end
 end
 
--- *** AUTO LOCK LOGIC ***
+-- FIXED AUTO LOCK LOGIC
 function startAutoLock()
     autoLockEnabled = true
     if autoLockConnection then autoLockConnection:Disconnect() end
+    
     autoLockConnection = RunService.Heartbeat:Connect(function()
-        if not autoLockEnabled then return end
+        if not autoLockEnabled or autoLockCooldown > 0 then
+            autoLockCooldown = autoLockCooldown - 1
+            return
+        end
+        
+        -- Find plot block
         local plotBlock = nil
-        -- Cerca tra tutti i PlotBlock sotto Purchases
-        for _, purchase in pairs(workspace:GetChildren()) do
-            if purchase.Name == "Purchases" then
-                for _, block in pairs(purchase:GetChildren()) do
-                    if block.Name == "PlotBlock" and block:FindFirstChild("main") then
-                        -- Puoi aggiungere qui un filtro per l'ownership se serve
-                        plotBlock = block
-                        break
-                    end
+        local character = player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+        
+        -- Search in Workspace.Purchases
+        local purchases = workspace:FindFirstChild("Purchases")
+        if purchases then
+            for _, item in ipairs(purchases:GetChildren()) do
+                if item.Name == "PlotBlock" and item:FindFirstChild("main") then
+                    plotBlock = item
+                    break
                 end
             end
-            if plotBlock then break end
         end
+        
+        -- If not found, search entire workspace
+        if not plotBlock then
+            for _, item in ipairs(workspace:GetDescendants()) do
+                if item.Name == "PlotBlock" and item:FindFirstChild("main") then
+                    plotBlock = item
+                    break
+                end
+            end
+        end
+        
         if plotBlock and plotBlock:FindFirstChild("main") then
-            local pos = plotBlock.main.Position + Vector3.new(0, 10, 0) -- 10 sopra
-            teleportToPosition(pos)
+            local pos = plotBlock.main.Position + Vector3.new(0, 10, 0)
+            teleportWithCountdown(pos)
+            autoLockCooldown = 60 -- 1 second cooldown (60 frames)
         end
     end)
 end
@@ -652,7 +670,6 @@ function stopAutoLock()
         autoLockConnection = nil
     end
 end
--- *** FINE AUTO LOCK LOGIC ***
 
 -- Tab Switching
 for name, btn in pairs(tabButtons) do
@@ -684,7 +701,7 @@ end)
 
 closeButton.MouseButton1Click:Connect(function()
     disableESP()
-    stopAutoLock() -- <-- aggiunta per auto lock
+    stopAutoLock()
     for _, conn in pairs(connections) do if conn then conn:Disconnect() end end
     if mobileJumpButton then mobileJumpButton:Destroy() end
     screenGui:Destroy()
