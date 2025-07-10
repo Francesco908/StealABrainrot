@@ -45,7 +45,16 @@ local isActive = false
 local LockPlotBlockEnabled = false
 local LockPlotBlockGUI = nil
 local LockPlotBlockLoop = nil
-local FlightHeight = 50 -- Altezza fissa di volo
+
+-- Flight System Variables
+local flightSystem = {
+    isFlying = false,
+    bodyVelocity = nil,
+    bodyAngularVelocity = nil,
+    currentTween = nil,
+    FLIGHT_SPEED = 25,
+    FLOAT_HEIGHT = 8
+}
 
 -- Funzioni di utilità
 local function cleanupConnection(name)
@@ -103,6 +112,138 @@ local function makeDraggable(gui)
     end)
 end
 
+-- ======= FLIGHT SYSTEM =======
+local function flightSystem_createBodyMovers(rootPart)
+    -- Body velocity for movement
+    flightSystem.bodyVelocity = Instance.new("BodyVelocity")
+    flightSystem.bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flightSystem.bodyVelocity.Parent = rootPart
+    
+    -- Body angular velocity for rotation control
+    flightSystem.bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+    flightSystem.bodyAngularVelocity.MaxTorque = Vector3.new(0, 4000, 0)
+    flightSystem.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+    flightSystem.bodyAngularVelocity.Parent = rootPart
+end
+
+local function flightSystem_removeBodyMovers()
+    if flightSystem.bodyVelocity then
+        flightSystem.bodyVelocity:Destroy()
+        flightSystem.bodyVelocity = nil
+    end
+    if flightSystem.bodyAngularVelocity then
+        flightSystem.bodyAngularVelocity:Destroy()
+        flightSystem.bodyAngularVelocity = nil
+    end
+    if flightSystem.currentTween then
+        flightSystem.currentTween:Cancel()
+        flightSystem.currentTween = nil
+    end
+end
+
+local function flightSystem_stopFlight()
+    if not flightSystem.isFlying then return end
+    
+    flightSystem.isFlying = false
+    isActive = false
+    
+    local character = Player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+    
+    -- Gradual descent
+    if flightSystem.bodyVelocity then
+        flightSystem.bodyVelocity.Velocity = Vector3.new(0, -10, 0)
+        wait(0.5)
+    end
+    
+    -- Clean up
+    flightSystem_removeBodyMovers()
+    
+    -- Restore character state
+    humanoid.PlatformStand = false
+    humanoid.WalkSpeed = OriginalWalkSpeed
+    humanoid.JumpPower = OriginalJumpPower
+    
+    -- Ensure character is stable
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        local ray = workspace:Raycast(rootPart.Position, Vector3.new(0, -100, 0))
+        if ray then
+            rootPart.Position = Vector3.new(rootPart.Position.X, ray.Position.Y + 3, rootPart.Position.Z)
+        end
+    end
+end
+
+local function flightSystem_startFlight(target)
+    if flightSystem.isFlying or isActive then return end
+    
+    local character = Player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not rootPart then return end
+    
+    flightSystem.isFlying = true
+    isActive = true
+    notify("Flight System", "Starting flight sequence...", 3)
+    
+    -- Store original state
+    OriginalWalkSpeed = humanoid.WalkSpeed
+    OriginalJumpPower = humanoid.JumpPower
+    
+    -- Disable default movement
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
+    humanoid.PlatformStand = true
+    
+    -- Create flight system
+    flightSystem_createBodyMovers(rootPart)
+    
+    -- Float up first
+    local startPos = rootPart.Position
+    local floatPos = Vector3.new(startPos.X, startPos.Y + flightSystem.FLOAT_HEIGHT, startPos.Z)
+    
+    -- Set initial upward velocity
+    flightSystem.bodyVelocity.Velocity = Vector3.new(0, 15, 0)
+    
+    -- Wait for float, then move to target
+    delay(1, function()
+        if not flightSystem.isFlying then return end
+        
+        -- Calculate direction to target
+        local direction = (target - rootPart.Position).Unit
+        
+        -- Face target direction
+        local lookDirection = Vector3.new(direction.X, 0, direction.Z)
+        if lookDirection.Magnitude > 0 then
+            rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + lookDirection)
+        end
+        
+        -- Move to target with constant velocity
+        flightSystem.bodyVelocity.Velocity = direction * flightSystem.FLIGHT_SPEED
+        
+        -- Auto-land when close to target
+        local landingCheck
+        landingCheck = RunService.Heartbeat:Connect(function()
+            if not flightSystem.isFlying or not rootPart or not rootPart.Parent then
+                landingCheck:Disconnect()
+                return
+            end
+            
+            if (rootPart.Position - target).Magnitude < 10 then
+                landingCheck:Disconnect()
+                flightSystem_stopFlight()
+                notify("Flight System", "Arrived at base location!", 3)
+            end
+        end)
+    end)
+end
+
 -- ======= SISTEMA TELEPORT BASE MIGLIORATO =======
 local function setBase()
     local character = Player.Character
@@ -120,79 +261,7 @@ local function goBase()
         return 
     end
     
-    local character = Player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then 
-        notify("Error", "Character not found", 3)
-        return 
-    end
-    
-    local rootPart = character.HumanoidRootPart
-    local humanoid = character:FindFirstChild("Humanoid")
-    
-    isActive = true
-    notify("Flight System", "Starting flight sequence...", 3)
-    
-    -- Disabilita controlli
-    if humanoid then
-        humanoid.PlatformStand = true
-    end
-    
-    -- FASE 1: Teleport a 50 studs sopra posizione attuale
-    local currentPos = rootPart.Position
-    rootPart.CFrame = CFrame.new(currentPos.X, currentPos.Y + FlightHeight, currentPos.Z)
-    rootPart.Velocity = Vector3.new(0, 0, 0)
-    rootPart.RotVelocity = Vector3.new(0, 0, 0)
-    
-    -- FASE 2: Volo verso la base a 50 studs di altezza
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-    bodyVelocity.P = 1500
-    bodyVelocity.Parent = rootPart
-    
-    local bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(20000, 20000, 20000)
-    bodyGyro.P = 2000
-    bodyGyro.Parent = rootPart
-    
-    local startTime = os.time()
-    local flightSpeed = 35
-    
-    local flightConnection
-    flightConnection = RunService.Heartbeat:Connect(function()
-        if not rootPart or not rootPart.Parent then
-            if flightConnection then flightConnection:Disconnect() end
-            return
-        end
-        
-        -- Calcola direzione verso la base (mantenendo altezza 50)
-        local targetPos = Vector3.new(savedBase.X, savedBase.Y + FlightHeight, savedBase.Z)
-        local direction = (targetPos - rootPart.Position).Unit
-        
-        -- Imposta velocità e rotazione
-        bodyVelocity.Velocity = direction * flightSpeed
-        bodyGyro.CFrame = CFrame.new(rootPart.Position, rootPart.Position + direction)
-        
-        -- Controlla se siamo arrivati
-        local horizontalDist = (Vector3.new(rootPart.Position.X, 0, rootPart.Position.Z) - Vector3.new(savedBase.X, 0, savedBase.Z)).Magnitude
-        if horizontalDist < 10 or os.time() - startTime > 30 then
-            if flightConnection then flightConnection:Disconnect() end
-            
-            -- FASE 3: Mantieni altezza 50 sopra la base e lascia cadere naturalmente
-            rootPart.CFrame = CFrame.new(savedBase.X, savedBase.Y + FlightHeight, savedBase.Z)
-            
-            -- Disabilita PlatformStand per la caduta naturale
-            if humanoid then
-                humanoid.PlatformStand = false
-            end
-            
-            -- Pulisci oggetti fisici
-            bodyVelocity:Destroy()
-            bodyGyro:Destroy()
-            
-            isActive = false
-            notify("Flight System", "Arrived at base, descending naturally!", 3)
-        end
-    end)
+    flightSystem_startFlight(savedBase)
 end
 
 -- ======= SISTEMA LOCK BASE TO PLOTBLOCK =======
@@ -1069,6 +1138,7 @@ local function cleanup()
     stopKillAura()
     
     isActive = false
+    flightSystem_stopFlight()
     LockPlotBlockEnabled = false
     
     if LockPlotBlockGUI then
@@ -1106,5 +1176,10 @@ MiscTab:CreateButton({
         Rayfield:Destroy()
     end,
 })
+
+-- Handle character respawn
+player.CharacterAdded:Connect(function(newCharacter)
+    flightSystem_stopFlight()
+end)
 
 notify("OnlyRoblox Tools Loaded", "Thanks for using my script! ✨", 5)
