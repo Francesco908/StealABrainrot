@@ -1,23 +1,16 @@
---[[
-  Script Fighissimo Dark v2.0
-  Design migliorato:
-  - Interfaccia più compatta e moderna
-  - Aggiunte emoji per tutti i pulsanti
-  - Steal Helper integrato con design speciale
-  - Effetti visivi migliorati
-]]
-
+-- Steal a brainrot Script v3
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 
 -- Configurazione colori
 local COLORS = {
     Background = Color3.fromRGB(15, 15, 20),
     Button = Color3.fromRGB(35, 35, 45),
     ButtonHover = Color3.fromRGB(55, 55, 65),
-    ButtonActive = Color3.fromRGB(200, 0, 200), -- Fuchsia violaceo acceso
+    ButtonActive = Color3.fromRGB(200, 0, 200),
     Text = Color3.fromRGB(240, 240, 240),
     TabActive = Color3.fromRGB(180, 0, 180),
     Accent = Color3.fromRGB(150, 0, 150)
@@ -25,11 +18,11 @@ local COLORS = {
 
 -- Creazione GUI principale
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FighissimoDarkPro"
+ScreenGui.Name = "StealBrainrotV3"
 ScreenGui.Parent = game.CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 220) -- Più piccolo
+MainFrame.Size = UDim2.new(0, 300, 0, 220)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -110)
 MainFrame.BackgroundColor3 = COLORS.Background
 MainFrame.BackgroundTransparency = 0.1
@@ -48,7 +41,7 @@ UIStroke.Thickness = 1
 UIStroke.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Text = "🔥 Fighissimo Dark v2"
+Title.Text = "🧠 Steal a brainrot v3"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextColor3 = COLORS.Text
@@ -154,6 +147,7 @@ StealHelper.Size = UDim2.new(0, 90, 0, 90)
 StealHelper.Position = UDim2.new(0.5, -45, 0.6, 0)
 StealHelper.BackgroundColor3 = COLORS.Background
 StealHelper.BackgroundTransparency = 0.1
+StealHelper.Visible = false
 StealHelper.Parent = ScreenGui
 
 local HelperCorner = Instance.new("UICorner")
@@ -260,8 +254,13 @@ end)
 ]]
 local MainTab = TabFrames["Main"]
 
+-- Steal Helper Button
+CreateButton(MainTab, "🎮 Steal Helper", UDim2.new(0, 10, 0, 5), function(active)
+    StealHelper.Visible = active
+end)
+
 -- Anti Ragdoll (Funzionante) 💀
-CreateButton(MainTab, "💀 Anti Ragdoll", UDim2.new(0, 10, 0, 5), function(active)
+CreateButton(MainTab, "💀 Anti Ragdoll", UDim2.new(0, 10, 0, 40), function(active)
     if active then
         LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
     else
@@ -270,7 +269,7 @@ CreateButton(MainTab, "💀 Anti Ragdoll", UDim2.new(0, 10, 0, 5), function(acti
 end)
 
 -- Speed Boost 🚀
-CreateButton(MainTab, "🚀 Speed Boost", UDim2.new(0, 10, 0, 40), function(active)
+CreateButton(MainTab, "🚀 Speed Boost", UDim2.new(0, 10, 0, 75), function(active)
     if active then
         LocalPlayer.Character.Humanoid.WalkSpeed = 32
     else
@@ -280,7 +279,7 @@ end)
 
 -- AntiSteal con KillAura 🛡️
 local ANTI_STEAL_POSITION = Vector3.new(0, 5, 0)
-CreateButton(MainTab, "🛡️ AntiSteal", UDim2.new(0, 10, 0, 75), function(active)
+CreateButton(MainTab, "🛡️ AntiSteal", UDim2.new(0, 10, 0, 110), function(active)
     if active then
         local killAuraConn
         killAuraConn = RunService.Heartbeat:Connect(function()
@@ -299,7 +298,7 @@ CreateButton(MainTab, "🛡️ AntiSteal", UDim2.new(0, 10, 0, 75), function(act
 end)
 
 -- Anti Trap 🧪
-CreateButton(MainTab, "🧪 Anti Trap", UDim2.new(0, 10, 0, 110), function(active)
+CreateButton(MainTab, "🧪 Anti Trap", UDim2.new(0, 10, 0, 145), function(active)
     if active then
         LocalPlayer.Character.Humanoid:SetAttribute("AntiTrap", true)
     else
@@ -318,39 +317,53 @@ local VisualTab = TabFrames["Visual"]
 local ESPEnabled = false
 local ESPCache = {}
 
+-- Funzione avanzata per ESP preciso
 local function CreateESP(player)
     if ESPCache[player] then return end
     
     local character = player.Character
     if not character then return end
     
-    local BillboardGui = Instance.new("BillboardGui")
-    BillboardGui.Name = "ESP_"..player.Name
-    BillboardGui.AlwaysOnTop = true
-    BillboardGui.Size = UDim2.new(0, 100, 0, 40)
-    BillboardGui.StudsOffset = Vector3.new(0, 2.5, 0)
-    BillboardGui.MaxDistance = 1000
-    BillboardGui.Adornee = character:WaitForChild("HumanoidRootPart")
+    local ESPHolder = Instance.new("Folder")
+    ESPHolder.Name = player.Name.."_ESP"
+    ESPHolder.Parent = ScreenGui
     
-    local NameLabel = Instance.new("TextLabel")
-    NameLabel.Size = UDim2.new(1, 0, 0, 15)
-    NameLabel.BackgroundTransparency = 1
-    NameLabel.TextColor3 = Color3.new(1, 1, 1)
-    NameLabel.Text = player.Name
-    NameLabel.Font = Enum.Font.Gotham
-    NameLabel.TextSize = 10 -- Dimensione piccola
-    NameLabel.Parent = BillboardGui
+    -- Box ESP intorno al torso
+    local Torso = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso")
+    if Torso then
+        local Box = Instance.new("BoxHandleAdornment")
+        Box.Name = "ESPBox"
+        Box.Adornee = Torso
+        Box.AlwaysOnTop = true
+        Box.ZIndex = 10
+        Box.Size = Vector3.new(2, 4, 1)
+        Box.Transparency = 0.5
+        Box.Color3 = Color3.fromRGB(200, 0, 200)
+        Box.Parent = ESPHolder
+    end
     
-    local Box = Instance.new("Frame")
-    Box.Size = UDim2.new(1, 0, 0.5, 0)
-    Box.Position = UDim2.new(0, 0, 0.5, 0)
-    Box.BackgroundColor3 = Color3.fromRGB(200, 0, 200)
-    Box.BackgroundTransparency = 0.4
-    Box.BorderSizePixel = 0
-    Box.Parent = BillboardGui
+    -- Nome sopra la testa
+    local Head = character:FindFirstChild("Head")
+    if Head then
+        local Billboard = Instance.new("BillboardGui")
+        Billboard.Name = "ESPName"
+        Billboard.Adornee = Head
+        Billboard.Size = UDim2.new(0, 100, 0, 40)
+        Billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        Billboard.AlwaysOnTop = true
+        Billboard.Parent = ESPHolder
+        
+        local NameLabel = Instance.new("TextLabel")
+        NameLabel.Size = UDim2.new(1, 0, 0, 15)
+        NameLabel.BackgroundTransparency = 1
+        NameLabel.TextColor3 = Color3.new(1, 1, 1)
+        NameLabel.Text = player.Name
+        NameLabel.Font = Enum.Font.Gotham
+        NameLabel.TextSize = 10
+        NameLabel.Parent = Billboard
+    end
     
-    BillboardGui.Parent = player.Character
-    ESPCache[player] = BillboardGui
+    ESPCache[player] = ESPHolder
 end
 
 local function UpdateESP()
