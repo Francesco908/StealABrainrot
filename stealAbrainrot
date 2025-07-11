@@ -1,4 +1,4 @@
--- Water Hub Script - Ultimate Professional Edition v3.0
+-- Water Hub Script - Ultimate Professional Edition v3.1
 -- Fully functional with enhanced mobile optimization and beautiful UI
 
 -- Services
@@ -11,6 +11,7 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 
 -- Variables
 local player = Players.LocalPlayer
@@ -67,7 +68,7 @@ local colors = {
 
 -- Utility Functions
 local function getCharacter()
-    return player.Character
+    return player.Character or player.CharacterAdded:Wait()
 end
 
 local function getHumanoid()
@@ -77,7 +78,7 @@ end
 
 local function getRootPart()
     local char = getCharacter()
-    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
+    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:WaitForChild("HumanoidRootPart", 2))
 end
 
 -- UI Creation Functions
@@ -426,7 +427,7 @@ toggleSpeedBoost = function(enabled)
     end
 end
 
--- Noclip
+-- Noclip (Bypass Edition)
 toggleNoclip = function(enabled)
     states.noclip = enabled
     
@@ -442,6 +443,10 @@ toggleNoclip = function(enabled)
                 for _, part in pairs(character:GetDescendants()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
+                        part.Velocity = Vector3.new(0, 0, 0)
+                        part.RotVelocity = Vector3.new(0, 0, 0)
+                        part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
                 end
             end
@@ -458,7 +463,7 @@ toggleNoclip = function(enabled)
     end
 end
 
--- Fly
+-- Fly (Bypass Edition)
 toggleFly = function(enabled)
     states.fly = enabled
     
@@ -468,11 +473,14 @@ toggleFly = function(enabled)
     end
     
     if enabled then
-        connections.flyControl = RunService.Heartbeat:Connect(function()
+        local humanoid = getHumanoid()
+        if humanoid then
+            humanoid.PlatformStand = true
+        end
+        
+        connections.flyControl = RunService.Stepped:Connect(function()
             local rootPart = getRootPart()
-            local humanoid = getHumanoid()
-            
-            if not rootPart or not humanoid then 
+            if not rootPart then 
                 states.fly = false
                 return 
             end
@@ -499,10 +507,18 @@ toggleFly = function(enabled)
                 moveVector = moveVector - Vector3.new(0, 1, 0)
             end
             
-            rootPart.CFrame = rootPart.CFrame + moveVector * 0.5
-            rootPart.Velocity = Vector3.new(0, 0, 0)
+            rootPart.Velocity = moveVector * 100
             rootPart.RotVelocity = Vector3.new(0, 0, 0)
         end)
+    else
+        local humanoid = getHumanoid()
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+        local rootPart = getRootPart()
+        if rootPart then
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+        end
     end
 end
 
@@ -677,135 +693,88 @@ toggleESP = function(espType, enabled)
 end
 
 -- Teleport Functions
-local function createBaseTeleportGui()
-    local tpGui = Instance.new("ScreenGui")
-    tpGui.Name = "BaseTeleportGui"
-    tpGui.Parent = CoreGui
-    tpGui.ResetOnSpawn = false
-    table.insert(openGuis, tpGui)
+local function setBasePosition()
+    local rootPart = getRootPart()
+    if rootPart then
+        basePosition = rootPart.Position
+        return true
+    end
+    return false
+end
+
+local function teleportToBase()
+    if not basePosition then
+        return false
+    end
     
-    local screenWidth = GuiService:GetScreenResolution().X
-    local screenHeight = GuiService:GetScreenResolution().Y
+    local rootPart = getRootPart()
+    if not rootPart then
+        return false
+    end
     
-    local tpFrame = createFrame(tpGui, 
-        UDim2.new(0, 250, 0, 140), 
-        UDim2.new(0.5, -125, 0.5, -70), 
-        Color3.fromRGB(40, 45, 55), 
-        0.3
-    )
-    tpFrame.Active = true
-    makeDraggable(tpFrame)
+    -- Teleport to base + 165 studs above
+    rootPart.CFrame = CFrame.new(basePosition + Vector3.new(0, 165, 0))
     
-    -- Header
-    local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, 40)
-    header.Position = UDim2.new(0, 0, 0, 0)
-    header.BackgroundColor3 = colors.primary
-    header.BackgroundTransparency = 0
-    header.BorderSizePixel = 0
-    header.Parent = tpFrame
+    -- Create down button
+    if downButton then
+        downButton:Destroy()
+    end
     
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, colors.primary),
-        ColorSequenceKeypoint.new(1, colors.secondary)
-    }
-    gradient.Rotation = 90
-    gradient.Parent = header
+    downButton = Instance.new("ScreenGui")
+    downButton.Name = "DownButton"
+    downButton.Parent = CoreGui
+    downButton.ResetOnSpawn = false
     
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -50, 1, 0)
-    title.Position = UDim2.new(0, 10, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "🏠 Base Teleport"
-    title.TextColor3 = colors.text
-    title.TextScaled = true
-    title.Font = Enum.Font.SourceSansBold
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = header
-    
-    local closeBtn = createButton(header, 
-        UDim2.new(0, 35, 0, 35), 
-        UDim2.new(1, -40, 0.5, -17.5), 
+    local button = createButton(downButton, 
+        UDim2.new(0, 120, 0, 50), 
+        UDim2.new(1, -130, 0.8, -25), 
         colors.danger, 
-        "✕"
+        "⬇️ Down"
     )
+    button.Font = Enum.Font.SourceSansBold
+    button.TextSize = 18
     
-    -- Buttons
-    local setBtn = createButton(tpFrame, 
-        UDim2.new(0.9, 0, 0, 40), 
-        UDim2.new(0.05, 0, 0.3, 0), 
-        colors.success, 
-        "📍 Set Base"
-    )
-    
-    local tpBtn = createButton(tpFrame, 
-        UDim2.new(0.9, 0, 0, 40), 
-        UDim2.new(0.05, 0, 0.6, 0), 
-        colors.warning, 
-        "🚀 Teleport to Base"
-    )
-    
-    -- Events
-    closeBtn.MouseButton1Click:Connect(function()
-        tpGui:Destroy()
-    end)
-    
-    setBtn.MouseButton1Click:Connect(function()
-        local rootPart = getRootPart()
-        if rootPart then
-            basePosition = rootPart.Position
-            notify("Base Position Set", "Location saved successfully", 3)
-        else
-            notify("Error", "Character not found", 3)
+    button.MouseButton1Click:Connect(function()
+        if basePosition and rootPart then
+            rootPart.CFrame = CFrame.new(basePosition)
+            downButton:Destroy()
+            downButton = nil
         end
     end)
     
-    tpBtn.MouseButton1Click:Connect(function()
-        if not basePosition then
-            notify("Error", "Set base position first", 3)
-            return
-        end
-        
-        local rootPart = getRootPart()
-        if rootPart then
-            -- Teleport to base + 165 studs above
-            rootPart.CFrame = CFrame.new(basePosition + Vector3.new(0, 165, 0))
-            
-            -- Create down button
-            if downButton then
-                downButton:Destroy()
-            end
-            
-            downButton = Instance.new("ScreenGui")
-            downButton.Name = "DownButton"
-            downButton.Parent = CoreGui
-            downButton.ResetOnSpawn = false
-            
-            local button = createButton(downButton, 
-                UDim2.new(0, 120, 0, 50), 
-                UDim2.new(1, -130, 0.8, -25), 
-                colors.danger, 
-                "⬇️ Down"
-            )
-            button.Font = Enum.Font.SourceSansBold
-            button.TextSize = 18
-            
-            button.MouseButton1Click:Connect(function()
-                if basePosition and rootPart then
-                    rootPart.CFrame = CFrame.new(basePosition)
-                    downButton:Destroy()
-                    downButton = nil
-                end
-            end)
-        end
-    end)
+    return true
+end
+
+-- Give All Tools Function
+local function giveAllTools()
+    local character = player.Character
+    if not character then return end
     
-    -- Entrance animation
-    tpFrame.Position = UDim2.new(0.5, -125, 1.5, 0)
-    TweenService:Create(tpFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
-        Position = UDim2.new(0.5, -125, 0.5, -70)
-    }):Play()
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return end
+    
+    -- Clear existing tools
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            tool:Destroy()
+        end
+    end
+    
+    -- Get all tools in workspace
+    local tools = {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Tool") then
+            table.insert(tools, obj)
+        end
+    end
+    
+    -- Clone tools to backpack
+    for _, tool in ipairs(tools) do
+        local clone = tool:Clone()
+        clone.Parent = backpack
+    end
+    
+    return #tools
 end
 
 -- Minimized Icon (non draggable)
@@ -873,7 +842,7 @@ createMinimizedIcon = function()
     end)
 end
 
--- Main GUI (wider and shorter)
+-- Main GUI (wider and taller)
 createMainGui = function()
     if waterHubGui then
         waterHubGui:Destroy()
@@ -888,7 +857,7 @@ createMainGui = function()
     -- Get screen size
     local screenSize = workspace.CurrentCamera.ViewportSize
     local mainWidth = screenSize.X * 0.85  -- 85% of screen width
-    local mainHeight = screenSize.Y * 0.45 -- 45% of screen height
+    local mainHeight = screenSize.Y * 0.65 -- 65% of screen height
     
     -- Main frame with transparent gray background
     local mainFrame = createFrame(waterHubGui, 
@@ -1040,23 +1009,27 @@ createMainGui = function()
     
     addFeature("God Mode", "🛡️", toggleGodMode, states.godMode)
     addFeature("Infinite Jump", "🦘", toggleInfiniteJump, states.infiniteJump)
-    addFeature("Float (Mobile)", "🎈", function(enabled)
-        toggleFloat(enabled)
-        if enabled then
-            createBaseTeleportGui()
-        end
-    end, states.float)
+    addFeature("Float (Mobile)", "🎈", toggleFloat, states.float)
     addFeature("Speed Boost", "⚡", toggleSpeedBoost, states.speedBoost)
     addFeature("Noclip", "👻", toggleNoclip, states.noclip)
     addFeature("Fly", "✈️", toggleFly, states.fly)
     
-    -- Teleport button
-    local tpBtn = createButton(mainContent, 
-        UDim2.new(0, isMobile and 140 or 120, 0, isMobile and 40 or 30), 
+    -- Base teleport buttons
+    local setBaseBtn = createButton(mainContent, 
+        UDim2.new(0.45, -5, 0, isMobile and 40 or 30), 
         UDim2.new(0, 10, 0, yPos), 
-        colors.secondary, 
-        "🚀 Teleport"
+        colors.success, 
+        "📍 Set Base"
     )
+    
+    local tpBaseBtn = createButton(mainContent, 
+        UDim2.new(0.45, -5, 0, isMobile and 40 or 30), 
+        UDim2.new(0.55, 0, 0, yPos), 
+        colors.warning, 
+        "🚀 Teleport to Base"
+    )
+    
+    yPos = yPos + (isMobile and 50 or 40)
     
     mainContent.CanvasSize = UDim2.new(0, 0, 0, yPos + (isMobile and 50 or 40))
     
@@ -1097,16 +1070,43 @@ createMainGui = function()
     
     -- MISC TAB
     local miscContent = contentFrames[3]
+    yPos = 10
     
-    local miscLabel = Instance.new("TextLabel")
-    miscLabel.Size = UDim2.new(1, -20, 0, 100)
-    miscLabel.Position = UDim2.new(0, 10, 0, 10)
-    miscLabel.BackgroundTransparency = 1
-    miscLabel.Text = "🛠️ More features coming soon!"
-    miscLabel.TextColor3 = colors.textSecondary
-    miscLabel.TextScaled = true
-    miscLabel.Font = Enum.Font.SourceSansItalic
-    miscLabel.Parent = miscContent
+    -- Give All Tools button
+    local giveToolsBtn = createButton(miscContent, 
+        UDim2.new(1, -20, 0, isMobile and 50 or 40), 
+        UDim2.new(0, 10, 0, yPos), 
+        colors.primary, 
+        "🛠️ Give All Tools"
+    )
+    yPos = yPos + (isMobile and 60 or 50)
+    
+    -- Position label
+    local positionLabel = Instance.new("TextLabel")
+    positionLabel.Size = UDim2.new(1, -20, 0, 40)
+    positionLabel.Position = UDim2.new(0, 10, 0, yPos)
+    positionLabel.BackgroundTransparency = 1
+    positionLabel.Text = "Position: Calculating..."
+    positionLabel.TextColor3 = colors.textSecondary
+    positionLabel.TextScaled = true
+    positionLabel.Font = Enum.Font.SourceSans
+    positionLabel.Parent = miscContent
+    
+    -- Update position text
+    spawn(function()
+        while miscContent and miscContent.Parent do
+            local rootPart = getRootPart()
+            if rootPart then
+                positionLabel.Text = string.format("Position: X:%.1f Y:%.1f Z:%.1f", 
+                    rootPart.Position.X,
+                    rootPart.Position.Y,
+                    rootPart.Position.Z)
+            end
+            wait(0.5)
+        end
+    end)
+    
+    miscContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 50)
     
     -- SERVER TAB
     local serverContent = contentFrames[4]
@@ -1195,8 +1195,56 @@ createMainGui = function()
         end
     end)
     
-    tpBtn.MouseButton1Click:Connect(function()
-        createBaseTeleportGui()
+    setBaseBtn.MouseButton1Click:Connect(function()
+        if setBasePosition() then
+            -- Animation effect
+            TweenService:Create(setBaseBtn, TweenInfo.new(0.2), {
+                Size = UDim2.new(0.4, 0, 0, isMobile and 45 or 35)
+            }):Play()
+            wait(0.2)
+            TweenService:Create(setBaseBtn, TweenInfo.new(0.2), {
+                Size = UDim2.new(0.45, -5, 0, isMobile and 40 or 30)
+            }):Play()
+        end
+    end)
+    
+    tpBaseBtn.MouseButton1Click:Connect(function()
+        if teleportToBase() then
+            -- Animation effect
+            TweenService:Create(tpBaseBtn, TweenInfo.new(0.2), {
+                Size = UDim2.new(0.4, 0, 0, isMobile and 45 or 35)
+            }):Play()
+            wait(0.2)
+            TweenService:Create(tpBaseBtn, TweenInfo.new(0.2), {
+                Size = UDim2.new(0.45, -5, 0, isMobile and 40 or 30)
+            }):Play()
+        end
+    end)
+    
+    giveToolsBtn.MouseButton1Click:Connect(function()
+        local toolCount = giveAllTools()
+        if toolCount > 0 then
+            -- Animation effect
+            giveToolsBtn.Text = "✅ " .. toolCount .. " Tools Given!"
+            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = colors.success
+            }):Play()
+            wait(2)
+            giveToolsBtn.Text = "🛠️ Give All Tools"
+            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = colors.primary
+            }):Play()
+        else
+            giveToolsBtn.Text = "⚠️ No Tools Found!"
+            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = colors.warning
+            }):Play()
+            wait(2)
+            giveToolsBtn.Text = "🛠️ Give All Tools"
+            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+                BackgroundColor3 = colors.primary
+            }):Play()
+        end
     end)
 end
 
@@ -1290,7 +1338,7 @@ local function createLoadingScreen()
     version.Size = UDim2.new(1, 0, 0, 30)
     version.Position = UDim2.new(0, 0, 0.5, 200)
     version.BackgroundTransparency = 1
-    version.Text = "Ultimate Edition v3.0"
+    version.Text = "Ultimate Edition v3.1"
     version.TextColor3 = colors.textSecondary
     version.TextScaled = true
     version.Font = Enum.Font.SourceSansItalic
