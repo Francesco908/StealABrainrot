@@ -1,27 +1,40 @@
--- Water Hub Script - Versione Completamente Corretta e Ottimizzata
--- Tutti i bug risolti, GUI completamente operativa e movibile
+-- Water Hub Script - Professional Mobile Optimized Version
+-- Complete rewrite with advanced features and animations
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local GuiService = game:GetService("GuiService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
 
--- Variabili globali
+-- Mobile detection
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+-- Global variables
 local waterHubGui
 local minimizedIcon
+local loadingGui
+local openGuis = {}
 local connections = {}
 local states = {
     infiniteJump = false,
     float = false,
     speedBoost = false,
     espPlayers = false,
+    espLines = false,
+    espBox = false,
+    espSkeleton = false,
     espNames = false,
     noclip = false,
-    fly = false
+    fly = false,
+    godMode = true -- Auto-enabled on start
 }
 
 local floatBody = nil
@@ -29,8 +42,15 @@ local flyBody = nil
 local basePosition = nil
 local originalWalkSpeed = 16
 local characterAddedConnection = nil
+local espObjects = {}
+local noclipConnection = nil
+local godModeConnection = nil
 
--- Funzione per ottenere character in modo sicuro
+-- Mobile controller for float
+local floatController = nil
+local touchGui = nil
+
+-- Safe character functions
 local function getCharacter()
     return player.Character
 end
@@ -45,7 +65,7 @@ local function getRootPart()
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
 end
 
--- Funzione per creare frame arrotondati
+-- Create rounded frame with shadow
 local function createFrame(parent, size, position, color, transparency)
     local frame = Instance.new("Frame")
     frame.Size = size
@@ -56,23 +76,151 @@ local function createFrame(parent, size, position, color, transparency)
     frame.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
+    corner.CornerRadius = UDim.new(0, isMobile and 16 or 12)
     corner.Parent = frame
+    
+    -- Add shadow for depth
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 30, 1, 30)
+    shadow.Position = UDim2.new(0, -15, 0, -15)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.new(0, 0, 0)
+    shadow.ImageTransparency = 0.8
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.Parent = frame
+    shadow.ZIndex = -1
     
     return frame
 end
 
--- Funzione per creare switch funzionanti
+-- Create animated loading screen
+local function createLoadingScreen()
+    loadingGui = Instance.new("ScreenGui")
+    loadingGui.Name = "WaterHubLoading"
+    loadingGui.Parent = CoreGui
+    loadingGui.ResetOnSpawn = false
+    loadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    -- Background blur
+    local background = Instance.new("Frame")
+    background.Size = UDim2.new(1, 0, 1, 0)
+    background.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+    background.BackgroundTransparency = 0
+    background.BorderSizePixel = 0
+    background.Parent = loadingGui
+    
+    -- Water drop container
+    local dropContainer = Instance.new("Frame")
+    dropContainer.Size = UDim2.new(0, 200, 0, 200)
+    dropContainer.Position = UDim2.new(0.5, -100, 0.5, -100)
+    dropContainer.BackgroundTransparency = 1
+    dropContainer.Parent = loadingGui
+    
+    -- Create water drop
+    local waterDrop = Instance.new("ImageLabel")
+    waterDrop.Size = UDim2.new(1, 0, 1, 0)
+    waterDrop.BackgroundTransparency = 1
+    waterDrop.Image = "rbxassetid://6034684930" -- Water drop icon
+    waterDrop.ImageColor3 = Color3.fromRGB(0, 170, 255)
+    waterDrop.Parent = dropContainer
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 50)
+    title.Position = UDim2.new(0, 0, 1, 20)
+    title.BackgroundTransparency = 1
+    title.Text = "WATER HUB"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextScaled = true
+    title.Font = Enum.Font.SourceSansBold
+    title.Parent = dropContainer
+    
+    -- Loading text
+    local loadingText = Instance.new("TextLabel")
+    loadingText.Size = UDim2.new(1, 0, 0, 30)
+    loadingText.Position = UDim2.new(0, 0, 1, 70)
+    loadingText.BackgroundTransparency = 1
+    loadingText.Text = "Loading..."
+    loadingText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    loadingText.TextScaled = true
+    loadingText.Font = Enum.Font.SourceSans
+    loadingText.Parent = dropContainer
+    
+    -- Animations
+    local dropTween = TweenService:Create(waterDrop, 
+        TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true),
+        {Size = UDim2.new(1.1, 0, 1.1, 0), Rotation = 360}
+    )
+    dropTween:Play()
+    
+    -- Pulse effect
+    spawn(function()
+        local pulse = 0
+        while loadingGui and loadingGui.Parent do
+            pulse = pulse + 0.1
+            waterDrop.ImageTransparency = 0.2 + math.sin(pulse) * 0.2
+            wait()
+        end
+    end)
+    
+    -- Loading progress simulation
+    spawn(function()
+        local loadingSteps = {
+            "Initializing...",
+            "Loading modules...",
+            "Setting up ESP...",
+            "Configuring mobile controls...",
+            "Activating God Mode...",
+            "Almost ready...",
+            "Welcome to Water Hub!"
+        }
+        
+        for i, step in ipairs(loadingSteps) do
+            loadingText.Text = step
+            wait(0.3)
+        end
+        
+        wait(0.5)
+        
+        -- Fade out animation
+        local fadeOut = TweenService:Create(background, 
+            TweenInfo.new(0.5, Enum.EasingStyle.Quad),
+            {BackgroundTransparency = 1}
+        )
+        
+        local dropFadeOut = TweenService:Create(waterDrop,
+            TweenInfo.new(0.5, Enum.EasingStyle.Quad),
+            {ImageTransparency = 1}
+        )
+        
+        fadeOut:Play()
+        dropFadeOut:Play()
+        
+        for _, element in pairs(dropContainer:GetDescendants()) do
+            if element:IsA("TextLabel") then
+                TweenService:Create(element, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+            end
+        end
+        
+        wait(0.5)
+        loadingGui:Destroy()
+        createMainGui()
+    end)
+end
+
+-- Enhanced switch for mobile
 local function createSwitch(parent, position, callback, initialState)
-    local switchFrame = createFrame(parent, UDim2.new(0, 50, 0, 25), position, Color3.fromRGB(70, 70, 70), 0)
+    local switchFrame = createFrame(parent, UDim2.new(0, isMobile and 60 or 50, 0, isMobile and 30 or 25), position, Color3.fromRGB(70, 70, 70), 0)
     switchFrame.Active = true
     
-    local switchButton = createFrame(switchFrame, UDim2.new(0, 21, 0, 21), UDim2.new(0, 2, 0, 2), Color3.fromRGB(255, 255, 255), 0)
+    local switchButton = createFrame(switchFrame, UDim2.new(0, isMobile and 26 or 21, 0, isMobile and 26 or 21), UDim2.new(0, 2, 0, 2), Color3.fromRGB(255, 255, 255), 0)
     
     local isOn = initialState or false
     
     local function updateVisual(instant)
-        local targetPos = isOn and UDim2.new(0, 27, 0, 2) or UDim2.new(0, 2, 0, 2)
+        local targetPos = isOn and UDim2.new(0, isMobile and 32 or 27, 0, 2) or UDim2.new(0, 2, 0, 2)
         local targetColor = isOn and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(70, 70, 70)
         
         if instant then
@@ -102,7 +250,6 @@ local function createSwitch(parent, position, callback, initialState)
         end
     end)
     
-    -- Set initial state
     if initialState then
         updateVisual(true)
     end
@@ -110,7 +257,7 @@ local function createSwitch(parent, position, callback, initialState)
     return switchFrame, toggle
 end
 
--- Funzione migliorata per rendere draggable
+-- Enhanced draggable for mobile
 local function makeDraggable(frame)
     local dragToggle = nil
     local dragStart = nil
@@ -144,7 +291,31 @@ local function makeDraggable(frame)
     end)
 end
 
--- Funzioni principali migliorate
+-- God Mode implementation
+local function toggleGodMode(enabled)
+    states.godMode = enabled
+    
+    if godModeConnection then
+        godModeConnection:Disconnect()
+        godModeConnection = nil
+    end
+    
+    if enabled then
+        godModeConnection = RunService.Heartbeat:Connect(function()
+            local humanoid = getHumanoid()
+            if humanoid then
+                humanoid.Health = humanoid.MaxHealth
+                -- Set humanoid states to prevent death
+                pcall(function()
+                    humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+                    humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                end)
+            end
+        end)
+    end
+end
+
+-- Fixed Infinite Jump
 local function toggleInfiniteJump(enabled)
     states.infiniteJump = enabled
     
@@ -156,13 +327,72 @@ local function toggleInfiniteJump(enabled)
     if enabled then
         connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
             local humanoid = getHumanoid()
-            if humanoid then
+            if humanoid and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
+                task.wait()
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             end
         end)
     end
 end
 
+-- Mobile float controller
+local function createFloatController()
+    if touchGui then touchGui:Destroy() end
+    
+    touchGui = Instance.new("ScreenGui")
+    touchGui.Name = "FloatController"
+    touchGui.Parent = CoreGui
+    
+    local controller = createFrame(touchGui, UDim2.new(0, 150, 0, 150), UDim2.new(0.8, 0, 0.6, 0), Color3.fromRGB(30, 30, 30), 0.3)
+    controller.Active = true
+    makeDraggable(controller)
+    
+    -- Create joystick
+    local joystickOuter = createFrame(controller, UDim2.new(0.8, 0, 0.8, 0), UDim2.new(0.1, 0, 0.1, 0), Color3.fromRGB(50, 50, 50), 0.3)
+    local joystickInner = createFrame(joystickOuter, UDim2.new(0.4, 0, 0.4, 0), UDim2.new(0.3, 0, 0.3, 0), Color3.fromRGB(0, 170, 255), 0)
+    
+    local dragging = false
+    local centerPos = UDim2.new(0.3, 0, 0.3, 0)
+    
+    floatController = {
+        moveVector = Vector3.new(0, 0, 0)
+    }
+    
+    joystickOuter.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    
+    joystickOuter.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            joystickInner.Position = centerPos
+            floatController.moveVector = Vector3.new(0, 0, 0)
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local relativePos = input.Position - joystickOuter.AbsolutePosition
+            local centerX = joystickOuter.AbsoluteSize.X / 2
+            local centerY = joystickOuter.AbsoluteSize.Y / 2
+            
+            local deltaX = (relativePos.X - centerX) / centerX
+            local deltaY = (relativePos.Y - centerY) / centerY
+            
+            deltaX = math.clamp(deltaX, -1, 1)
+            deltaY = math.clamp(deltaY, -1, 1)
+            
+            joystickInner.Position = UDim2.new(0.3 + deltaX * 0.3, 0, 0.3 + deltaY * 0.3, 0)
+            
+            local camera = workspace.CurrentCamera
+            floatController.moveVector = (camera.CFrame.RightVector * deltaX + camera.CFrame.LookVector * -deltaY) * 50
+        end
+    end)
+end
+
+-- Enhanced Float with mobile controller
 local function toggleFloat(enabled)
     states.float = enabled
     
@@ -171,47 +401,93 @@ local function toggleFloat(enabled)
         floatBody = nil
     end
     
+    if touchGui then
+        touchGui:Destroy()
+        touchGui = nil
+    end
+    
+    if connections.floatUpdate then
+        connections.floatUpdate:Disconnect()
+        connections.floatUpdate = nil
+    end
+    
     if enabled then
         local rootPart = getRootPart()
         if rootPart then
-            floatBody = Instance.new("BodyVelocity")
+            floatBody = Instance.new("BodyPosition")
             floatBody.MaxForce = Vector3.new(4000, 4000, 4000)
-            floatBody.Velocity = Vector3.new(0, 0, 0)
+            floatBody.Position = rootPart.Position
             floatBody.Parent = rootPart
+            
+            if isMobile then
+                createFloatController()
+            end
+            
+            connections.floatUpdate = RunService.Heartbeat:Connect(function()
+                if not floatBody or not floatBody.Parent then
+                    states.float = false
+                    return
+                end
+                
+                local moveVector = Vector3.new(0, 0, 0)
+                
+                if isMobile and floatController then
+                    moveVector = floatController.moveVector
+                else
+                    -- PC controls
+                    local camera = workspace.CurrentCamera
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                        moveVector = moveVector + camera.CFrame.LookVector
+                    end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                        moveVector = moveVector - camera.CFrame.LookVector
+                    end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                        moveVector = moveVector - camera.CFrame.RightVector
+                    end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                        moveVector = moveVector + camera.CFrame.RightVector
+                    end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                        moveVector = moveVector + Vector3.new(0, 1, 0)
+                    end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                        moveVector = moveVector - Vector3.new(0, 1, 0)
+                    end
+                    moveVector = moveVector * 50
+                end
+                
+                floatBody.Position = floatBody.Position + moveVector * 0.1
+            end)
         end
     end
 end
 
-local function toggleSpeedBoost(enabled)
-    states.speedBoost = enabled
-    local humanoid = getHumanoid()
-    
-    if humanoid then
-        if enabled then
-            originalWalkSpeed = humanoid.WalkSpeed
-            humanoid.WalkSpeed = 100
-        else
-            humanoid.WalkSpeed = originalWalkSpeed
-        end
-    end
-end
-
+-- Noclip with CFrame
 local function toggleNoclip(enabled)
     states.noclip = enabled
     
-    if connections.noclip then
-        connections.noclip:Disconnect()
-        connections.noclip = nil
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
     end
     
     if enabled then
-        connections.noclip = RunService.Stepped:Connect(function()
+        noclipConnection = RunService.Stepped:Connect(function()
             local character = getCharacter()
             if character then
                 for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
+                    if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
+                end
+                
+                -- CFrame-based movement for smoother noclip
+                local rootPart = getRootPart()
+                local humanoid = getHumanoid()
+                if rootPart and humanoid then
+                    local moveVector = humanoid.MoveDirection * humanoid.WalkSpeed
+                    rootPart.CFrame = rootPart.CFrame + moveVector * RunService.Stepped:Wait()
                 end
             end
         end)
@@ -227,13 +503,9 @@ local function toggleNoclip(enabled)
     end
 end
 
+-- Fly with CFrame
 local function toggleFly(enabled)
     states.fly = enabled
-    
-    if flyBody then
-        flyBody:Destroy()
-        flyBody = nil
-    end
     
     if connections.flyControl then
         connections.flyControl:Disconnect()
@@ -241,48 +513,46 @@ local function toggleFly(enabled)
     end
     
     if enabled then
-        local rootPart = getRootPart()
-        if rootPart then
-            flyBody = Instance.new("BodyVelocity")
-            flyBody.MaxForce = Vector3.new(4000, 4000, 4000)
-            flyBody.Velocity = Vector3.new(0, 0, 0)
-            flyBody.Parent = rootPart
+        connections.flyControl = RunService.Heartbeat:Connect(function()
+            local rootPart = getRootPart()
+            local humanoid = getHumanoid()
             
-            connections.flyControl = RunService.Heartbeat:Connect(function()
-                if not flyBody or not flyBody.Parent then 
-                    states.fly = false
-                    return 
-                end
-                
-                local camera = workspace.CurrentCamera
-                local moveVector = Vector3.new(0, 0, 0)
-                
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                    moveVector = moveVector + camera.CFrame.LookVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                    moveVector = moveVector - camera.CFrame.LookVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                    moveVector = moveVector - camera.CFrame.RightVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                    moveVector = moveVector + camera.CFrame.RightVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                    moveVector = moveVector + Vector3.new(0, 1, 0)
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                    moveVector = moveVector - Vector3.new(0, 1, 0)
-                end
-                
-                flyBody.Velocity = moveVector * 50
-            end)
-        end
+            if not rootPart or not humanoid then 
+                states.fly = false
+                return 
+            end
+            
+            local camera = workspace.CurrentCamera
+            local moveVector = Vector3.new(0, 0, 0)
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveVector = moveVector + camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveVector = moveVector - camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveVector = moveVector - camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveVector = moveVector + camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveVector = moveVector + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveVector = moveVector - Vector3.new(0, 1, 0)
+            end
+            
+            rootPart.CFrame = rootPart.CFrame + moveVector * 0.5
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+            rootPart.RotVelocity = Vector3.new(0, 0, 0)
+        end)
     end
 end
 
-local function createPlayerESP(targetPlayer)
+-- Advanced ESP system
+local function createAdvancedESP(targetPlayer)
     if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return
     end
@@ -290,30 +560,104 @@ local function createPlayerESP(targetPlayer)
     local character = targetPlayer.Character
     local rootPart = character.HumanoidRootPart
     
-    -- Rimuovi ESP esistente prima di crearne uno nuovo
-    local existingESP = rootPart:FindFirstChild("WaterHubESP")
-    if existingESP then
-        existingESP:Destroy()
+    -- Clean existing ESP
+    if espObjects[targetPlayer] then
+        for _, obj in pairs(espObjects[targetPlayer]) do
+            if obj then obj:Destroy() end
+        end
     end
     
-    local espGui = Instance.new("BillboardGui")
-    espGui.Name = "WaterHubESP"
-    espGui.Adornee = rootPart
-    espGui.Size = UDim2.new(0, 100, 0, 50)
-    espGui.StudsOffset = Vector3.new(0, 2, 0)
-    espGui.AlwaysOnTop = true
-    espGui.Parent = rootPart
+    espObjects[targetPlayer] = {}
     
-    if states.espPlayers then
-        local espFrame = createFrame(espGui, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(255, 0, 0), 0.3)
-        espFrame.BorderSizePixel = 2
-        espFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    -- ESP Box
+    if states.espBox then
+        local box = Instance.new("BoxHandleAdornment")
+        box.Size = character:GetExtentsSize()
+        box.Color3 = Color3.fromRGB(255, 0, 0)
+        box.Transparency = 0.5
+        box.AlwaysOnTop = true
+        box.ZIndex = 10
+        box.Adornee = rootPart
+        box.Parent = rootPart
+        table.insert(espObjects[targetPlayer], box)
     end
     
+    -- ESP Lines
+    if states.espLines then
+        local line = Instance.new("Beam")
+        line.Color = ColorSequence.new(Color3.fromRGB(0, 255, 0))
+        line.Transparency = NumberSequence.new(0.5)
+        line.Width0 = 0.1
+        line.Width1 = 0.1
+        line.FaceCamera = true
+        
+        local attachment0 = Instance.new("Attachment", rootPart)
+        local attachment1 = Instance.new("Attachment", getRootPart())
+        
+        line.Attachment0 = attachment0
+        line.Attachment1 = attachment1
+        line.Parent = rootPart
+        
+        table.insert(espObjects[targetPlayer], line)
+        table.insert(espObjects[targetPlayer], attachment0)
+        table.insert(espObjects[targetPlayer], attachment1)
+    end
+    
+    -- ESP Skeleton
+    if states.espSkeleton then
+        local function createBone(part1Name, part2Name)
+            local part1 = character:FindFirstChild(part1Name)
+            local part2 = character:FindFirstChild(part2Name)
+            
+            if part1 and part2 then
+                local beam = Instance.new("Beam")
+                beam.Color = ColorSequence.new(Color3.fromRGB(255, 255, 0))
+                beam.Transparency = NumberSequence.new(0.3)
+                beam.Width0 = 0.1
+                beam.Width1 = 0.1
+                beam.FaceCamera = true
+                
+                local att1 = Instance.new("Attachment", part1)
+                local att2 = Instance.new("Attachment", part2)
+                
+                beam.Attachment0 = att1
+                beam.Attachment1 = att2
+                beam.Parent = part1
+                
+                table.insert(espObjects[targetPlayer], beam)
+                table.insert(espObjects[targetPlayer], att1)
+                table.insert(espObjects[targetPlayer], att2)
+            end
+        end
+        
+        -- Create skeleton
+        createBone("Head", "UpperTorso")
+        createBone("UpperTorso", "LowerTorso")
+        createBone("UpperTorso", "LeftUpperArm")
+        createBone("LeftUpperArm", "LeftLowerArm")
+        createBone("LeftLowerArm", "LeftHand")
+        createBone("UpperTorso", "RightUpperArm")
+        createBone("RightUpperArm", "RightLowerArm")
+        createBone("RightLowerArm", "RightHand")
+        createBone("LowerTorso", "LeftUpperLeg")
+        createBone("LeftUpperLeg", "LeftLowerLeg")
+        createBone("LeftLowerLeg", "LeftFoot")
+        createBone("LowerTorso", "RightUpperLeg")
+        createBone("RightUpperLeg", "RightLowerLeg")
+        createBone("RightLowerLeg", "RightFoot")
+    end
+    
+    -- ESP Name
     if states.espNames then
+        local billboardGui = Instance.new("BillboardGui")
+        billboardGui.Adornee = rootPart
+        billboardGui.Size = UDim2.new(0, 100, 0, 50)
+        billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+        billboardGui.AlwaysOnTop = true
+        billboardGui.Parent = rootPart
+        
         local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(1, 0, 0, 25)
-        nameLabel.Position = UDim2.new(0, 0, 0, -30)
+        nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
         nameLabel.BackgroundTransparency = 1
         nameLabel.Text = targetPlayer.Name
         nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -321,47 +665,53 @@ local function createPlayerESP(targetPlayer)
         nameLabel.Font = Enum.Font.SourceSansBold
         nameLabel.TextStrokeTransparency = 0
         nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        nameLabel.Parent = espGui
+        nameLabel.Parent = billboardGui
+        
+        local healthLabel = Instance.new("TextLabel")
+        healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        healthLabel.Position = UDim2.new(0, 0, 0.5, 0)
+        healthLabel.BackgroundTransparency = 1
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        healthLabel.Text = humanoid and math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth) or "N/A"
+        healthLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        healthLabel.TextScaled = true
+        healthLabel.Font = Enum.Font.SourceSans
+        healthLabel.TextStrokeTransparency = 0
+        healthLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        healthLabel.Parent = billboardGui
+        
+        table.insert(espObjects[targetPlayer], billboardGui)
     end
 end
 
 local function toggleESP(espType, enabled)
-    if espType == "players" then
-        states.espPlayers = enabled
-    elseif espType == "names" then
-        states.espNames = enabled
-    end
+    states[espType] = enabled
     
-    -- Rimuovi ESP esistenti
-    for _, targetPlayer in pairs(Players:GetPlayers()) do
-        if targetPlayer ~= player and targetPlayer.Character then
-            local rootPart = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if rootPart then
-                local esp = rootPart:FindFirstChild("WaterHubESP")
-                if esp then
-                    esp:Destroy()
-                end
-            end
+    -- Clean all ESP
+    for player, objects in pairs(espObjects) do
+        for _, obj in pairs(objects) do
+            if obj then obj:Destroy() end
         end
     end
+    espObjects = {}
     
     if connections.espUpdate then
         connections.espUpdate:Disconnect()
         connections.espUpdate = nil
     end
     
-    if states.espPlayers or states.espNames then
+    if states.espPlayers or states.espLines or states.espBox or states.espSkeleton or states.espNames then
         connections.espUpdate = RunService.Heartbeat:Connect(function()
             for _, targetPlayer in pairs(Players:GetPlayers()) do
                 if targetPlayer ~= player then
-                    createPlayerESP(targetPlayer)
+                    createAdvancedESP(targetPlayer)
                 end
             end
         end)
     end
 end
 
--- Creazione icona minimizzata
+-- Water animation minimized icon
 local function createMinimizedIcon()
     if minimizedIcon then
         minimizedIcon:Destroy()
@@ -372,30 +722,60 @@ local function createMinimizedIcon()
     minimizedIcon.Parent = CoreGui
     minimizedIcon.ResetOnSpawn = false
     
-    local iconFrame = createFrame(minimizedIcon, UDim2.new(0, 60, 0, 60), UDim2.new(0, 10, 0, 10), Color3.fromRGB(0, 170, 255), 0.1)
-    iconFrame.Active = true
-    makeDraggable(iconFrame)
+    local waterDrop = Instance.new("ImageButton")
+    waterDrop.Size = UDim2.new(0, isMobile and 80 or 60, 0, isMobile and 80 or 60)
+    waterDrop.Position = UDim2.new(0, 10, 0, 10)
+    waterDrop.BackgroundTransparency = 1
+    waterDrop.Image = "rbxassetid://6034684930"
+    waterDrop.ImageColor3 = Color3.fromRGB(0, 170, 255)
+    waterDrop.Parent = minimizedIcon
+    waterDrop.Active = true
     
-    local iconLabel = Instance.new("TextLabel")
-    iconLabel.Size = UDim2.new(1, 0, 1, 0)
-    iconLabel.BackgroundTransparency = 1
-    iconLabel.Text = "💧"
-    iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    iconLabel.TextScaled = true
-    iconLabel.Font = Enum.Font.SourceSansBold
-    iconLabel.Parent = iconFrame
+    makeDraggable(waterDrop)
     
-    iconFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            wait(0.1) -- Prevent double click
+    -- Water ripple effect
+    local rippleTween = TweenService:Create(waterDrop,
+        TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Size = UDim2.new(0, (isMobile and 90 or 70), 0, (isMobile and 90 or 70))}
+    )
+    rippleTween:Play()
+    
+    -- Glow effect
+    spawn(function()
+        local glow = 0
+        while minimizedIcon and minimizedIcon.Parent do
+            glow = glow + 0.05
+            waterDrop.ImageTransparency = 0.1 + math.sin(glow) * 0.2
+            wait()
+        end
+    end)
+    
+    waterDrop.MouseButton1Click:Connect(function()
+        -- Water splash animation
+        local splash = Instance.new("ImageLabel")
+        splash.Size = UDim2.new(0, 20, 0, 20)
+        splash.Position = UDim2.new(0.5, -10, 0.5, -10)
+        splash.BackgroundTransparency = 1
+        splash.Image = "rbxassetid://6034684930"
+        splash.ImageColor3 = Color3.fromRGB(0, 170, 255)
+        splash.Parent = waterDrop
+        
+        local splashTween = TweenService:Create(splash,
+            TweenInfo.new(0.5, Enum.EasingStyle.Back),
+            {Size = UDim2.new(0, 200, 0, 200), Position = UDim2.new(0.5, -100, 0.5, -100), ImageTransparency = 1}
+        )
+        
+        splashTween:Play()
+        splashTween.Completed:Connect(function()
+            splash:Destroy()
             minimizedIcon:Destroy()
             minimizedIcon = nil
             createMainGui()
-        end
+        end)
     end)
 end
 
--- Creazione GUI principale
+-- Create main GUI
 local function createMainGui()
     if waterHubGui then
         waterHubGui:Destroy()
@@ -405,14 +785,27 @@ local function createMainGui()
     waterHubGui.Name = "WaterHubMain"
     waterHubGui.Parent = CoreGui
     waterHubGui.ResetOnSpawn = false
+    table.insert(openGuis, waterHubGui)
     
-    -- Frame principale
-    local mainFrame = createFrame(waterHubGui, UDim2.new(0, 350, 0, 300), UDim2.new(0.5, -175, 0.5, -150), Color3.fromRGB(30, 30, 30), 0.05)
+    -- Main frame with mobile optimization
+    local mainFrame = createFrame(waterHubGui, 
+        UDim2.new(0, isMobile and 400 or 350, 0, isMobile and 450 or 300), 
+        UDim2.new(0.5, isMobile and -200 or -175, 0.5, isMobile and -225 or -150), 
+        Color3.fromRGB(30, 30, 30), 0.05
+    )
     mainFrame.Active = true
     makeDraggable(mainFrame)
     
+    -- Entrance animation
+    mainFrame.Position = UDim2.new(0.5, isMobile and -200 or -175, 1.5, 0)
+    local entranceTween = TweenService:Create(mainFrame,
+        TweenInfo.new(0.5, Enum.EasingStyle.Back),
+        {Position = UDim2.new(0.5, isMobile and -200 or -175, 0.5, isMobile and -225 or -150)}
+    )
+    entranceTween:Play()
+    
     -- Header
-    local header = createFrame(mainFrame, UDim2.new(1, 0, 0, 35), UDim2.new(0, 0, 0, 0), Color3.fromRGB(0, 170, 255), 0)
+    local header = createFrame(mainFrame, UDim2.new(1, 0, 0, isMobile and 45 or 35), UDim2.new(0, 0, 0, 0), Color3.fromRGB(0, 170, 255), 0)
     
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0, 200, 1, 0)
@@ -424,10 +817,10 @@ local function createMainGui()
     title.Font = Enum.Font.SourceSansBold
     title.Parent = header
     
-    -- Pulsante minimizza
+    -- Minimize button
     local minimizeBtn = Instance.new("TextButton")
-    minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
-    minimizeBtn.Position = UDim2.new(1, -55, 0, 5)
+    minimizeBtn.Size = UDim2.new(0, isMobile and 35 or 25, 0, isMobile and 35 or 25)
+    minimizeBtn.Position = UDim2.new(1, isMobile and -80 or -55, 0, 5)
     minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
     minimizeBtn.Text = "➖"
     minimizeBtn.TextScaled = true
@@ -436,13 +829,13 @@ local function createMainGui()
     minimizeBtn.Parent = header
     
     local minimizeCorner = Instance.new("UICorner")
-    minimizeCorner.CornerRadius = UDim.new(0, 6)
+    minimizeCorner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
     minimizeCorner.Parent = minimizeBtn
     
-    -- Pulsante chiudi
+    -- Close button
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeBtn.Position = UDim2.new(1, -25, 0, 5)
+    closeBtn.Size = UDim2.new(0, isMobile and 35 or 25, 0, isMobile and 35 or 25)
+    closeBtn.Position = UDim2.new(1, isMobile and -40 or -25, 0, 5)
     closeBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
     closeBtn.Text = "❌"
     closeBtn.TextScaled = true
@@ -451,11 +844,11 @@ local function createMainGui()
     closeBtn.Parent = header
     
     local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
+    closeCorner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
     closeCorner.Parent = closeBtn
     
-    -- Sistema tab
-    local tabsFrame = createFrame(mainFrame, UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 45), Color3.fromRGB(40, 40, 40), 0)
+    -- Tab system
+    local tabsFrame = createFrame(mainFrame, UDim2.new(1, -20, 0, isMobile and 40 or 30), UDim2.new(0, 10, 0, isMobile and 55 or 45), Color3.fromRGB(40, 40, 40), 0)
     
     local tabs = {"Main", "Visual", "Misc", "Server"}
     local tabButtons = {}
@@ -474,13 +867,17 @@ local function createMainGui()
         tabBtn.Parent = tabsFrame
         
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
+        corner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
         corner.Parent = tabBtn
         
         tabButtons[i] = tabBtn
         
         -- Content frame
-        local contentFrame = createFrame(mainFrame, UDim2.new(1, -20, 0, 190), UDim2.new(0, 10, 0, 85), Color3.fromRGB(35, 35, 35), 0)
+        local contentFrame = createFrame(mainFrame, 
+            UDim2.new(1, -20, 0, isMobile and 340 or 190), 
+            UDim2.new(0, 10, 0, isMobile and 105 or 85), 
+            Color3.fromRGB(35, 35, 35), 0
+        )
         contentFrame.Visible = (i == 1)
         contentFrames[i] = contentFrame
     end
@@ -497,13 +894,29 @@ local function createMainGui()
         end)
     end
     
-    -- CONTENUTO TAB MAIN
+    -- MAIN TAB CONTENT
     local mainContent = contentFrames[1]
+    
+    -- God Mode
+    local godLabel = Instance.new("TextLabel")
+    godLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    godLabel.Position = UDim2.new(0, 15, 0, 15)
+    godLabel.BackgroundTransparency = 1
+    godLabel.Text = "🛡️ God Mode"
+    godLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    godLabel.TextScaled = true
+    godLabel.Font = Enum.Font.SourceSans
+    godLabel.TextXAlignment = Enum.TextXAlignment.Left
+    godLabel.Parent = mainContent
+    
+    local godSwitch = createSwitch(mainContent, UDim2.new(1, isMobile and -75 or -65, 0, 15), function(enabled)
+        toggleGodMode(enabled)
+    end, states.godMode)
     
     -- Infinite Jump
     local ijLabel = Instance.new("TextLabel")
-    ijLabel.Size = UDim2.new(0, 200, 0, 25)
-    ijLabel.Position = UDim2.new(0, 15, 0, 15)
+    ijLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    ijLabel.Position = UDim2.new(0, 15, 0, isMobile and 55 or 45)
     ijLabel.BackgroundTransparency = 1
     ijLabel.Text = "🦘 Infinite Jump"
     ijLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -512,30 +925,30 @@ local function createMainGui()
     ijLabel.TextXAlignment = Enum.TextXAlignment.Left
     ijLabel.Parent = mainContent
     
-    local ijSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 15), function(enabled)
+    local ijSwitch = createSwitch(mainContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 55 or 45), function(enabled)
         toggleInfiniteJump(enabled)
     end, states.infiniteJump)
     
     -- Float
     local floatLabel = Instance.new("TextLabel")
-    floatLabel.Size = UDim2.new(0, 200, 0, 25)
-    floatLabel.Position = UDim2.new(0, 15, 0, 45)
+    floatLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    floatLabel.Position = UDim2.new(0, 15, 0, isMobile and 95 or 75)
     floatLabel.BackgroundTransparency = 1
-    floatLabel.Text = "🎈 Float"
+    floatLabel.Text = "🎈 Float (Mobile)"
     floatLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     floatLabel.TextScaled = true
     floatLabel.Font = Enum.Font.SourceSans
     floatLabel.TextXAlignment = Enum.TextXAlignment.Left
     floatLabel.Parent = mainContent
     
-    local floatSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 45), function(enabled)
+    local floatSwitch = createSwitch(mainContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 95 or 75), function(enabled)
         toggleFloat(enabled)
     end, states.float)
     
     -- Speed Boost
     local speedLabel = Instance.new("TextLabel")
-    speedLabel.Size = UDim2.new(0, 200, 0, 25)
-    speedLabel.Position = UDim2.new(0, 15, 0, 75)
+    speedLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    speedLabel.Position = UDim2.new(0, 15, 0, isMobile and 135 or 105)
     speedLabel.BackgroundTransparency = 1
     speedLabel.Text = "⚡ Speed Boost"
     speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -544,46 +957,46 @@ local function createMainGui()
     speedLabel.TextXAlignment = Enum.TextXAlignment.Left
     speedLabel.Parent = mainContent
     
-    local speedSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 75), function(enabled)
+    local speedSwitch = createSwitch(mainContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 135 or 105), function(enabled)
         toggleSpeedBoost(enabled)
     end, states.speedBoost)
     
     -- Noclip
     local noclipLabel = Instance.new("TextLabel")
-    noclipLabel.Size = UDim2.new(0, 200, 0, 25)
-    noclipLabel.Position = UDim2.new(0, 15, 0, 105)
+    noclipLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    noclipLabel.Position = UDim2.new(0, 15, 0, isMobile and 175 or 135)
     noclipLabel.BackgroundTransparency = 1
-    noclipLabel.Text = "👻 Noclip"
+    noclipLabel.Text = "👻 Noclip (CFrame)"
     noclipLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     noclipLabel.TextScaled = true
     noclipLabel.Font = Enum.Font.SourceSans
     noclipLabel.TextXAlignment = Enum.TextXAlignment.Left
     noclipLabel.Parent = mainContent
     
-    local noclipSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 105), function(enabled)
+    local noclipSwitch = createSwitch(mainContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 175 or 135), function(enabled)
         toggleNoclip(enabled)
     end, states.noclip)
     
     -- Fly
     local flyLabel = Instance.new("TextLabel")
-    flyLabel.Size = UDim2.new(0, 200, 0, 25)
-    flyLabel.Position = UDim2.new(0, 15, 0, 135)
+    flyLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    flyLabel.Position = UDim2.new(0, 15, 0, isMobile and 215 or 165)
     flyLabel.BackgroundTransparency = 1
-    flyLabel.Text = "✈️ Fly (WASD)"
+    flyLabel.Text = "✈️ Fly (CFrame)"
     flyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     flyLabel.TextScaled = true
     flyLabel.Font = Enum.Font.SourceSans
     flyLabel.TextXAlignment = Enum.TextXAlignment.Left
     flyLabel.Parent = mainContent
     
-    local flySwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 135), function(enabled)
+    local flySwitch = createSwitch(mainContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 215 or 165), function(enabled)
         toggleFly(enabled)
     end, states.fly)
     
     -- Teleport Button
     local tpBtn = Instance.new("TextButton")
-    tpBtn.Size = UDim2.new(0, 120, 0, 25)
-    tpBtn.Position = UDim2.new(0, 15, 0, 165)
+    tpBtn.Size = UDim2.new(0, isMobile and 150 or 120, 0, isMobile and 40 or 25)
+    tpBtn.Position = UDim2.new(0, 15, 0, isMobile and 265 or 195)
     tpBtn.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
     tpBtn.Text = "🚀 Teleport"
     tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -593,48 +1006,64 @@ local function createMainGui()
     tpBtn.Parent = mainContent
     
     local tpCorner = Instance.new("UICorner")
-    tpCorner.CornerRadius = UDim.new(0, 6)
+    tpCorner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
     tpCorner.Parent = tpBtn
     
-    -- Base Button
-    local baseBtn = Instance.new("TextButton")
-    baseBtn.Size = UDim2.new(0, 120, 0, 25)
-    baseBtn.Position = UDim2.new(0, 145, 0, 165)
-    baseBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
-    baseBtn.Text = "🏠 Base"
-    baseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    baseBtn.TextScaled = true
-    baseBtn.Font = Enum.Font.SourceSansBold
-    baseBtn.BorderSizePixel = 0
-    baseBtn.Parent = mainContent
-    
-    local baseCorner = Instance.new("UICorner")
-    baseCorner.CornerRadius = UDim.new(0, 6)
-    baseCorner.Parent = baseBtn
-    
-    -- CONTENUTO TAB VISUAL
+    -- VISUAL TAB CONTENT
     local visualContent = contentFrames[2]
     
-    -- ESP Player
-    local espLabel = Instance.new("TextLabel")
-    espLabel.Size = UDim2.new(0, 200, 0, 25)
-    espLabel.Position = UDim2.new(0, 15, 0, 15)
-    espLabel.BackgroundTransparency = 1
-    espLabel.Text = "👁️ ESP Player"
-    espLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    espLabel.TextScaled = true
-    espLabel.Font = Enum.Font.SourceSans
-    espLabel.TextXAlignment = Enum.TextXAlignment.Left
-    espLabel.Parent = visualContent
+    -- ESP Box
+    local espBoxLabel = Instance.new("TextLabel")
+    espBoxLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    espBoxLabel.Position = UDim2.new(0, 15, 0, 15)
+    espBoxLabel.BackgroundTransparency = 1
+    espBoxLabel.Text = "📦 ESP Box"
+    espBoxLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    espBoxLabel.TextScaled = true
+    espBoxLabel.Font = Enum.Font.SourceSans
+    espBoxLabel.TextXAlignment = Enum.TextXAlignment.Left
+    espBoxLabel.Parent = visualContent
     
-    local espSwitch = createSwitch(visualContent, UDim2.new(1, -65, 0, 15), function(enabled)
-        toggleESP("players", enabled)
-    end, states.espPlayers)
+    local espBoxSwitch = createSwitch(visualContent, UDim2.new(1, isMobile and -75 or -65, 0, 15), function(enabled)
+        toggleESP("espBox", enabled)
+    end, states.espBox)
+    
+    -- ESP Lines
+    local espLineLabel = Instance.new("TextLabel")
+    espLineLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    espLineLabel.Position = UDim2.new(0, 15, 0, isMobile and 55 or 45)
+    espLineLabel.BackgroundTransparency = 1
+    espLineLabel.Text = "📐 ESP Lines"
+    espLineLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    espLineLabel.TextScaled = true
+    espLineLabel.Font = Enum.Font.SourceSans
+    espLineLabel.TextXAlignment = Enum.TextXAlignment.Left
+    espLineLabel.Parent = visualContent
+    
+    local espLineSwitch = createSwitch(visualContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 55 or 45), function(enabled)
+        toggleESP("espLines", enabled)
+    end, states.espLines)
+    
+    -- ESP Skeleton
+    local espSkeletonLabel = Instance.new("TextLabel")
+    espSkeletonLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    espSkeletonLabel.Position = UDim2.new(0, 15, 0, isMobile and 95 or 75)
+    espSkeletonLabel.BackgroundTransparency = 1
+    espSkeletonLabel.Text = "💀 ESP Skeleton"
+    espSkeletonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    espSkeletonLabel.TextScaled = true
+    espSkeletonLabel.Font = Enum.Font.SourceSans
+    espSkeletonLabel.TextXAlignment = Enum.TextXAlignment.Left
+    espSkeletonLabel.Parent = visualContent
+    
+    local espSkeletonSwitch = createSwitch(visualContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 95 or 75), function(enabled)
+        toggleESP("espSkeleton", enabled)
+    end, states.espSkeleton)
     
     -- ESP Names
     local espNameLabel = Instance.new("TextLabel")
-    espNameLabel.Size = UDim2.new(0, 200, 0, 25)
-    espNameLabel.Position = UDim2.new(0, 15, 0, 50)
+    espNameLabel.Size = UDim2.new(0, 200, 0, isMobile and 35 or 25)
+    espNameLabel.Position = UDim2.new(0, 15, 0, isMobile and 135 or 105)
     espNameLabel.BackgroundTransparency = 1
     espNameLabel.Text = "🏷️ ESP Names"
     espNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -643,55 +1072,85 @@ local function createMainGui()
     espNameLabel.TextXAlignment = Enum.TextXAlignment.Left
     espNameLabel.Parent = visualContent
     
-    local espNameSwitch = createSwitch(visualContent, UDim2.new(1, -65, 0, 50), function(enabled)
-        toggleESP("names", enabled)
+    local espNameSwitch = createSwitch(visualContent, UDim2.new(1, isMobile and -75 or -65, 0, isMobile and 135 or 105), function(enabled)
+        toggleESP("espNames", enabled)
     end, states.espNames)
     
-    -- CONTENUTO TAB MISC
+    -- MISC TAB CONTENT
     local miscContent = contentFrames[3]
     
-    local buyLabel = Instance.new("TextLabel")
-    buyLabel.Size = UDim2.new(1, -20, 0, 30)
-    buyLabel.Position = UDim2.new(0, 10, 0, 15)
-    buyLabel.BackgroundTransparency = 1
-    buyLabel.Text = "💰 More Features Coming Soon..."
-    buyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-    buyLabel.TextScaled = true
-    buyLabel.Font = Enum.Font.SourceSansItalic
-    buyLabel.Parent = miscContent
+    local miscLabel = Instance.new("TextLabel")
+    miscLabel.Size = UDim2.new(1, -20, 0, isMobile and 40 or 30)
+    miscLabel.Position = UDim2.new(0, 10, 0, 15)
+    miscLabel.BackgroundTransparency = 1
+    miscLabel.Text = "🛠️ Utility Features"
+    miscLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    miscLabel.TextScaled = true
+    miscLabel.Font = Enum.Font.SourceSansItalic
+    miscLabel.Parent = miscContent
     
-    -- Auto Steal Button
-    local autoStealBtn = Instance.new("TextButton")
-    autoStealBtn.Size = UDim2.new(0, 200, 0, 35)
-    autoStealBtn.Position = UDim2.new(0, 15, 0, 60)
-    autoStealBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
-    autoStealBtn.Text = "🔥 Auto Steal"
-    autoStealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    autoStealBtn.TextScaled = true
-    autoStealBtn.Font = Enum.Font.SourceSansBold
-    autoStealBtn.BorderSizePixel = 0
-    autoStealBtn.Parent = miscContent
-    
-    local autoStealCorner = Instance.new("UICorner")
-    autoStealCorner.CornerRadius = UDim.new(0, 8)
-    autoStealCorner.Parent = autoStealBtn
-    
-    -- CONTENUTO TAB SERVER
+    -- SERVER TAB CONTENT
     local serverContent = contentFrames[4]
     
-    local serverLabel = Instance.new("TextLabel")
-    serverLabel.Size = UDim2.new(1, -20, 0, 30)
-    serverLabel.Position = UDim2.new(0, 10, 0, 15)
-    serverLabel.BackgroundTransparency = 1
-    serverLabel.Text = "🌐 Server Features Coming Soon..."
-    serverLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-    serverLabel.TextScaled = true
-    serverLabel.Font = Enum.Font.SourceSansItalic
-    serverLabel.Parent = serverContent
+    -- Rejoin button
+    local rejoinBtn = Instance.new("TextButton")
+    rejoinBtn.Size = UDim2.new(1, -20, 0, isMobile and 45 or 35)
+    rejoinBtn.Position = UDim2.new(0, 10, 0, 15)
+    rejoinBtn.BackgroundColor3 = Color3.fromRGB(0, 123, 255)
+    rejoinBtn.Text = "🔄 Rejoin"
+    rejoinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rejoinBtn.TextScaled = true
+    rejoinBtn.Font = Enum.Font.SourceSansBold
+    rejoinBtn.BorderSizePixel = 0
+    rejoinBtn.Parent = serverContent
+    
+    local rejoinCorner = Instance.new("UICorner")
+    rejoinCorner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
+    rejoinCorner.Parent = rejoinBtn
+    
+    -- Leave button
+    local leaveBtn = Instance.new("TextButton")
+    leaveBtn.Size = UDim2.new(1, -20, 0, isMobile and 45 or 35)
+    leaveBtn.Position = UDim2.new(0, 10, 0, isMobile and 70 or 60)
+    leaveBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+    leaveBtn.Text = "🚪 Leave"
+    leaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    leaveBtn.TextScaled = true
+    leaveBtn.Font = Enum.Font.SourceSansBold
+    leaveBtn.BorderSizePixel = 0
+    leaveBtn.Parent = serverContent
+    
+    local leaveCorner = Instance.new("UICorner")
+    leaveCorner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
+    leaveCorner.Parent = leaveBtn
+    
+    -- Server Hop button
+    local hopBtn = Instance.new("TextButton")
+    hopBtn.Size = UDim2.new(1, -20, 0, isMobile and 45 or 35)
+    hopBtn.Position = UDim2.new(0, 10, 0, isMobile and 125 or 105)
+    hopBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+    hopBtn.Text = "🌐 Server Hop"
+    hopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    hopBtn.TextScaled = true
+    hopBtn.Font = Enum.Font.SourceSansBold
+    hopBtn.BorderSizePixel = 0
+    hopBtn.Parent = serverContent
+    
+    local hopCorner = Instance.new("UICorner")
+    hopCorner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
+    hopCorner.Parent = hopBtn
     
     -- Event handlers
     closeBtn.MouseButton1Click:Connect(function()
-        -- Disattiva tutte le funzioni prima di chiudere
+        -- Close all open GUIs
+        for _, gui in pairs(openGuis) do
+            if gui and gui.Parent then
+                gui:Destroy()
+            end
+        end
+        openGuis = {}
+        
+        -- Disable all features
         for stateName, _ in pairs(states) do
             if states[stateName] then
                 if stateName == "infiniteJump" then
@@ -704,8 +1163,10 @@ local function createMainGui()
                     toggleNoclip(false)
                 elseif stateName == "fly" then
                     toggleFly(false)
-                elseif stateName == "espPlayers" or stateName == "espNames" then
-                    toggleESP(stateName == "espPlayers" and "players" or "names", false)
+                elseif stateName == "godMode" then
+                    toggleGodMode(false)
+                elseif stateName:find("esp") then
+                    toggleESP(stateName, false)
                 end
             end
         end
@@ -725,27 +1186,68 @@ local function createMainGui()
         createTeleportGui()
     end)
     
-    autoStealBtn.MouseButton1Click:Connect(function()
-        createAutoStealGui()
+    -- Server buttons
+    rejoinBtn.MouseButton1Click:Connect(function()
+        TeleportService:Teleport(game.PlaceId, player)
     end)
     
-    baseBtn.MouseButton1Click:Connect(function()
-        createBaseGui()
+    leaveBtn.MouseButton1Click:Connect(function()
+        player:Kick("Left the game")
+    end)
+    
+    hopBtn.MouseButton1Click:Connect(function()
+        local servers = {}
+        local req = syn and syn.request or http_request or request
+        
+        if req then
+            local response = req({
+                Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            })
+            
+            if response.Success then
+                local data = HttpService:JSONDecode(response.Body)
+                for _, server in pairs(data.data) do
+                    if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                        table.insert(servers, server.id)
+                    end
+                end
+                
+                if #servers > 0 then
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
+                end
+            end
+        end
     end)
 end
 
--- GUI Teleport
+-- Speed boost implementation
+local function toggleSpeedBoost(enabled)
+    states.speedBoost = enabled
+    local humanoid = getHumanoid()
+    
+    if humanoid then
+        if enabled then
+            originalWalkSpeed = humanoid.WalkSpeed
+            humanoid.WalkSpeed = 100
+        else
+            humanoid.WalkSpeed = originalWalkSpeed
+        end
+    end
+end
+
+-- Teleport GUI (without height)
 function createTeleportGui()
     local tpGui = Instance.new("ScreenGui")
     tpGui.Name = "TeleportGui"
     tpGui.Parent = CoreGui
+    table.insert(openGuis, tpGui)
     
-    local tpFrame = createFrame(tpGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.5, -100, 0.3, 0), Color3.fromRGB(40, 40, 40), 0.1)
+    local tpFrame = createFrame(tpGui, UDim2.new(0, isMobile and 250 or 200, 0, isMobile and 120 or 100), UDim2.new(0.5, isMobile and -125 or -100, 0.3, 0), Color3.fromRGB(40, 40, 40), 0.1)
     tpFrame.Active = true
     makeDraggable(tpFrame)
     
     local tpTitle = Instance.new("TextLabel")
-    tpTitle.Size = UDim2.new(1, -40, 0, 30)
+    tpTitle.Size = UDim2.new(1, -40, 0, isMobile and 35 or 30)
     tpTitle.Position = UDim2.new(0, 10, 0, 5)
     tpTitle.BackgroundTransparency = 1
     tpTitle.Text = "🚀 Teleport"
@@ -755,8 +1257,8 @@ function createTeleportGui()
     tpTitle.Parent = tpFrame
     
     local closeTPBtn = Instance.new("TextButton")
-    closeTPBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeTPBtn.Position = UDim2.new(1, -30, 0, 5)
+    closeTPBtn.Size = UDim2.new(0, isMobile and 30 or 25, 0, isMobile and 30 or 25)
+    closeTPBtn.Position = UDim2.new(1, isMobile and -35 or -30, 0, 5)
     closeTPBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
     closeTPBtn.Text = "❌"
     closeTPBtn.TextScaled = true
@@ -764,8 +1266,8 @@ function createTeleportGui()
     closeTPBtn.Parent = tpFrame
     
     local upBtn = Instance.new("TextButton")
-    upBtn.Size = UDim2.new(0, 80, 0, 30)
-    upBtn.Position = UDim2.new(0, 20, 0, 45)
+    upBtn.Size = UDim2.new(0, isMobile and 100 or 80, 0, isMobile and 40 or 30)
+    upBtn.Position = UDim2.new(0, 20, 0, isMobile and 50 or 45)
     upBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
     upBtn.Text = "⬆️ UP"
     upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -775,8 +1277,8 @@ function createTeleportGui()
     upBtn.Parent = tpFrame
     
     local downBtn = Instance.new("TextButton")
-    downBtn.Size = UDim2.new(0, 80, 0, 30)
-    downBtn.Position = UDim2.new(0, 110, 0, 45)
+    downBtn.Size = UDim2.new(0, isMobile and 100 or 80, 0, isMobile and 40 or 30)
+    downBtn.Position = UDim2.new(0, isMobile and 130 or 110, 0, isMobile and 50 or 45)
     downBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
     downBtn.Text = "⬇️ DOWN"
     downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -785,37 +1287,12 @@ function createTeleportGui()
     downBtn.BorderSizePixel = 0
     downBtn.Parent = tpFrame
     
-    -- Height input
-    local heightLabel = Instance.new("TextLabel")
-    heightLabel.Size = UDim2.new(0, 40, 0, 20)
-    heightLabel.Position = UDim2.new(0, 20, 0, 85)
-    heightLabel.BackgroundTransparency = 1
-    heightLabel.Text = "Height:"
-    heightLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    heightLabel.TextScaled = true
-    heightLabel.Font = Enum.Font.SourceSans
-    heightLabel.Parent = tpFrame
-    
-    local heightInput = Instance.new("TextBox")
-    heightInput.Size = UDim2.new(0, 100, 0, 20)
-    heightInput.Position = UDim2.new(0, 70, 0, 85)
-    heightInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    heightInput.Text = "50"
-    heightInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    heightInput.TextScaled = true
-    heightInput.Font = Enum.Font.SourceSans
-    heightInput.Parent = tpFrame
-    
     -- Corners
     for _, btn in pairs({closeTPBtn, upBtn, downBtn}) do
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
+        corner.CornerRadius = UDim.new(0, isMobile and 8 or 6)
         corner.Parent = btn
     end
-    
-    local heightCorner = Instance.new("UICorner")
-    heightCorner.CornerRadius = UDim.new(0, 4)
-    heightCorner.Parent = heightInput
     
     -- Events
     closeTPBtn.MouseButton1Click:Connect(function()
@@ -824,246 +1301,27 @@ function createTeleportGui()
     
     upBtn.MouseButton1Click:Connect(function()
         local rootPart = getRootPart()
-        local height = tonumber(heightInput.Text) or 50
         if rootPart then
-            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, height, 0)
+            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 50, 0)
         end
     end)
     
     downBtn.MouseButton1Click:Connect(function()
         local rootPart = getRootPart()
-        local height = tonumber(heightInput.Text) or 50
         if rootPart then
-            rootPart.CFrame = rootPart.CFrame - Vector3.new(0, height, 0)
+            rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 50, 0)
         end
     end)
 end
 
--- Auto Steal GUI
-function createAutoStealGui()
-    local stealGui = Instance.new("ScreenGui")
-    stealGui.Name = "AutoStealGui"
-    stealGui.Parent = CoreGui
-    
-    local stealFrame = createFrame(stealGui, UDim2.new(0, 250, 0, 150), UDim2.new(0.5, -125, 0.4, 0), Color3.fromRGB(40, 40, 40), 0.1)
-    stealFrame.Active = true
-    makeDraggable(stealFrame)
-    
-    local stealTitle = Instance.new("TextLabel")
-    stealTitle.Size = UDim2.new(1, -40, 0, 30)
-    stealTitle.Position = UDim2.new(0, 10, 0, 5)
-    stealTitle.BackgroundTransparency = 1
-    stealTitle.Text = "🔑 Auto Steal Key"
-    stealTitle.TextColor3 = Color3.fromRGB(220, 53, 69)
-    stealTitle.TextScaled = true
-    stealTitle.Font = Enum.Font.SourceSansBold
-    stealTitle.Parent = stealFrame
-    
-    local closeStealBtn = Instance.new("TextButton")
-    closeStealBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeStealBtn.Position = UDim2.new(1, -30, 0, 5)
-    closeStealBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
-    closeStealBtn.Text = "❌"
-    closeStealBtn.TextScaled = true
-    closeStealBtn.BorderSizePixel = 0
-    closeStealBtn.Parent = stealFrame
-    
-    local keyBox = createFrame(stealFrame, UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 40), Color3.fromRGB(60, 60, 60), 0)
-    
-    local keyInput = Instance.new("TextBox")
-    keyInput.Size = UDim2.new(1, -10, 1, 0)
-    keyInput.Position = UDim2.new(0, 5, 0, 0)
-    keyInput.BackgroundTransparency = 1
-    keyInput.Text = "Enter Key..."
-    keyInput.TextColor3 = Color3.fromRGB(200, 200, 200)
-    keyInput.TextScaled = true
-    keyInput.Font = Enum.Font.SourceSans
-    keyInput.ClearTextOnFocus = true
-    keyInput.Parent = keyBox
-    
-    local subscribeBtn = Instance.new("TextButton")
-    subscribeBtn.Size = UDim2.new(0, 100, 0, 30)
-    subscribeBtn.Position = UDim2.new(0, 10, 0, 80)
-    subscribeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    subscribeBtn.Text = "📺 Subscribe"
-    subscribeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    subscribeBtn.TextScaled = true
-    subscribeBtn.Font = Enum.Font.SourceSansBold
-    subscribeBtn.BorderSizePixel = 0
-    subscribeBtn.Parent = stealFrame
-    
-    local enterBtn = Instance.new("TextButton")
-    enterBtn.Size = UDim2.new(0, 100, 0, 30)
-    enterBtn.Position = UDim2.new(0, 120, 0, 80)
-    enterBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-    enterBtn.Text = "✅ Enter"
-    enterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    enterBtn.TextScaled = true
-    enterBtn.Font = Enum.Font.SourceSansBold
-    enterBtn.BorderSizePixel = 0
-    enterBtn.Parent = stealFrame
-    
-    -- Corners
-    for _, btn in pairs({subscribeBtn, enterBtn, closeStealBtn}) do
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
-        corner.Parent = btn
-    end
-    
-    closeStealBtn.MouseButton1Click:Connect(function()
-        stealGui:Destroy()
-    end)
-    
-    enterBtn.MouseButton1Click:Connect(function()
-        stealGui:Destroy()
-    end)
-end
-
--- Base GUI
-function createBaseGui()
-    local baseGui = Instance.new("ScreenGui")
-    baseGui.Name = "BaseGui"
-    baseGui.Parent = CoreGui
-    
-    local baseFrame = createFrame(baseGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.7, 0, 0.3, 0), Color3.fromRGB(40, 40, 40), 0.1)
-    baseFrame.Active = true
-    makeDraggable(baseFrame)
-    
-    local baseTitle = Instance.new("TextLabel")
-    baseTitle.Size = UDim2.new(1, -40, 0, 30)
-    baseTitle.Position = UDim2.new(0, 10, 0, 5)
-    baseTitle.BackgroundTransparency = 1
-    baseTitle.Text = "🏠 Base Setup"
-    baseTitle.TextColor3 = Color3.fromRGB(0, 170, 255)
-    baseTitle.TextScaled = true
-    baseTitle.Font = Enum.Font.SourceSansBold
-    baseTitle.Parent = baseFrame
-    
-    local closeBaseBtn = Instance.new("TextButton")
-    closeBaseBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeBaseBtn.Position = UDim2.new(1, -30, 0, 5)
-    closeBaseBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
-    closeBaseBtn.Text = "❌"
-    closeBaseBtn.TextScaled = true
-    closeBaseBtn.BorderSizePixel = 0
-    closeBaseBtn.Parent = baseFrame
-    
-    local setBaseBtn = Instance.new("TextButton")
-    setBaseBtn.Size = UDim2.new(1, -20, 0, 30)
-    setBaseBtn.Position = UDim2.new(0, 10, 0, 40)
-    setBaseBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
-    setBaseBtn.Text = "📍 Set Base"
-    setBaseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    setBaseBtn.TextScaled = true
-    setBaseBtn.Font = Enum.Font.SourceSansBold
-    setBaseBtn.BorderSizePixel = 0
-    setBaseBtn.Parent = baseFrame
-    
-    local flyToBaseBtn = Instance.new("TextButton")
-    flyToBaseBtn.Size = UDim2.new(1, -20, 0, 30)
-    flyToBaseBtn.Position = UDim2.new(0, 10, 0, 80)
-    flyToBaseBtn.BackgroundColor3 = Color3.fromRGB(0, 123, 255)
-    flyToBaseBtn.Text = "✈️ Fly to Base"
-    flyToBaseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    flyToBaseBtn.TextScaled = true
-    flyToBaseBtn.Font = Enum.Font.SourceSansBold
-    flyToBaseBtn.BorderSizePixel = 0
-    flyToBaseBtn.Parent = baseFrame
-    
-    -- Corners
-    for _, btn in pairs({setBaseBtn, flyToBaseBtn, closeBaseBtn}) do
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
-        corner.Parent = btn
-    end
-    
-    closeBaseBtn.MouseButton1Click:Connect(function()
-        baseGui:Destroy()
-    end)
-    
-    setBaseBtn.MouseButton1Click:Connect(function()
-        local rootPart = getRootPart()
-        if rootPart then
-            basePosition = rootPart.Position
-            setBaseBtn.Text = "✅ Base Set!"
-            wait(1)
-            setBaseBtn.Text = "📍 Set Base"
-        end
-    end)
-    
-    flyToBaseBtn.MouseButton1Click:Connect(function()
-        if basePosition then
-            flyToBase()
-            baseGui:Destroy()
-        end
-    end)
-end
-
--- Fly to Base function
-function flyToBase()
-    local rootPart = getRootPart()
-    if not rootPart or not basePosition then return end
-    
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-    bodyVelocity.Parent = rootPart
-    
-    local targetPosition = Vector3.new(basePosition.X, basePosition.Y + 165, basePosition.Z)
-    
-    rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position - rootPart.CFrame.LookVector)
-    
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
-        if not bodyVelocity or not bodyVelocity.Parent then
-            connection:Disconnect()
-            return
-        end
-        
-        local direction = (targetPosition - rootPart.Position).Unit
-        bodyVelocity.Velocity = direction * 50
-        
-        if (rootPart.Position - targetPosition).Magnitude < 10 then
-            connection:Disconnect()
-            bodyVelocity:Destroy()
-            createDownButton()
-        end
-    end)
-end
-
--- Down Button
-function createDownButton()
-    local downGui = Instance.new("ScreenGui")
-    downGui.Name = "DownGui"
-    downGui.Parent = CoreGui
-    
-    local downBtn = createFrame(downGui, UDim2.new(0, 100, 0, 50), UDim2.new(0.5, -50, 0.8, 0), Color3.fromRGB(220, 53, 69), 0.1)
-    downBtn.Active = true
-    
-    local downLabel = Instance.new("TextLabel")
-    downLabel.Size = UDim2.new(1, 0, 1, 0)
-    downLabel.BackgroundTransparency = 1
-    downLabel.Text = "⬇️ DOWN"
-    downLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downLabel.TextScaled = true
-    downLabel.Font = Enum.Font.SourceSansBold
-    downLabel.Parent = downBtn
-    
-    downBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local rootPart = getRootPart()
-            if rootPart and basePosition then
-                rootPart.CFrame = CFrame.new(basePosition)
-                downGui:Destroy()
-            end
-        end
-    end)
-end
-
--- Gestione respawn del personaggio
+-- Character respawn handling
 local function onCharacterAdded(character)
-    wait(0.5) -- Aspetta che il personaggio sia completamente caricato
+    wait(0.5)
     
-    -- Riapplica gli stati attivi
+    -- Reapply active states
+    if states.godMode then
+        toggleGodMode(true)
+    end
     if states.speedBoost then
         toggleSpeedBoost(true)
     end
@@ -1100,8 +1358,12 @@ end)
 -- Setup character respawn handler
 characterAddedConnection = player.CharacterAdded:Connect(onCharacterAdded)
 
--- Inizializzazione
+-- Initialize with loading screen
 spawn(function()
-    wait(0.5)
-    createMainGui()
+    wait(0.1)
+    createLoadingScreen()
+    
+    -- Enable God Mode on start
+    wait(2)
+    toggleGodMode(true)
 end)
