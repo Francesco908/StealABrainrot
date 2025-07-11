@@ -1,138 +1,451 @@
--- Water Hub Mobile Optimized v2.0
--- Sistema di sfide e ricompense per il tuo gioco
+-- Water Hub Mobile Enhanced by SKIBIDI 🌊
+-- Versione ottimizzata per mobile e giochi con armi/superpoteri
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local DataStoreService = game:GetService("DataStoreService")
+local TweenService = game:GetService("TweenService")
 
--- Configurazione sfide
-local CHALLENGES = {
-    {id = "jump_master", name = "Jump Master", requirement = 100, reward = "infinite_jump"},
-    {id = "speed_demon", name = "Speed Demon", requirement = 500, reward = "speed_boost"},
-    {id = "explorer", name = "Explorer", requirement = 50, reward = "teleport"},
-    {id = "survivor", name = "Survivor", requirement = 300, reward = "float"},
-    {id = "observer", name = "Observer", requirement = 150, reward = "esp_player"}
+-- Configurazione
+local CONFIG = {
+    GUI_SIZE = UserInputService.TouchEnabled and UDim2.new(0, 450, 0, 400) or UDim2.new(0, 400, 0, 350),
+    BUTTON_SIZE = UserInputService.TouchEnabled and 40 or 30,
+    TEXT_SIZE = UserInputService.TouchEnabled and 18 or 16,
+    ANIMATION_TIME = 0.3,
+    ESP_UPDATE_RATE = 0.1,
+    COMBAT_FEATURES = true
 }
 
--- Sistema di salvataggio progresso
-local playerDataStore = DataStoreService:GetDataStore("WaterHubProgress")
-local playerProgress = {}
+-- Cache per performance
+local cache = {
+    connections = {},
+    esp_objects = {},
+    tweens = {}
+}
 
--- Utility per creare elementi UI
-local function createElement(class, props)
-    local element = Instance.new(class)
-    for prop, value in pairs(props) do
-        element[prop] = value
+-- Utility functions
+local function new(class, props)
+    local inst = Instance.new(class)
+    for k,v in pairs(props) do
+        if inst[k] ~= nil then
+            inst[k] = v
+        end
     end
-    return element
+    return inst
 end
 
--- Creazione animazioni fluide
-local function tweenElement(element, props, duration)
-    local tween = TweenService:Create(
-        element,
-        TweenInfo.new(duration or 0.3, Enum.EasingStyle.Quad),
-        props
-    )
+local function animate(obj, props, time)
+    local tween = TweenService:Create(obj, TweenInfo.new(time or CONFIG.ANIMATION_TIME), props)
     tween:Play()
     return tween
 end
 
--- GUI principale
-local ScreenGui = createElement("ScreenGui", {
+-- Anti-lag system
+local function optimizedLoop(name, func, rate)
+    if cache.connections[name] then
+        cache.connections[name]:Disconnect()
+    end
+    
+    local lastUpdate = 0
+    cache.connections[name] = RunService.Heartbeat:Connect(function()
+        local now = tick()
+        if now - lastUpdate >= rate then
+            lastUpdate = now
+            func()
+        end
+    end)
+end
+
+-- Main GUI
+local ScreenGui = new("ScreenGui", {
     Name = "WaterHubMobile",
     ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     Parent = game:GetService("CoreGui")
 })
 
--- Rilevamento dispositivo mobile
-local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-
--- Container principale con dimensioni adattive
-local screenSize = workspace.CurrentCamera.ViewportSize
-local MainFrame = createElement("Frame", {
-    Name = "MainContainer",
-    Parent = ScreenGui,
-    Size = isMobile and UDim2.new(0.9, 0, 0.8, 0) or UDim2.new(0, 450, 0, 400),
-    Position = UDim2.new(0.5, 0, 0.5, 0),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundColor3 = Color3.fromRGB(25, 25, 35),
-    BackgroundTransparency = 0.05
-})
-
-createElement("UICorner", {
-    Parent = MainFrame,
-    CornerRadius = UDim.new(0, 16)
-})
-
-createElement("UIStroke", {
-    Parent = MainFrame,
-    Color = Color3.fromRGB(100, 150, 255),
-    Thickness = 2,
-    Transparency = 0.5
-})
-
--- Header migliorato
-local Header = createElement("Frame", {
-    Name = "Header",
-    Parent = MainFrame,
-    Size = UDim2.new(1, 0, 0, 50),
-    BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-})
-
-createElement("UICorner", {
-    Parent = Header,
-    CornerRadius = UDim.new(0, 16)
-})
-
--- Titolo con animazione
-local Title = createElement("TextLabel", {
-    Parent = Header,
-    Size = UDim2.new(0.7, 0, 1, 0),
-    Position = UDim2.new(0, 20, 0, 0),
-    BackgroundTransparency = 1,
-    Text = "💧 Water Hub",
-    Font = Enum.Font.GothamBold,
-    TextScaled = true,
-    TextColor3 = Color3.fromRGB(255, 255, 255)
-})
-
--- Sistema di trascinamento ottimizzato per mobile
-local function setupDragging(frame, handle)
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
+-- Touch-friendly dragging system
+local function makeDraggable(frame, handle)
+    handle = handle or frame
+    local dragging, dragStart, startPos
     
-    local function update(input)
+    local function startDrag(input)
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+    
+    local function updateDrag(input)
         if dragging then
             local delta = input.Position - dragStart
-            tweenElement(frame, {
-                Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
-            }, 0.1)
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
         end
     end
     
+    local function endDrag()
+        dragging = false
+    end
+    
+    -- Support both mouse and touch
     handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
+            startDrag(input)
         end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or
+        if input.UserInputType == Enum.UserInputType.MouseMovement or 
            input.UserInputType == Enum.UserInputType.Touch then
-            update(input)
+            updateDrag(input)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            endDrag()
+        end
+    end)
+end
+
+-- Main container with mobile optimization
+local MainFrame = new("Frame", {
+    Name = "MainContainer",
+    Parent = ScreenGui,
+    Size = CONFIG.GUI_SIZE,
+    Position = UDim2.new(0.5, -CONFIG.GUI_SIZE.X.Offset/2, 0.5, -CONFIG.GUI_SIZE.Y.Offset/2),
+    BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+    BorderSizePixel = 0,
+    ClipsDescendants = true
+})
+
+new("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 15)})
+new("UIStroke", {
+    Parent = MainFrame,
+    Color = Color3.fromRGB(100, 200, 255),
+    Thickness = 2,
+    Transparency = 0.5
+})
+
+-- Gradient background
+local gradient = new("UIGradient", {
+    Parent = MainFrame,
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 40)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+    }),
+    Rotation = 90
+})
+
+-- Header
+local Header = new("Frame", {
+    Name = "Header",
+    Parent = MainFrame,
+    Size = UDim2.new(1, 0, 0, CONFIG.BUTTON_SIZE + 10),
+    BackgroundColor3 = Color3.fromRGB(20, 20, 30),
+    BorderSizePixel = 0
+})
+
+new("UICorner", {Parent = Header, CornerRadius = UDim.new(0, 15)})
+
+-- Title with animation
+local Title = new("TextLabel", {
+    Parent = Header,
+    Size = UDim2.new(0.7, 0, 1, 0),
+    Position = UDim2.new(0, 15, 0, 0),
+    BackgroundTransparency = 1,
+    Text = "💧 Water Hub Mobile",
+    Font = Enum.Font.SourceSansBold,
+    TextSize = CONFIG.TEXT_SIZE + 2,
+    TextColor3 = Color3.fromRGB(100, 200, 255),
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+-- Window controls
+local controls = {}
+local controlButtons = {
+    {icon = "—", name = "Minimize", color = Color3.fromRGB(255, 200, 0)},
+    {icon = "✕", name = "Close", color = Color3.fromRGB(255, 100, 100)}
+}
+
+for i, btn in ipairs(controlButtons) do
+    controls[btn.name] = new("TextButton", {
+        Parent = Header,
+        Size = UDim2.new(0, CONFIG.BUTTON_SIZE, 0, CONFIG.BUTTON_SIZE),
+        Position = UDim2.new(1, -(CONFIG.BUTTON_SIZE + 5) * i, 0.5, -CONFIG.BUTTON_SIZE/2),
+        BackgroundColor3 = btn.color,
+        Text = btn.icon,
+        Font = Enum.Font.SourceSansBold,
+        TextSize = CONFIG.TEXT_SIZE,
+        TextColor3 = Color3.new(1, 1, 1),
+        AutoButtonColor = false
+    })
+    
+    new("UICorner", {Parent = controls[btn.name], CornerRadius = UDim.new(0.5, 0)})
+end
+
+-- Minimized icon
+local MinimizedIcon = new("ImageButton", {
+    Parent = ScreenGui,
+    Size = UDim2.new(0, 60, 0, 60),
+    Position = UDim2.new(0, 20, 0.5, -30),
+    BackgroundColor3 = Color3.fromRGB(25, 25, 35),
+    Visible = false,
+    Image = "rbxassetid://7072718307",
+    ImageColor3 = Color3.fromRGB(100, 200, 255)
+})
+
+new("UICorner", {Parent = MinimizedIcon, CornerRadius = UDim.new(0.5, 0)})
+new("UIStroke", {
+    Parent = MinimizedIcon,
+    Color = Color3.fromRGB(100, 200, 255),
+    Thickness = 2
+})
+
+-- Tab system
+local TabContainer = new("Frame", {
+    Parent = MainFrame,
+    Size = UDim2.new(1, -20, 0, CONFIG.BUTTON_SIZE),
+    Position = UDim2.new(0, 10, 0, Header.Size.Y.Offset + 5),
+    BackgroundTransparency = 1
+})
+
+local tabs = {"Combat", "Movement", "Visual", "Utility"}
+local tabButtons = {}
+local contentFrames = {}
+
+-- Create tabs
+for i, tabName in ipairs(tabs) do
+    -- Tab button
+    local tabBtn = new("TextButton", {
+        Parent = TabContainer,
+        Size = UDim2.new(1/#tabs, -5, 1, 0),
+        Position = UDim2.new((i-1)/#tabs, 2.5, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(35, 35, 45),
+        Text = tabName,
+        Font = Enum.Font.SourceSansSemibold,
+        TextSize = CONFIG.TEXT_SIZE,
+        TextColor3 = Color3.fromRGB(200, 200, 200),
+        AutoButtonColor = false
+    })
+    
+    new("UICorner", {Parent = tabBtn, CornerRadius = UDim.new(0, 10)})
+    tabButtons[tabName] = tabBtn
+    
+    -- Content frame
+    local content = new("ScrollingFrame", {
+        Name = tabName.."Content",
+        Parent = MainFrame,
+        Size = UDim2.new(1, -20, 1, -(Header.Size.Y.Offset + TabContainer.Size.Y.Offset + 20)),
+        Position = UDim2.new(0, 10, 0, Header.Size.Y.Offset + TabContainer.Size.Y.Offset + 10),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = Color3.fromRGB(100, 200, 255),
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        Visible = i == 1
+    })
+    
+    new("UIListLayout", {
+        Parent = content,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 8)
+    })
+    
+    contentFrames[tabName] = content
+    
+    -- Tab switching
+    tabBtn.MouseButton1Click:Connect(function()
+        for name, frame in pairs(contentFrames) do
+            frame.Visible = false
+            tabButtons[name].BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+            tabButtons[name].TextColor3 = Color3.fromRGB(200, 200, 200)
+        end
+        
+        content.Visible = true
+        animate(tabBtn, {BackgroundColor3 = Color3.fromRGB(100, 200, 255)})
+        tabBtn.TextColor3 = Color3.new(1, 1, 1)
+    end)
+end
+
+-- Active tab highlight
+tabButtons["Combat"].BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+tabButtons["Combat"].TextColor3 = Color3.new(1, 1, 1)
+
+-- Enhanced toggle switch component
+local function createToggle(parent, name, icon, callback, default)
+    local container = new("Frame", {
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 50),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 40),
+        BorderSizePixel = 0
+    })
+    
+    new("UICorner", {Parent = container, CornerRadius = UDim.new(0, 10)})
+    
+    local label = new("TextLabel", {
+        Parent = container,
+        Size = UDim2.new(0.7, -10, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = icon.." "..name,
+        Font = Enum.Font.SourceSansSemibold,
+        TextSize = CONFIG.TEXT_SIZE,
+        TextColor3 = Color3.new(1, 1, 1),
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    local toggleBg = new("Frame", {
+        Parent = container,
+        Size = UDim2.new(0, 60, 0, 30),
+        Position = UDim2.new(1, -70, 0.5, -15),
+        BackgroundColor3 = Color3.fromRGB(60, 60, 70),
+        BorderSizePixel = 0
+    })
+    
+    new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0.5, 0)})
+    
+    local toggleBtn = new("TextButton", {
+        Parent = toggleBg,
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(0, 2, 0.5, -13),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        Text = "",
+        AutoButtonColor = false
+    })
+    
+    new("UICorner", {Parent = toggleBtn, CornerRadius = UDim.new(0.5, 0)})
+    
+    local enabled = default or false
+    
+    local function updateToggle()
+        if enabled then
+            animate(toggleBtn, {Position = UDim2.new(1, -28, 0.5, -13)})
+            animate(toggleBg, {BackgroundColor3 = Color3.fromRGB(100, 200, 100)})
+        else
+            animate(toggleBtn, {Position = UDim2.new(0, 2, 0.5, -13)})
+            animate(toggleBg, {BackgroundColor3 = Color3.fromRGB(60, 60, 70)})
+        end
+        
+        if callback then
+            callback(enabled)
+        end
+    end
+    
+    toggleBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            enabled = not enabled
+            updateToggle()
+        end
+    end)
+    
+    if default then updateToggle() end
+    
+    return container, function(state) enabled = state; updateToggle() end
+end
+
+-- Slider component
+local function createSlider(parent, name, icon, min, max, default, callback)
+    local container = new("Frame", {
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 70),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 40),
+        BorderSizePixel = 0
+    })
+    
+    new("UICorner", {Parent = container, CornerRadius = UDim.new(0, 10)})
+    
+    local label = new("TextLabel", {
+        Parent = container,
+        Size = UDim2.new(1, -20, 0, 25),
+        Position = UDim2.new(0, 10, 0, 5),
+        BackgroundTransparency = 1,
+        Text = icon.." "..name,
+        Font = Enum.Font.SourceSansSemibold,
+        TextSize = CONFIG.TEXT_SIZE,
+        TextColor3 = Color3.new(1, 1, 1),
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    local valueLabel = new("TextLabel", {
+        Parent = container,
+        Size = UDim2.new(0, 50, 0, 25),
+        Position = UDim2.new(1, -60, 0, 5),
+        BackgroundTransparency = 1,
+        Text = tostring(default),
+        Font = Enum.Font.SourceSansBold,
+        TextSize = CONFIG.TEXT_SIZE,
+        TextColor3 = Color3.fromRGB(100, 200, 255),
+        TextXAlignment = Enum.TextXAlignment.Right
+    })
+    
+    local sliderBg = new("Frame", {
+        Parent = container,
+        Size = UDim2.new(1, -20, 0, 6),
+        Position = UDim2.new(0, 10, 1, -20),
+        BackgroundColor3 = Color3.fromRGB(50, 50, 60),
+        BorderSizePixel = 0
+    })
+    
+    new("UICorner", {Parent = sliderBg, CornerRadius = UDim.new(0.5, 0)})
+    
+    local sliderFill = new("Frame", {
+        Parent = sliderBg,
+        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(100, 200, 255),
+        BorderSizePixel = 0
+    })
+    
+    new("UICorner", {Parent = sliderFill, CornerRadius = UDim.new(0.5, 0)})
+    
+    local sliderBtn = new("TextButton", {
+        Parent = sliderBg,
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new((default - min) / (max - min), -10, 0.5, -10),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        Text = "",
+        AutoButtonColor = false
+    })
+    
+    new("UICorner", {Parent = sliderBtn, CornerRadius = UDim.new(0.5, 0)})
+    new("UIStroke", {
+        Parent = sliderBtn,
+        Color = Color3.fromRGB(100, 200, 255),
+        Thickness = 2
+    })
+    
+    local dragging = false
+    
+    local function updateSlider(input)
+        local relativeX = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+        local value = math.floor(min + (max - min) * relativeX + 0.5)
+        
+        sliderBtn.Position = UDim2.new(relativeX, -10, 0.5, -10)
+        sliderFill.Size = UDim2.new(relativeX, 0, 1, 0)
+        valueLabel.Text = tostring(value)
+        
+        if callback then callback(value) end
+    end
+    
+    sliderBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or
+                        input.UserInputType == Enum.UserInputType.Touch) then
+            updateSlider(input)
         end
     end)
     
@@ -142,437 +455,325 @@ local function setupDragging(frame, handle)
             dragging = false
         end
     end)
+    
+    return container
 end
 
-setupDragging(MainFrame, Header)
+-- Combat features
+local combatContent = contentFrames["Combat"]
 
--- Pulsanti header ottimizzati
-local MinimizeBtn = createElement("TextButton", {
-    Parent = Header,
-    Size = UDim2.new(0, 40, 0, 40),
-    Position = UDim2.new(1, -90, 0.5, 0),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundTransparency = 1,
-    Text = "➖",
-    Font = Enum.Font.GothamBold,
-    TextScaled = true,
-    TextColor3 = Color3.fromRGB(255, 255, 255)
-})
-
-local CloseBtn = createElement("TextButton", {
-    Parent = Header,
-    Size = UDim2.new(0, 40, 0, 40),
-    Position = UDim2.new(1, -45, 0.5, 0),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    BackgroundTransparency = 1,
-    Text = "❌",
-    Font = Enum.Font.GothamBold,
-    TextScaled = true,
-    TextColor3 = Color3.fromRGB(255, 100, 100)
-})
-
--- Icona minimizzata per mobile
-local MinimizedIcon = createElement("ImageButton", {
-    Parent = ScreenGui,
-    Size = UDim2.new(0, 60, 0, 60),
-    Position = UDim2.new(0, 20, 0.5, 0),
-    AnchorPoint = Vector2.new(0, 0.5),
-    BackgroundColor3 = Color3.fromRGB(25, 25, 35),
-    Image = "rbxassetid://7072718307",
-    Visible = false
-})
-
-createElement("UICorner", {
-    Parent = MinimizedIcon,
-    CornerRadius = UDim.new(0.5, 0)
-})
-
--- Logica minimizzazione
-MinimizeBtn.MouseButton1Click:Connect(function()
-    tweenElement(MainFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.3).Completed:Wait()
-    MainFrame.Visible = false
-    MinimizedIcon.Visible = true
-    tweenElement(MinimizedIcon, {Size = UDim2.new(0, 60, 0, 60)}, 0.3)
+createToggle(combatContent, "Aimbot", "🎯", function(enabled)
+    if enabled then
+        optimizedLoop("aimbot", function()
+            local target = nil
+            local minDist = math.huge
+            
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                    local dist = (player.Character.Head.Position - LocalPlayer.Character.Head.Position).Magnitude
+                    if dist < minDist and dist < 200 then
+                        minDist = dist
+                        target = player
+                    end
+                end
+            end
+            
+            if target and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local camera = workspace.CurrentCamera
+                camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target.Character.Head.Position)
+            end
+        end, 0.016)
+    else
+        if cache.connections["aimbot"] then
+            cache.connections["aimbot"]:Disconnect()
+        end
+    end
 end)
 
-MinimizedIcon.MouseButton1Click:Connect(function()
-    MainFrame.Visible = true
-    MinimizedIcon.Visible = false
-    local targetSize = isMobile and UDim2.new(0.9, 0, 0.8, 0) or UDim2.new(0, 450, 0, 400)
-    tweenElement(MainFrame, {Size = targetSize}, 0.3)
+createToggle(combatContent, "Silent Aim", "🔇", function(enabled)
+    -- Implementazione silent aim per giochi con armi
+    getgenv().SilentAim = enabled
 end)
 
-CloseBtn.MouseButton1Click:Connect(function()
-    tweenElement(MainFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.3).Completed:Wait()
+createToggle(combatContent, "Kill Aura", "⚔️", function(enabled)
+    if enabled then
+        optimizedLoop("killaura", function()
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    if dist < 20 then
+                        -- Trigger combat event
+                        game:GetService("ReplicatedStorage").CombatEvent:FireServer(player.Character)
+                    end
+                end
+            end
+        end, 0.1)
+    else
+        if cache.connections["killaura"] then
+            cache.connections["killaura"]:Disconnect()
+        end
+    end
+end)
+
+createSlider(combatContent, "FOV Size", "🔍", 50, 500, 200, function(value)
+    -- Aggiorna FOV per aimbot
+    getgenv().AimbotFOV = value
+end)
+
+createToggle(combatContent, "Hitbox Expander", "📦", function(enabled)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hitbox = player.Character.HumanoidRootPart
+            if enabled then
+                hitbox.Size = Vector3.new(20, 20, 20)
+                hitbox.Transparency = 0.7
+            else
+                hitbox.Size = Vector3.new(2, 2, 1)
+                hitbox.Transparency = 1
+            end
+        end
+    end
+end)
+
+-- Movement features
+local movementContent = contentFrames["Movement"]
+
+createToggle(movementContent, "Fly Mode", "🦅", function(enabled)
+    if enabled then
+        local bodyVel = new("BodyVelocity", {
+            Parent = LocalPlayer.Character.HumanoidRootPart,
+            MaxForce = Vector3.new(4000, 4000, 4000),
+            Velocity = Vector3.new(0, 0, 0),
+            Name = "FlyVelocity"
+        })
+        
+        local bodyGyro = new("BodyGyro", {
+            Parent = LocalPlayer.Character.HumanoidRootPart,
+            MaxTorque = Vector3.new(4000, 4000, 4000),
+            D = 100,
+            Name = "FlyGyro"
+        })
+        
+        cache.connections["fly"] = RunService.Heartbeat:Connect(function()
+            local camera = workspace.CurrentCamera
+            local moveVector = LocalPlayer.Character.Humanoid.MoveDirection
+            bodyVel.Velocity = (camera.CFrame.LookVector * moveVector.Z + camera.CFrame.RightVector * moveVector.X) * 100
+            bodyGyro.CFrame = camera.CFrame
+        end)
+    else
+        if LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FlyVelocity") then
+            LocalPlayer.Character.HumanoidRootPart.FlyVelocity:Destroy()
+        end
+        if LocalPlayer.Character.HumanoidRootPart:FindFirstChild("FlyGyro") then
+            LocalPlayer.Character.HumanoidRootPart.FlyGyro:Destroy()
+        end
+        if cache.connections["fly"] then
+            cache.connections["fly"]:Disconnect()
+        end
+    end
+end)
+
+createSlider(movementContent, "Walk Speed", "🏃", 16, 200, 16, function(value)
+    LocalPlayer.Character.Humanoid.WalkSpeed = value
+end)
+
+createSlider(movementContent, "Jump Power", "🦘", 50, 300, 50, function(value)
+    LocalPlayer.Character.Humanoid.JumpPower = value
+end)
+
+createToggle(movementContent, "Infinite Jump", "♾️", function(enabled)
+    if enabled then
+        cache.connections["infjump"] = UserInputService.JumpRequest:Connect(function()
+            LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end)
+    else
+        if cache.connections["infjump"] then
+            cache.connections["infjump"]:Disconnect()
+        end
+    end
+end)
+
+createToggle(movementContent, "No Clip", "👻", function(enabled)
+    if enabled then
+        cache.connections["noclip"] = RunService.Stepped:Connect(function()
+            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end)
+    else
+        if cache.connections["noclip"] then
+            cache.connections["noclip"]:Disconnect()
+        end
+    end
+end)
+
+-- Visual features
+local visualContent = contentFrames["Visual"]
+
+createToggle(visualContent, "Player ESP", "👁️", function(enabled)
+    if enabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local highlight = new("Highlight", {
+                    Parent = player.Character,
+                    FillColor = player.TeamColor.Color,
+                    OutlineColor = Color3.new(1, 1, 1),
+                    FillTransparency = 0.5,
+                    OutlineTransparency = 0,
+                    Name = "WaterESP"
+                })
+                
+                local billboard = new("BillboardGui", {
+                    Parent = player.Character.Head,
+                    Size = UDim2.new(0, 100, 0, 50),
+                    StudsOffset = Vector3.new(0, 3, 0),
+                    AlwaysOnTop = true,
+                    Name = "WaterNameESP"
+                })
+                
+                local nameLabel = new("TextLabel", {
+                    Parent = billboard,
+                    Size = UDim2.new(1, 0, 0.5, 0),
+                    BackgroundTransparency = 1,
+                    Text = player.Name,
+                    Font = Enum.Font.SourceSansBold,
+                    TextSize = 14,
+                    TextColor3 = Color3.new(1, 1, 1),
+                    TextStrokeTransparency = 0
+                })
+                
+                local distLabel = new("TextLabel", {
+                    Parent = billboard,
+                    Size = UDim2.new(1, 0, 0.5, 0),
+                    Position = UDim2.new(0, 0, 0.5, 0),
+                    BackgroundTransparency = 1,
+                    Text = "0m",
+                    Font = Enum.Font.SourceSans,
+                    TextSize = 12,
+                    TextColor3 = Color3.new(1, 1, 1),
+                    TextStrokeTransparency = 0
+                })
+                
+                cache.esp_objects[player] = {highlight, billboard}
+                
+                -- Update distance
+                optimizedLoop("esp_"..player.Name, function()
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                        distLabel.Text = string.format("%.1fm", dist)
+                    end
+                end, CONFIG.ESP_UPDATE_RATE)
+            end
+        end
+    else
+        for player, objects in pairs(cache.esp_objects) do
+            for _, obj in pairs(objects) do
+                obj:Destroy()
+            end
+            if cache.connections["esp_"..player.Name] then
+                cache.connections["esp_"..player.Name]:Disconnect()
+            end
+        end
+        cache.esp_objects = {}
+    end
+end)
+
+createToggle(visualContent, "Fullbright", "☀️", function(enabled)
+    if enabled then
+        game.Lighting.Brightness = 3
+        game.Lighting.ClockTime = 12
+        game.Lighting.FogEnd = 100000
+        game.Lighting.GlobalShadows = false
+        game.Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+    else
+        game.Lighting.Brightness = 1
+        game.Lighting.ClockTime = 14
+        game.Lighting.FogEnd = 10000
+        game.Lighting.GlobalShadows = true
+        game.Lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
+    end
+end)
+
+-- Utility features
+local utilityContent = contentFrames["Utility"]
+
+createToggle(utilityContent, "Anti-AFK", "💤", function(enabled)
+    if enabled then
+        cache.connections["antiafk"] = game:GetService("VirtualUser").Event:Connect(function()
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+        end)
+    else
+        if cache.connections["antiafk"] then
+            cache.connections["antiafk"]:Disconnect()
+        end
+    end
+end)
+
+createToggle(utilityContent, "Server Hop", "🔄", function()
+    local servers = {}
+    local req = game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100")
+    local data = game:GetService("HttpService"):JSONDecode(req).data
+    
+    for i,v in pairs(data) do
+        if v.playing ~= v.maxPlayers and v.id ~= game.JobId then
+            table.insert(servers, v.id)
+        end
+    end
+    
+    if #servers > 0 then
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
+    end
+end)
+
+-- Window controls functionality
+controls.Close.MouseButton1Click:Connect(function()
+    animate(MainFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.3)
+    wait(0.3)
     ScreenGui:Destroy()
 end)
 
--- Sistema di tab migliorato
-local TabContainer = createElement("Frame", {
-    Parent = MainFrame,
-    Size = UDim2.new(1, -20, 0, 40),
-    Position = UDim2.new(0, 10, 0, 60),
-    BackgroundTransparency = 1
-})
+controls.Minimize.MouseButton1Click:Connect(function()
+    animate(MainFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.3)
+    MinimizedIcon.Visible = true
+    animate(MinimizedIcon, {Size = UDim2.new(0, 70, 0, 70)}, 0.2)
+end)
 
-local tabs = {"Abilità", "Sfide", "Profilo", "Negozio"}
-local contentFrames = {}
-local tabButtons = {}
+MinimizedIcon.MouseButton1Click:Connect(function()
+    MinimizedIcon.Visible = false
+    MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    MainFrame.Visible = true
+    animate(MainFrame, {Size = CONFIG.GUI_SIZE}, 0.3)
+end)
 
-for i, tabName in ipairs(tabs) do
-    -- Pulsante tab
-    local tabBtn = createElement("TextButton", {
-        Parent = TabContainer,
-        Size = UDim2.new(1/#tabs, -5, 1, 0),
-        Position = UDim2.new((i-1)/#tabs, 5, 0, 0),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 50),
-        Text = tabName,
-        Font = Enum.Font.Gotham,
-        TextScaled = true,
-        TextColor3 = Color3.fromRGB(200, 200, 200)
-    })
-    
-    createElement("UICorner", {
-        Parent = tabBtn,
-        CornerRadius = UDim.new(0, 10)
-    })
-    
-    tabButtons[tabName] = tabBtn
-    
-    -- Frame contenuto
-    local content = createElement("ScrollingFrame", {
-        Parent = MainFrame,
-        Size = UDim2.new(1, -20, 1, -120),
-        Position = UDim2.new(0, 10, 0, 110),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 6,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        Visible = i == 1
-    })
-    
-    contentFrames[tabName] = content
-    
-    -- Logica selezione tab
-    tabBtn.MouseButton1Click:Connect(function()
-        for name, frame in pairs(contentFrames) do
-            frame.Visible = false
-            tabButtons[name].BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            tabButtons[name].TextColor3 = Color3.fromRGB(200, 200, 200)
+-- Make draggable
+makeDraggable(MainFrame, Header)
+makeDraggable(MinimizedIcon)
+
+-- Cleanup on character death
+LocalPlayer.CharacterRemoving:Connect(function()
+    for _, connection in pairs(cache.connections) do
+        if connection then
+            connection:Disconnect()
         end
-        
-        content.Visible = true
-        tweenElement(tabBtn, {
-            BackgroundColor3 = Color3.fromRGB(100, 150, 255),
-            TextColor3 = Color3.fromRGB(255, 255, 255)
-        })
-    end)
-end
-
--- Seleziona primo tab
-tabButtons["Abilità"].BackgroundColor3 = Color3.fromRGB(100, 150, 255)
-tabButtons["Abilità"].TextColor3 = Color3.fromRGB(255, 255, 255)
-
--- Sistema di abilità sbloccabili
-local function createAbilityCard(parent, name, icon, description, unlocked, callback)
-    local card = createElement("Frame", {
-        Parent = parent,
-        Size = UDim2.new(1, -10, 0, 100),
-        BackgroundColor3 = unlocked and Color3.fromRGB(40, 45, 55) or Color3.fromRGB(30, 30, 35)
-    })
-    
-    createElement("UICorner", {
-        Parent = card,
-        CornerRadius = UDim.new(0, 12)
-    })
-    
-    createElement("UIStroke", {
-        Parent = card,
-        Color = unlocked and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(80, 80, 80),
-        Thickness = 2
-    })
-    
-    -- Icona
-    createElement("TextLabel", {
-        Parent = card,
-        Size = UDim2.new(0, 60, 0, 60),
-        Position = UDim2.new(0, 15, 0.5, 0),
-        AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundTransparency = 1,
-        Text = icon,
-        Font = Enum.Font.GothamBold,
-        TextScaled = true
-    })
-    
-    -- Nome e descrizione
-    createElement("TextLabel", {
-        Parent = card,
-        Size = UDim2.new(0.5, -90, 0, 30),
-        Position = UDim2.new(0, 85, 0, 15),
-        BackgroundTransparency = 1,
-        Text = name,
-        Font = Enum.Font.GothamBold,
-        TextSize = 18,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-    
-    createElement("TextLabel", {
-        Parent = card,
-        Size = UDim2.new(0.5, -90, 0, 40),
-        Position = UDim2.new(0, 85, 0, 45),
-        BackgroundTransparency = 1,
-        Text = description,
-        Font = Enum.Font.Gotham,
-        TextSize = 14,
-        TextColor3 = Color3.fromRGB(180, 180, 180),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true
-    })
-    
-    -- Pulsante attiva/disattiva
-    local toggleBtn = createElement("TextButton", {
-        Parent = card,
-        Size = UDim2.new(0, 100, 0, 40),
-        Position = UDim2.new(1, -110, 0.5, 0),
-        AnchorPoint = Vector2.new(1, 0.5),
-        BackgroundColor3 = unlocked and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(100, 40, 40),
-        Text = unlocked and "ATTIVA" or "BLOCCATO",
-        Font = Enum.Font.GothamBold,
-        TextScaled = true,
-        TextColor3 = Color3.fromRGB(255, 255, 255)
-    })
-    
-    createElement("UICorner", {
-        Parent = toggleBtn,
-        CornerRadius = UDim.new(0, 8)
-    })
-    
-    if unlocked then
-        local active = false
-        toggleBtn.MouseButton1Click:Connect(function()
-            active = not active
-            toggleBtn.Text = active and "DISATTIVA" or "ATTIVA"
-            toggleBtn.BackgroundColor3 = active and Color3.fromRGB(150, 50, 50) or Color3.fromRGB(50, 150, 50)
-            callback(active)
-        end)
-    end
-    
-    return card
-end
-
--- Layout per abilità
-local abilityLayout = createElement("UIListLayout", {
-    Parent = contentFrames["Abilità"],
-    Padding = UDim.new(0, 10),
-    SortOrder = Enum.SortOrder.LayoutOrder
-})
-
--- Aggiungi padding
-createElement("UIPadding", {
-    Parent = contentFrames["Abilità"],
-    PaddingTop = UDim.new(0, 10),
-    PaddingBottom = UDim.new(0, 10),
-    PaddingLeft = UDim.new(0, 5),
-    PaddingRight = UDim.new(0, 5)
-})
-
--- Abilità esempio
-local abilities = {
-    {
-        name = "Super Salto",
-        icon = "🦘",
-        description = "Salta infinitamente alto",
-        unlocked = true,
-        callback = function(active)
-            -- Logica super salto
-            if active then
-                LocalPlayer.Character.Humanoid.JumpPower = 100
-            else
-                LocalPlayer.Character.Humanoid.JumpPower = 50
-            end
-        end
-    },
-    {
-        name = "Super Velocità",
-        icon = "🚀",
-        description = "Corri come il vento",
-        unlocked = false,
-        callback = function(active)
-            if active then
-                LocalPlayer.Character.Humanoid.WalkSpeed = 32
-            else
-                LocalPlayer.Character.Humanoid.WalkSpeed = 16
-            end
-        end
-    },
-    {
-        name = "Volo",
-        icon = "🪁",
-        description = "Fluttua nell'aria",
-        unlocked = false,
-        callback = function(active)
-            -- Logica volo
-        end
-    }
-}
-
--- Crea carte abilità
-for i, ability in ipairs(abilities) do
-    local card = createAbilityCard(
-        contentFrames["Abilità"],
-        ability.name,
-        ability.icon,
-        ability.description,
-        ability.unlocked,
-        ability.callback
-    )
-    card.LayoutOrder = i
-end
-
--- Aggiorna dimensione canvas
-contentFrames["Abilità"].CanvasSize = UDim2.new(0, 0, 0, abilityLayout.AbsoluteContentSize.Y + 20)
-
--- Sistema sfide
-local challengeLayout = createElement("UIListLayout", {
-    Parent = contentFrames["Sfide"],
-    Padding = UDim.new(0, 10),
-    SortOrder = Enum.SortOrder.LayoutOrder
-})
-
-createElement("UIPadding", {
-    Parent = contentFrames["Sfide"],
-    PaddingTop = UDim.new(0, 10),
-    PaddingBottom = UDim.new(0, 10),
-    PaddingLeft = UDim.new(0, 5),
-    PaddingRight = UDim.new(0, 5)
-})
-
--- Funzione per creare carta sfida
-local function createChallengeCard(parent, challenge, progress)
-    local card = createElement("Frame", {
-        Parent = parent,
-        Size = UDim2.new(1, -10, 0, 120),
-        BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    })
-    
-    createElement("UICorner", {
-        Parent = card,
-        CornerRadius = UDim.new(0, 12)
-    })
-    
-    -- Nome sfida
-    createElement("TextLabel", {
-        Parent = card,
-        Size = UDim2.new(1, -20, 0, 30),
-        Position = UDim2.new(0, 10, 0, 10),
-        BackgroundTransparency = 1,
-        Text = challenge.name,
-        Font = Enum.Font.GothamBold,
-        TextSize = 20,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-    
-    -- Barra progresso
-    local progressBar = createElement("Frame", {
-        Parent = card,
-        Size = UDim2.new(1, -20, 0, 20),
-        Position = UDim2.new(0, 10, 0, 50),
-        BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    })
-    
-    createElement("UICorner", {
-        Parent = progressBar,
-        CornerRadius = UDim.new(0, 10)
-    })
-    
-    local progressFill = createElement("Frame", {
-        Parent = progressBar,
-        Size = UDim2.new(math.min(progress / challenge.requirement, 1), 0, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-    })
-    
-    createElement("UICorner", {
-        Parent = progressFill,
-        CornerRadius = UDim.new(0, 10)
-    })
-    
-    -- Testo progresso
-    createElement("TextLabel", {
-        Parent = card,
-        Size = UDim2.new(1, -20, 0, 20),
-        Position = UDim2.new(0, 10, 0, 80),
-        BackgroundTransparency = 1,
-        Text = string.format("%d / %d", progress, challenge.requirement),
-        Font = Enum.Font.Gotham,
-        TextSize = 16,
-        TextColor3 = Color3.fromRGB(200, 200, 200),
-        TextXAlignment = Enum.TextXAlignment.Center
-    })
-    
-    return card
-end
-
--- Crea carte sfide
-for i, challenge in ipairs(CHALLENGES) do
-    local progress = playerProgress[challenge.id] or 0
-    local card = createChallengeCard(contentFrames["Sfide"], challenge, progress)
-    card.LayoutOrder = i
-end
-
-contentFrames["Sfide"].CanvasSize = UDim2.new(0, 0, 0, challengeLayout.AbsoluteContentSize.Y + 20)
-
--- Notifiche ottimizzate
-local function showNotification(text, duration)
-    local notif = createElement("Frame", {
-        Parent = ScreenGui,
-        Size = UDim2.new(0, 300, 0, 60),
-        Position = UDim2.new(0.5, 0, 0, -70),
-        AnchorPoint = Vector2.new(0.5, 0),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    })
-    
-    createElement("UICorner", {
-        Parent = notif,
-        CornerRadius = UDim.new(0, 12)
-    })
-    
-    createElement("TextLabel", {
-        Parent = notif,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = text,
-        Font = Enum.Font.GothamBold,
-        TextScaled = true,
-        TextColor3 = Color3.fromRGB(255, 255, 255)
-    })
-    
-    tweenElement(notif, {Position = UDim2.new(0.5, 0, 0, 20)}, 0.5)
-    
-    task.wait(duration or 3)
-    
-    tweenElement(notif, {Position = UDim2.new(0.5, 0, 0, -70)}, 0.5).Completed:Wait()
-    notif:Destroy()
-end
-
--- Sistema di salvataggio automatico
-spawn(function()
-    while true do
-        task.wait(30)
-        pcall(function()
-            playerDataStore:SetAsync(LocalPlayer.UserId, playerProgress)
-        end)
     end
 end)
 
--- Carica dati giocatore all'avvio
-spawn(function()
-    local success, data = pcall(function()
-        return playerDataStore:GetAsync(LocalPlayer.UserId)
-    end)
-    
-    if success and data then
-        playerProgress = data
-        showNotification("✅ Progresso caricato!", 2)
+-- Welcome notification
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Water Hub Mobile",
+    Text = "Successfully loaded! Press minimize to hide.",
+    Duration = 3
+})
+
+-- Performance monitoring
+task.spawn(function()
+    while wait(1) do
+        local memUsage = collectgarbage("count")
+        if memUsage > 500 then
+            collectgarbage("collect")
+        end
     end
 end)
