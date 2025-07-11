@@ -1,83 +1,156 @@
--- Water Hub Script per Roblox
--- GUI Avanzata con tutte le funzionalità
+-- Water Hub Script Ultra Avanzato per Roblox
+-- GUI Premium con Design Moderno e Funzionalità Complete
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
+local mouse = player:GetMouse()
 
 -- Variabili globali
 local waterHubGui
 local connections = {}
-local isNoclipEnabled = false
-local isFlyEnabled = false
-local isInfiniteJumpEnabled = false
-local espEnabled = false
-local espNameEnabled = false
+local toggleStates = {}
 local basePosition = nil
-local flySpeed = 50
+local originalWalkSpeed = 16
+local originalJumpPower = 50
 
--- Funzione per creare GUI arrotondata
-local function createRoundedFrame(parent, size, position, backgroundColor, cornerRadius)
+-- Stati delle funzionalità
+local states = {
+    infiniteJump = false,
+    float = false,
+    speedBoost = false,
+    espPlayers = false,
+    espNames = false,
+    noclip = false,
+    fly = false
+}
+
+-- Configurazioni
+local config = {
+    flySpeed = 50,
+    walkSpeed = 100,
+    espUpdateRate = 0.1,
+    animationSpeed = 0.3
+}
+
+-- Funzione per creare effetti di gradiente
+local function createGradient(parent, color1, color2, rotation)
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color1),
+        ColorSequenceKeypoint.new(1, color2)
+    })
+    gradient.Rotation = rotation or 45
+    gradient.Parent = parent
+    return gradient
+end
+
+-- Funzione per creare ombre
+local function createShadow(parent)
+    local shadow = Instance.new("Frame")
+    shadow.Name = "Shadow"
+    shadow.Size = UDim2.new(1, 6, 1, 6)
+    shadow.Position = UDim2.new(0, -3, 0, -3)
+    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.BackgroundTransparency = 0.7
+    shadow.ZIndex = parent.ZIndex - 1
+    shadow.Parent = parent.Parent
+    
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(0, 15)
+    shadowCorner.Parent = shadow
+    
+    return shadow
+end
+
+-- Funzione per creare frame moderni con effetti
+local function createModernFrame(parent, size, position, backgroundColor, cornerRadius, withShadow)
     local frame = Instance.new("Frame")
     frame.Size = size
     frame.Position = position
     frame.BackgroundColor3 = backgroundColor
     frame.BorderSizePixel = 0
+    frame.ZIndex = 2
     frame.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, cornerRadius or 12)
+    corner.CornerRadius = UDim.new(0, cornerRadius or 15)
     corner.Parent = frame
+    
+    if withShadow then
+        createShadow(frame)
+    end
     
     return frame
 end
 
--- Funzione per creare switch
-local function createSwitch(parent, position, callback)
-    local switchFrame = createRoundedFrame(parent, UDim2.new(0, 50, 0, 25), position, Color3.fromRGB(60, 60, 60), 15)
+-- Funzione per creare switch moderni con animazioni
+local function createModernSwitch(parent, position, callback, initialState)
+    local switchContainer = createModernFrame(parent, UDim2.new(0, 60, 0, 30), position, Color3.fromRGB(35, 35, 35), 15, false)
     
-    local switchButton = createRoundedFrame(switchFrame, UDim2.new(0, 20, 0, 20), UDim2.new(0, 2, 0, 2), Color3.fromRGB(200, 200, 200), 10)
+    local switchTrack = createModernFrame(switchContainer, UDim2.new(1, -4, 1, -4), UDim2.new(0, 2, 0, 2), Color3.fromRGB(60, 60, 60), 13, false)
     
-    local isOn = false
+    local switchButton = createModernFrame(switchTrack, UDim2.new(0, 22, 0, 22), UDim2.new(0, 2, 0, 2), Color3.fromRGB(220, 220, 220), 11, false)
+    
+    -- Gradiente per il track quando attivo
+    local activeGradient = createGradient(switchTrack, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 200, 255), 90)
+    activeGradient.Enabled = false
+    
+    -- Gradiente per il button
+    local buttonGradient = createGradient(switchButton, Color3.fromRGB(255, 255, 255), Color3.fromRGB(240, 240, 240), 45)
+    
+    local isOn = initialState or false
+    
+    local function updateSwitch(state, animate)
+        isOn = state
+        local targetPos = isOn and UDim2.new(1, -24, 0, 2) or UDim2.new(0, 2, 0, 2)
+        local targetTrackColor = isOn and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(60, 60, 60)
+        
+        activeGradient.Enabled = isOn
+        
+        if animate then
+            local tweenInfo = TweenInfo.new(config.animationSpeed, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            TweenService:Create(switchButton, tweenInfo, {Position = targetPos}):Play()
+            TweenService:Create(switchTrack, tweenInfo, {BackgroundColor3 = targetTrackColor}):Play()
+        else
+            switchButton.Position = targetPos
+            switchTrack.BackgroundColor3 = targetTrackColor
+        end
+    end
     
     local function toggle()
-        isOn = not isOn
-        local targetPos = isOn and UDim2.new(0, 28, 0, 2) or UDim2.new(0, 2, 0, 2)
-        local targetColor = isOn and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(60, 60, 60)
-        
-        TweenService:Create(switchButton, TweenInfo.new(0.2), {Position = targetPos}):Play()
-        TweenService:Create(switchFrame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
-        
+        updateSwitch(not isOn, true)
         if callback then callback(isOn) end
     end
     
-    switchFrame.InputBegan:Connect(function(input)
+    switchContainer.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             toggle()
         end
     end)
     
-    return switchFrame, toggle
+    -- Inizializza lo stato
+    updateSwitch(isOn, false)
+    
+    return switchContainer, updateSwitch, function() return isOn end
 end
 
--- Funzione per rendere draggable
+-- Funzione per rendere draggable con effetti fluidi
 local function makeDraggable(gui)
-    local dragToggle = nil
-    local dragSpeed = 0.25
+    local dragToggle = false
     local dragStart = nil
     local startPos = nil
     
     local function updateInput(input)
         local delta = input.Position - dragStart
         local position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        TweenService:Create(gui, TweenInfo.new(dragSpeed), {Position = position}):Play()
+        gui.Position = position
     end
     
     gui.InputBegan:Connect(function(input)
@@ -85,9 +158,15 @@ local function makeDraggable(gui)
             dragToggle = true
             dragStart = input.Position
             startPos = gui.Position
+            
+            -- Effetto di elevazione durante il drag
+            TweenService:Create(gui, TweenInfo.new(0.2), {Size = gui.Size + UDim2.new(0, 4, 0, 4)}):Play()
+            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragToggle = false
+                    -- Ritorna alle dimensioni normali
+                    TweenService:Create(gui, TweenInfo.new(0.2), {Size = gui.Size - UDim2.new(0, 4, 0, 4)}):Play()
                 end
             end)
         end
@@ -100,531 +179,636 @@ local function makeDraggable(gui)
     end)
 end
 
--- Funzioni principali
-local function infiniteJump()
-    connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
-        if isInfiniteJumpEnabled then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end)
+-- Funzioni di utilità per il character
+local function getCharacter()
+    return player.Character or player.CharacterAdded:Wait()
 end
 
-local function float()
-    if not connections.float then
+local function getHumanoid()
+    local character = getCharacter()
+    return character:WaitForChild("Humanoid")
+end
+
+local function getRootPart()
+    local character = getCharacter()
+    return character:WaitForChild("HumanoidRootPart")
+end
+
+-- Funzione Infinite Jump
+local function toggleInfiniteJump(enabled)
+    states.infiniteJump = enabled
+    
+    if connections.infiniteJump then
+        connections.infiniteJump:Disconnect()
+        connections.infiniteJump = nil
+    end
+    
+    if enabled then
+        connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
+            local humanoid = getHumanoid()
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    end
+end
+
+-- Funzione Float
+local function toggleFloat(enabled)
+    states.float = enabled
+    local rootPart = getRootPart()
+    
+    if connections.floatBody then
+        connections.floatBody:Destroy()
+        connections.floatBody = nil
+    end
+    
+    if enabled and rootPart then
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
         bodyVelocity.Velocity = Vector3.new(0, 0, 0)
         bodyVelocity.Parent = rootPart
-        
-        connections.float = bodyVelocity
-    else
-        connections.float:Destroy()
-        connections.float = nil
+        connections.floatBody = bodyVelocity
     end
 end
 
-local function speedBoost(enabled)
+-- Funzione Speed Boost
+local function toggleSpeedBoost(enabled)
+    states.speedBoost = enabled
+    local humanoid = getHumanoid()
+    
+    if humanoid then
+        humanoid.WalkSpeed = enabled and config.walkSpeed or originalWalkSpeed
+    end
+end
+
+-- Funzione Noclip
+local function toggleNoclip(enabled)
+    states.noclip = enabled
+    
+    if connections.noclip then
+        connections.noclip:Disconnect()
+        connections.noclip = nil
+    end
+    
     if enabled then
-        humanoid.WalkSpeed = 100
+        connections.noclip = RunService.Stepped:Connect(function()
+            local character = getCharacter()
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
     else
-        humanoid.WalkSpeed = 16
-    end
-end
-
-local function createESP()
-    for _, targetPlayer in pairs(Players:GetPlayers()) do
-        if targetPlayer ~= player and targetPlayer.Character then
-            local character = targetPlayer.Character
-            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-            
-            if humanoidRootPart and not humanoidRootPart:FindFirstChild("ESP") then
-                local billboardGui = Instance.new("BillboardGui")
-                billboardGui.Name = "ESP"
-                billboardGui.Adornee = humanoidRootPart
-                billboardGui.Size = UDim2.new(0, 100, 0, 50)
-                billboardGui.StudsOffset = Vector3.new(0, 2, 0)
-                billboardGui.Parent = humanoidRootPart
-                
-                local frame = Instance.new("Frame")
-                frame.Size = UDim2.new(1, 0, 1, 0)
-                frame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                frame.BackgroundTransparency = 0.5
-                frame.BorderSizePixel = 2
-                frame.BorderColor3 = Color3.fromRGB(255, 255, 255)
-                frame.Parent = billboardGui
-                
-                if espNameEnabled then
-                    local nameLabel = Instance.new("TextLabel")
-                    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                    nameLabel.BackgroundTransparency = 1
-                    nameLabel.Text = targetPlayer.Name
-                    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    nameLabel.TextScaled = true
-                    nameLabel.Font = Enum.Font.SourceSansBold
-                    nameLabel.Parent = billboardGui
+        local character = getCharacter()
+        if character then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
                 end
             end
         end
     end
 end
 
-local function removeESP()
+-- Funzione Fly
+local function toggleFly(enabled)
+    states.fly = enabled
+    local rootPart = getRootPart()
+    
+    if connections.flyBody then
+        connections.flyBody:Destroy()
+        connections.flyBody = nil
+    end
+    
+    if connections.flyControl then
+        connections.flyControl:Disconnect()
+        connections.flyControl = nil
+    end
+    
+    if enabled and rootPart then
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.Parent = rootPart
+        connections.flyBody = bodyVelocity
+        
+        connections.flyControl = RunService.Heartbeat:Connect(function()
+            local camera = workspace.CurrentCamera
+            local moveVector = Vector3.new(0, 0, 0)
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveVector = moveVector + camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveVector = moveVector - camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveVector = moveVector - camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveVector = moveVector + camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveVector = moveVector + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveVector = moveVector - Vector3.new(0, 1, 0)
+            end
+            
+            bodyVelocity.Velocity = moveVector * config.flySpeed
+        end)
+    end
+end
+
+-- Funzioni ESP
+local function createPlayerESP(targetPlayer)
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+    
+    local character = targetPlayer.Character
+    local rootPart = character.HumanoidRootPart
+    
+    if rootPart:FindFirstChild("WaterHubESP") then
+        return
+    end
+    
+    local espGui = Instance.new("BillboardGui")
+    espGui.Name = "WaterHubESP"
+    espGui.Adornee = rootPart
+    espGui.Size = UDim2.new(0, 100, 0, 50)
+    espGui.StudsOffset = Vector3.new(0, 2, 0)
+    espGui.AlwaysOnTop = true
+    espGui.Parent = rootPart
+    
+    -- Box ESP
+    if states.espPlayers then
+        local espFrame = createModernFrame(espGui, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(255, 50, 50), 8, false)
+        espFrame.BackgroundTransparency = 0.3
+        espFrame.BorderSizePixel = 2
+        espFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        
+        local espGradient = createGradient(espFrame, Color3.fromRGB(255, 0, 0), Color3.fromRGB(255, 100, 100), 45)
+    end
+    
+    -- Name ESP
+    if states.espNames then
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(1, 0, 0, 25)
+        nameLabel.Position = UDim2.new(0, 0, 0, -30)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = targetPlayer.Name
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        nameLabel.TextScaled = true
+        nameLabel.Font = Enum.Font.SourceSansBold
+        nameLabel.TextStrokeTransparency = 0
+        nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        nameLabel.Parent = espGui
+    end
+end
+
+local function toggleESP(espType, enabled)
+    if espType == "players" then
+        states.espPlayers = enabled
+    elseif espType == "names" then
+        states.espNames = enabled
+    end
+    
+    -- Rimuovi tutti gli ESP esistenti
     for _, targetPlayer in pairs(Players:GetPlayers()) do
-        if targetPlayer.Character then
-            local esp = targetPlayer.Character:FindFirstChild("HumanoidRootPart"):FindFirstChild("ESP")
-            if esp then esp:Destroy() end
+        if targetPlayer ~= player and targetPlayer.Character then
+            local esp = targetPlayer.Character:FindFirstChild("HumanoidRootPart"):FindFirstChild("WaterHubESP")
+            if esp then
+                esp:Destroy()
+            end
         end
     end
+    
+    -- Disconnetti la connessione esistente
+    if connections.espUpdate then
+        connections.espUpdate:Disconnect()
+        connections.espUpdate = nil
+    end
+    
+    -- Se almeno uno è abilitato, avvia l'aggiornamento
+    if states.espPlayers or states.espNames then
+        connections.espUpdate = RunService.Heartbeat:Connect(function()
+            for _, targetPlayer in pairs(Players:GetPlayers()) do
+                if targetPlayer ~= player then
+                    createPlayerESP(targetPlayer)
+                end
+            end
+        end)
+    end
+end
+
+-- Funzione per creare pulsanti moderni
+local function createModernButton(parent, size, position, text, color, callback)
+    local button = createModernFrame(parent, size, position, color, 12, true)
+    
+    local gradient = createGradient(button, color, Color3.new(color.R * 0.8, color.G * 0.8, color.B * 0.8), 45)
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.Font = Enum.Font.SourceSansBold
+    label.Parent = button
+    
+    -- Effetti hover
+    button.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            TweenService:Create(button, TweenInfo.new(0.1), {Size = size - UDim2.new(0, 4, 0, 4)}):Play()
+            if callback then callback() end
+        elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.new(color.R * 1.2, color.G * 1.2, color.B * 1.2)}):Play()
+        end
+    end)
+    
+    button.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            TweenService:Create(button, TweenInfo.new(0.1), {Size = size}):Play()
+        elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+            TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
+        end
+    end)
+    
+    return button
 end
 
 -- Creazione GUI principale
 local function createMainGui()
     waterHubGui = Instance.new("ScreenGui")
-    waterHubGui.Name = "WaterHub"
+    waterHubGui.Name = "WaterHubUltra"
     waterHubGui.Parent = CoreGui
     waterHubGui.ResetOnSpawn = false
     
-    -- Frame principale
-    local mainFrame = createRoundedFrame(waterHubGui, UDim2.new(0, 400, 0, 350), UDim2.new(0.5, -200, 0.5, -175), Color3.fromRGB(40, 40, 40), 15)
-    mainFrame.BackgroundTransparency = 0.1
+    -- Frame principale con effetti avanzati
+    local mainFrame = createModernFrame(waterHubGui, UDim2.new(0, 450, 0, 400), UDim2.new(0.5, -225, 0.5, -200), Color3.fromRGB(25, 25, 25), 20, true)
+    mainFrame.BackgroundTransparency = 0.05
     makeDraggable(mainFrame)
     
-    -- Header
-    local header = createRoundedFrame(mainFrame, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), Color3.fromRGB(50, 50, 50), 15)
+    -- Gradiente principale
+    local mainGradient = createGradient(mainFrame, Color3.fromRGB(30, 30, 30), Color3.fromRGB(15, 15, 15), 135)
     
-    -- Titolo
+    -- Header con design premium
+    local header = createModernFrame(mainFrame, UDim2.new(1, 0, 0, 50), UDim2.new(0, 0, 0, 0), Color3.fromRGB(20, 20, 20), 20, false)
+    local headerGradient = createGradient(header, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 100, 200), 90)
+    
+    -- Titolo con effetti
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0, 200, 1, 0)
-    title.Position = UDim2.new(0, 10, 0, 0)
+    title.Size = UDim2.new(0, 250, 1, 0)
+    title.Position = UDim2.new(0, 15, 0, 0)
     title.BackgroundTransparency = 1
-    title.Text = "💧 Water Hub"
-    title.TextColor3 = Color3.fromRGB(0, 170, 255)
+    title.Text = "💧 WATER HUB ULTRA"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextScaled = true
     title.Font = Enum.Font.SourceSansBold
+    title.TextStrokeTransparency = 0.5
+    title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     title.Parent = header
     
-    -- Pulsante minimizza
-    local minimizeBtn = Instance.new("TextButton")
-    minimizeBtn.Size = UDim2.new(0, 30, 0, 25)
-    minimizeBtn.Position = UDim2.new(1, -70, 0, 7)
-    minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-    minimizeBtn.Text = "➖"
-    minimizeBtn.TextScaled = true
-    minimizeBtn.Font = Enum.Font.SourceSansBold
-    minimizeBtn.Parent = header
+    -- Pulsanti header
+    local minimizeBtn = createModernButton(header, UDim2.new(0, 35, 0, 30), UDim2.new(1, -80, 0, 10), "➖", Color3.fromRGB(255, 193, 7), function()
+        local isVisible = mainFrame.Visible
+        mainFrame.Visible = not isVisible
+        if not isVisible then
+            TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Size = UDim2.new(0, 450, 0, 400)}):Play()
+        end
+    end)
     
-    local corner1 = Instance.new("UICorner")
-    corner1.CornerRadius = UDim.new(0, 8)
-    corner1.Parent = minimizeBtn
+    local closeBtn = createModernButton(header, UDim2.new(0, 35, 0, 30), UDim2.new(1, -40, 0, 10), "❌", Color3.fromRGB(220, 53, 69), function()
+        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Size = UDim2.new(0, 0, 0, 0)}):Play()
+        wait(0.3)
+        waterHubGui:Destroy()
+    end)
     
-    -- Pulsante chiudi
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 30, 0, 25)
-    closeBtn.Position = UDim2.new(1, -35, 0, 7)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-    closeBtn.Text = "❌"
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.SourceSansBold
-    closeBtn.Parent = header
-    
-    local corner2 = Instance.new("UICorner")
-    corner2.CornerRadius = UDim.new(0, 8)
-    corner2.Parent = closeBtn
-    
-    -- Tabs
-    local tabsFrame = createRoundedFrame(mainFrame, UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 50), Color3.fromRGB(35, 35, 35), 10)
+    -- Sistema di tab migliorato
+    local tabsFrame = createModernFrame(mainFrame, UDim2.new(1, -20, 0, 45), UDim2.new(0, 10, 0, 60), Color3.fromRGB(35, 35, 35), 15, false)
     
     local tabs = {"Main", "Visual", "Misc", "Server"}
     local tabButtons = {}
     local contentFrames = {}
+    local activeTab = 1
     
     for i, tabName in ipairs(tabs) do
-        local tabBtn = Instance.new("TextButton")
-        tabBtn.Size = UDim2.new(0.25, -5, 1, 0)
-        tabBtn.Position = UDim2.new((i-1) * 0.25, 2, 0, 0)
-        tabBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        tabBtn.Text = tabName
-        tabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-        tabBtn.TextScaled = true
-        tabBtn.Font = Enum.Font.SourceSans
-        tabBtn.Parent = tabsFrame
+        local tabBtn = createModernFrame(tabsFrame, UDim2.new(0.25, -3, 1, -6), UDim2.new((i-1) * 0.25, 3, 0, 3), Color3.fromRGB(45, 45, 45), 12, false)
         
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = tabBtn
+        local tabLabel = Instance.new("TextLabel")
+        tabLabel.Size = UDim2.new(1, 0, 1, 0)
+        tabLabel.BackgroundTransparency = 1
+        tabLabel.Text = tabName
+        tabLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        tabLabel.TextScaled = true
+        tabLabel.Font = Enum.Font.SourceSansBold
+        tabLabel.Parent = tabBtn
         
-        tabButtons[i] = tabBtn
+        tabButtons[i] = {frame = tabBtn, label = tabLabel}
         
-        -- Content frame per ogni tab
-        local contentFrame = createRoundedFrame(mainFrame, UDim2.new(1, -20, 0, 220), UDim2.new(0, 10, 0, 100), Color3.fromRGB(45, 45, 45), 10)
+        -- Content frame
+        local contentFrame = createModernFrame(mainFrame, UDim2.new(1, -20, 0, 270), UDim2.new(0, 10, 0, 115), Color3.fromRGB(30, 30, 30), 15, false)
         contentFrame.Visible = (i == 1)
         contentFrames[i] = contentFrame
-    end
-    
-    -- Tab switching
-    for i, btn in ipairs(tabButtons) do
-        btn.MouseButton1Click:Connect(function()
-            for j, frame in ipairs(contentFrames) do
-                frame.Visible = (j == i)
-            end
-            for j, button in ipairs(tabButtons) do
-                button.BackgroundColor3 = (j == i) and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(60, 60, 60)
+        
+        -- Tab click handler
+        tabBtn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                -- Deseleziona tutti i tab
+                for j, tab in ipairs(tabButtons) do
+                    contentFrames[j].Visible = false
+                    tab.label.TextColor3 = Color3.fromRGB(180, 180, 180)
+                    tab.frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                end
+                
+                -- Seleziona il tab corrente
+                contentFrame.Visible = true
+                tabLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                tabBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+                activeTab = i
             end
         end)
     end
     
-    -- MAIN TAB CONTENT
+    -- Seleziona il primo tab di default
+    tabButtons[1].label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tabButtons[1].frame.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    
+    -- CONTENUTO TAB MAIN
     local mainContent = contentFrames[1]
     
     -- Infinite Jump
     local ijLabel = Instance.new("TextLabel")
-    ijLabel.Size = UDim2.new(0, 200, 0, 30)
+    ijLabel.Size = UDim2.new(0, 250, 0, 35)
     ijLabel.Position = UDim2.new(0, 20, 0, 20)
     ijLabel.BackgroundTransparency = 1
     ijLabel.Text = "🦘 Infinite Jump"
     ijLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     ijLabel.TextScaled = true
-    ijLabel.Font = Enum.Font.SourceSans
+    ijLabel.Font = Enum.Font.SourceSansBold
     ijLabel.TextXAlignment = Enum.TextXAlignment.Left
     ijLabel.Parent = mainContent
     
-    local ijSwitch = createSwitch(mainContent, UDim2.new(1, -70, 0, 25), function(enabled)
-        isInfiniteJumpEnabled = enabled
-        if enabled then
-            infiniteJump()
-        else
-            if connections.infiniteJump then
-                connections.infiniteJump:Disconnect()
-            end
-        end
+    local ijSwitch = createModernSwitch(mainContent, UDim2.new(1, -80, 0, 25), function(enabled)
+        toggleInfiniteJump(enabled)
     end)
     
     -- Float
     local floatLabel = Instance.new("TextLabel")
-    floatLabel.Size = UDim2.new(0, 200, 0, 30)
-    floatLabel.Position = UDim2.new(0, 20, 0, 60)
+    floatLabel.Size = UDim2.new(0, 250, 0, 35)
+    floatLabel.Position = UDim2.new(0, 20, 0, 65)
     floatLabel.BackgroundTransparency = 1
     floatLabel.Text = "🎈 Float"
     floatLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     floatLabel.TextScaled = true
-    floatLabel.Font = Enum.Font.SourceSans
+    floatLabel.Font = Enum.Font.SourceSansBold
     floatLabel.TextXAlignment = Enum.TextXAlignment.Left
     floatLabel.Parent = mainContent
     
-    local floatSwitch = createSwitch(mainContent, UDim2.new(1, -70, 0, 65), function(enabled)
-        float()
+    local floatSwitch = createModernSwitch(mainContent, UDim2.new(1, -80, 0, 70), function(enabled)
+        toggleFloat(enabled)
     end)
     
-    -- Teleport
-    local tpBtn = Instance.new("TextButton")
-    tpBtn.Size = UDim2.new(0, 150, 0, 30)
-    tpBtn.Position = UDim2.new(0, 20, 0, 100)
-    tpBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-    tpBtn.Text = "🚀 Teleport"
-    tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tpBtn.TextScaled = true
-    tpBtn.Font = Enum.Font.SourceSansBold
-    tpBtn.Parent = mainContent
+    -- Noclip
+    local noclipLabel = Instance.new("TextLabel")
+    noclipLabel.Size = UDim2.new(0, 250, 0, 35)
+    noclipLabel.Position = UDim2.new(0, 20, 0, 110)
+    noclipLabel.BackgroundTransparency = 1
+    noclipLabel.Text = "👻 Noclip"
+    noclipLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    noclipLabel.TextScaled = true
+    noclipLabel.Font = Enum.Font.SourceSansBold
+    noclipLabel.TextXAlignment = Enum.TextXAlignment.Left
+    noclipLabel.Parent = mainContent
     
-    local tpCorner = Instance.new("UICorner")
-    tpCorner.CornerRadius = UDim.new(0, 8)
-    tpCorner.Parent = tpBtn
+    local noclipSwitch = createModernSwitch(mainContent, UDim2.new(1, -80, 0, 115), function(enabled)
+        toggleNoclip(enabled)
+    end)
+    
+    -- Fly
+    local flyLabel = Instance.new("TextLabel")
+    flyLabel.Size = UDim2.new(0, 250, 0, 35)
+    flyLabel.Position = UDim2.new(0, 20, 0, 155)
+    flyLabel.BackgroundTransparency = 1
+    flyLabel.Text = "✈️ Fly (WASD + Space/Shift)"
+    flyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    flyLabel.TextScaled = true
+    flyLabel.Font = Enum.Font.SourceSansBold
+    flyLabel.TextXAlignment = Enum.TextXAlignment.Left
+    flyLabel.Parent = mainContent
+    
+    local flySwitch = createModernSwitch(mainContent, UDim2.new(1, -80, 0, 160), function(enabled)
+        toggleFly(enabled)
+    end)
     
     -- Speed Boost
     local speedLabel = Instance.new("TextLabel")
-    speedLabel.Size = UDim2.new(0, 200, 0, 30)
-    speedLabel.Position = UDim2.new(0, 20, 0, 140)
+    speedLabel.Size = UDim2.new(0, 250, 0, 35)
+    speedLabel.Position = UDim2.new(0, 20, 0, 200)
     speedLabel.BackgroundTransparency = 1
     speedLabel.Text = "⚡ Speed Boost"
     speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     speedLabel.TextScaled = true
-    speedLabel.Font = Enum.Font.SourceSans
+    speedLabel.Font = Enum.Font.SourceSansBold
     speedLabel.TextXAlignment = Enum.TextXAlignment.Left
     speedLabel.Parent = mainContent
     
-    local speedSwitch = createSwitch(mainContent, UDim2.new(1, -70, 0, 145), function(enabled)
-        speedBoost(enabled)
+    local speedSwitch = createModernSwitch(mainContent, UDim2.new(1, -80, 0, 205), function(enabled)
+        toggleSpeedBoost(enabled)
     end)
     
-    -- VISUAL TAB CONTENT
+    -- Teleport Button
+    createModernButton(mainContent, UDim2.new(0, 180, 0, 35), UDim2.new(0, 230, 0, 25), "🚀 Teleport Menu", Color3.fromRGB(138, 43, 226), function()
+        createTeleportGui()
+    end)
+    
+    -- CONTENUTO TAB VISUAL
     local visualContent = contentFrames[2]
     
     -- ESP Player
     local espLabel = Instance.new("TextLabel")
-    espLabel.Size = UDim2.new(0, 200, 0, 30)
+    espLabel.Size = UDim2.new(0, 250, 0, 35)
     espLabel.Position = UDim2.new(0, 20, 0, 20)
     espLabel.BackgroundTransparency = 1
     espLabel.Text = "👁️ ESP Player"
     espLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     espLabel.TextScaled = true
-    espLabel.Font = Enum.Font.SourceSans
+    espLabel.Font = Enum.Font.SourceSansBold
     espLabel.TextXAlignment = Enum.TextXAlignment.Left
     espLabel.Parent = visualContent
     
-    local espSwitch = createSwitch(visualContent, UDim2.new(1, -70, 0, 25), function(enabled)
-        espEnabled = enabled
-        if enabled then
-            createESP()
-            connections.espUpdate = RunService.Heartbeat:Connect(createESP)
-        else
-            removeESP()
-            if connections.espUpdate then
-                connections.espUpdate:Disconnect()
-            end
-        end
+    local espSwitch = createModernSwitch(visualContent, UDim2.new(1, -80, 0, 25), function(enabled)
+        toggleESP("players", enabled)
     end)
     
-    -- ESP Name
+    -- ESP Names
     local espNameLabel = Instance.new("TextLabel")
-    espNameLabel.Size = UDim2.new(0, 200, 0, 30)
-    espNameLabel.Position = UDim2.new(0, 20, 0, 60)
+    espNameLabel.Size = UDim2.new(0, 250, 0, 35)
+    espNameLabel.Position = UDim2.new(0, 20, 0, 70)
     espNameLabel.BackgroundTransparency = 1
-    espNameLabel.Text = "🏷️ ESP Name Player"
+    espNameLabel.Text = "🏷️ ESP Names"
     espNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     espNameLabel.TextScaled = true
-    espNameLabel.Font = Enum.Font.SourceSans
+    espNameLabel.Font = Enum.Font.SourceSansBold
     espNameLabel.TextXAlignment = Enum.TextXAlignment.Left
     espNameLabel.Parent = visualContent
     
-    local espNameSwitch = createSwitch(visualContent, UDim2.new(1, -70, 0, 65), function(enabled)
-        espNameEnabled = enabled
+    local espNameSwitch = createModernSwitch(visualContent, UDim2.new(1, -80, 0, 75), function(enabled)
+        toggleESP("names", enabled)
     end)
     
-    -- MISC TAB CONTENT
+    -- CONTENUTO TAB MISC
     local miscContent = contentFrames[3]
     
     local buyLabel = Instance.new("TextLabel")
-    buyLabel.Size = UDim2.new(1, -20, 0, 30)
+    buyLabel.Size = UDim2.new(1, -20, 0, 40)
     buyLabel.Position = UDim2.new(0, 10, 0, 20)
     buyLabel.BackgroundTransparency = 1
-    buyLabel.Text = "💰 Buy soon..."
-    buyLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    buyLabel.Text = "💰 More Features Coming Soon..."
+    buyLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
     buyLabel.TextScaled = true
     buyLabel.Font = Enum.Font.SourceSansItalic
     buyLabel.Parent = miscContent
     
     -- Auto Steal Button
-    local autoStealBtn = Instance.new("TextButton")
-    autoStealBtn.Size = UDim2.new(0, 200, 0, 40)
-    autoStealBtn.Position = UDim2.new(0, 20, 0, 60)
-    autoStealBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-    autoStealBtn.Text = "🔥 Auto Steal"
-    autoStealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    autoStealBtn.TextScaled = true
-    autoStealBtn.Font = Enum.Font.SourceSansBold
-    autoStealBtn.Parent = miscContent
-    
-    local autoStealCorner = Instance.new("UICorner")
-    autoStealCorner.CornerRadius = UDim.new(0, 10)
-    autoStealCorner.Parent = autoStealBtn
-    
-    -- Event handlers
-    closeBtn.MouseButton1Click:Connect(function()
-        waterHubGui:Destroy()
-    end)
-    
-    minimizeBtn.MouseButton1Click:Connect(function()
-        mainFrame.Visible = not mainFrame.Visible
-    end)
-    
-    -- Teleport GUI
-    tpBtn.MouseButton1Click:Connect(function()
-        createTeleportGui()
-    end)
-    
-    -- Auto Steal GUI
-    autoStealBtn.MouseButton1Click:Connect(function()
+    createModernButton(miscContent, UDim2.new(0, 250, 0, 45), UDim2.new(0, 20, 0, 80), "🔥 Auto Steal System", Color3.fromRGB(220, 53, 69), function()
         createAutoStealGui()
     end)
 end
 
--- GUI Teleport
+-- GUI Teleport migliorata
 function createTeleportGui()
     local tpGui = Instance.new("ScreenGui")
     tpGui.Name = "TeleportGui"
     tpGui.Parent = CoreGui
     
-    local tpFrame = createRoundedFrame(tpGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.5, -100, 0.3, 0), Color3.fromRGB(40, 40, 40), 12)
-    tpFrame.BackgroundTransparency = 0.1
+    local tpFrame = createModernFrame(tpGui, UDim2.new(0, 250, 0, 150), UDim2.new(0.5, -125, 0.3, 0), Color3.fromRGB(25, 25, 25), 18, true)
+    tpFrame.BackgroundTransparency = 0.05
     makeDraggable(tpFrame)
     
+    local tpGradient = createGradient(tpFrame, Color3.fromRGB(30, 30, 30), Color3.fromRGB(15, 15, 15), 135)
+    
+    local tpHeader = createModernFrame(tpFrame, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), Color3.fromRGB(138, 43, 226), 18, false)
+    local headerGrad = createGradient(tpHeader, Color3.fromRGB(138, 43, 226), Color3.fromRGB(100, 20, 180), 90)
+    
     local tpTitle = Instance.new("TextLabel")
-    tpTitle.Size = UDim2.new(1, -40, 0, 30)
-    tpTitle.Position = UDim2.new(0, 10, 0, 5)
+    tpTitle.Size = UDim2.new(1, -50, 1, 0)
+    tpTitle.Position = UDim2.new(0, 15, 0, 0)
     tpTitle.BackgroundTransparency = 1
-    tpTitle.Text = "🚀 Teleport"
-    tpTitle.TextColor3 = Color3.fromRGB(0, 170, 255)
+    tpTitle.Text = "🚀 Teleport Control"
+    tpTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     tpTitle.TextScaled = true
     tpTitle.Font = Enum.Font.SourceSansBold
-    tpTitle.Parent = tpFrame
+    tpTitle.Parent = tpHeader
     
-    local closeTPBtn = Instance.new("TextButton")
-    closeTPBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeTPBtn.Position = UDim2.new(1, -30, 0, 5)
-    closeTPBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-    closeTPBtn.Text = "❌"
-    closeTPBtn.TextScaled = true
-    closeTPBtn.Parent = tpFrame
-    
-    local upBtn = Instance.new("TextButton")
-    upBtn.Size = UDim2.new(0, 80, 0, 30)
-    upBtn.Position = UDim2.new(0, 20, 0, 45)
-    upBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-    upBtn.Text = "⬆️ UP"
-    upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    upBtn.TextScaled = true
-    upBtn.Font = Enum.Font.SourceSansBold
-    upBtn.Parent = tpFrame
-    
-    local downBtn = Instance.new("TextButton")
-    downBtn.Size = UDim2.new(0, 80, 0, 30)
-    downBtn.Position = UDim2.new(0, 110, 0, 45)
-    downBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    downBtn.Text = "⬇️ DOWN"
-    downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downBtn.TextScaled = true
-    downBtn.Font = Enum.Font.SourceSansBold
-    downBtn.Parent = tpFrame
-    
-    -- Angoli arrotondati per tutti i pulsanti
-    for _, btn in pairs({closeTPBtn, upBtn, downBtn}) do
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = btn
-    end
-    
-    -- Eventi
-    closeTPBtn.MouseButton1Click:Connect(function()
+    local closeTPBtn = createModernButton(tpHeader, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "❌", Color3.fromRGB(220, 53, 69), function()
         tpGui:Destroy()
     end)
     
-    upBtn.MouseButton1Click:Connect(function()
-        rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 156, 0)
+    createModernButton(tpFrame, UDim2.new(0, 100, 0, 40), UDim2.new(0, 20, 0, 60), "⬆️ UP (+156)", Color3.fromRGB(40, 167, 69), function()
+        local rootPart = getRootPart()
+        if rootPart then
+            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 156, 0)
+        end
     end)
     
-    downBtn.MouseButton1Click:Connect(function()
-        rootPart.CFrame = rootPart.CFrame + Vector3.new(0, -50, 0)
+    createModernButton(tpFrame, UDim2.new(0, 100, 0, 40), UDim2.new(0, 130, 0, 60), "⬇️ DOWN (-50)", Color3.fromRGB(220, 53, 69), function()
+        local rootPart = getRootPart()
+        if rootPart then
+            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, -50, 0)
+        end
     end)
 end
 
--- Auto Steal GUI
+-- Auto Steal GUI migliorata
 function createAutoStealGui()
     local stealGui = Instance.new("ScreenGui")
     stealGui.Name = "AutoStealGui"
     stealGui.Parent = CoreGui
     
-    local stealFrame = createRoundedFrame(stealGui, UDim2.new(0, 250, 0, 150), UDim2.new(0.5, -125, 0.4, 0), Color3.fromRGB(40, 40, 40), 12)
-    stealFrame.BackgroundTransparency = 0.1
+    local stealFrame = createModernFrame(stealGui, UDim2.new(0, 300, 0, 180), UDim2.new(0.5, -150, 0.4, 0), Color3.fromRGB(25, 25, 25), 18, true)
+    stealFrame.BackgroundTransparency = 0.05
     makeDraggable(stealFrame)
     
+    local stealGradient = createGradient(stealFrame, Color3.fromRGB(30, 30, 30), Color3.fromRGB(15, 15, 15), 135)
+    
+    local stealHeader = createModernFrame(stealFrame, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), Color3.fromRGB(220, 53, 69), 18, false)
+    local headerGrad = createGradient(stealHeader, Color3.fromRGB(220, 53, 69), Color3.fromRGB(180, 20, 40), 90)
+    
     local stealTitle = Instance.new("TextLabel")
-    stealTitle.Size = UDim2.new(1, -40, 0, 30)
-    stealTitle.Position = UDim2.new(0, 10, 0, 5)
+    stealTitle.Size = UDim2.new(1, -50, 1, 0)
+    stealTitle.Position = UDim2.new(0, 15, 0, 0)
     stealTitle.BackgroundTransparency = 1
-    stealTitle.Text = "🔑 Auto Steal Key"
-    stealTitle.TextColor3 = Color3.fromRGB(255, 100, 100)
+    stealTitle.Text = "🔑 Auto Steal System"
+    stealTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     stealTitle.TextScaled = true
     stealTitle.Font = Enum.Font.SourceSansBold
-    stealTitle.Parent = stealFrame
+    stealTitle.Parent = stealHeader
     
-    local keyBox = Instance.new("TextBox")
-    keyBox.Size = UDim2.new(1, -20, 0, 30)
-    keyBox.Position = UDim2.new(0, 10, 0, 40)
-    keyBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    keyBox.Text = "Enter Key..."
-    keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    keyBox.TextScaled = true
-    keyBox.Font = Enum.Font.SourceSans
-    keyBox.Parent = stealFrame
+    local keyBox = createModernFrame(stealFrame, UDim2.new(1, -40, 0, 35), UDim2.new(0, 20, 0, 60), Color3.fromRGB(45, 45, 45), 12, false)
     
-    local subscribeBtn = Instance.new("TextButton")
-    subscribeBtn.Size = UDim2.new(0, 100, 0, 30)
-    subscribeBtn.Position = UDim2.new(0, 10, 0, 80)
-    subscribeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    subscribeBtn.Text = "📺 Subscribe"
-    subscribeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    subscribeBtn.TextScaled = true
-    subscribeBtn.Font = Enum.Font.SourceSansBold
-    subscribeBtn.Parent = stealFrame
+    local keyInput = Instance.new("TextBox")
+    keyInput.Size = UDim2.new(1, -10, 1, 0)
+    keyInput.Position = UDim2.new(0, 5, 0, 0)
+    keyInput.BackgroundTransparency = 1
+    keyInput.Text = "Enter Key Here..."
+    keyInput.TextColor3 = Color3.fromRGB(200, 200, 200)
+    keyInput.TextScaled = true
+    keyInput.Font = Enum.Font.SourceSans
+    keyInput.Parent = keyBox
     
-    local enterBtn = Instance.new("TextButton")
-    enterBtn.Size = UDim2.new(0, 100, 0, 30)
-    enterBtn.Position = UDim2.new(0, 120, 0, 80)
-    enterBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-    enterBtn.Text = "✅ Enter"
-    enterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    enterBtn.TextScaled = true
-    enterBtn.Font = Enum.Font.SourceSansBold
-    enterBtn.Parent = stealFrame
+    createModernButton(stealFrame, UDim2.new(0, 120, 0, 35), UDim2.new(0, 20, 0, 110), "📺 Subscribe", Color3.fromRGB(255, 0, 0), function()
+        -- Simulazione subscribe
+    end)
     
-    -- Angoli arrotondati
-    for _, element in pairs({keyBox, subscribeBtn, enterBtn}) do
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = element
-    end
-    
-    enterBtn.MouseButton1Click:Connect(function()
+    createModernButton(stealFrame, UDim2.new(0, 120, 0, 35), UDim2.new(0, 150, 0, 110), "✅ Enter", Color3.fromRGB(40, 167, 69), function()
         stealGui:Destroy()
         createBaseGui()
     end)
 end
 
--- Base GUI
+-- Base GUI migliorata
 function createBaseGui()
     local baseGui = Instance.new("ScreenGui")
     baseGui.Name = "BaseGui"
     baseGui.Parent = CoreGui
     
-    local baseFrame = createRoundedFrame(baseGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.7, 0, 0.3, 0), Color3.fromRGB(40, 40, 40), 12)
-    baseFrame.BackgroundTransparency = 0.1
+    local baseFrame = createModernFrame(baseGui, UDim2.new(0, 280, 0, 160), UDim2.new(0.7, 0, 0.3, 0), Color3.fromRGB(25, 25, 25), 18, true)
+    baseFrame.BackgroundTransparency = 0.05
     makeDraggable(baseFrame)
     
+    local baseGradient = createGradient(baseFrame, Color3.fromRGB(30, 30, 30), Color3.fromRGB(15, 15, 15), 135)
+    
+    local baseHeader = createModernFrame(baseFrame, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), Color3.fromRGB(0, 123, 255), 18, false)
+    local headerGrad = createGradient(baseHeader, Color3.fromRGB(0, 123, 255), Color3.fromRGB(0, 80, 200), 90)
+    
     local baseTitle = Instance.new("TextLabel")
-    baseTitle.Size = UDim2.new(1, -40, 0, 30)
-    baseTitle.Position = UDim2.new(0, 10, 0, 5)
+    baseTitle.Size = UDim2.new(1, -50, 1, 0)
+    baseTitle.Position = UDim2.new(0, 15, 0, 0)
     baseTitle.BackgroundTransparency = 1
-    baseTitle.Text = "🏠 Base Setup"
-    baseTitle.TextColor3 = Color3.fromRGB(0, 170, 255)
+    baseTitle.Text = "🏠 Base Control System"
+    baseTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     baseTitle.TextScaled = true
     baseTitle.Font = Enum.Font.SourceSansBold
-    baseTitle.Parent = baseFrame
+    baseTitle.Parent = baseHeader
     
-    local setBaseBtn = Instance.new("TextButton")
-    setBaseBtn.Size = UDim2.new(1, -20, 0, 30)
-    setBaseBtn.Position = UDim2.new(0, 10, 0, 40)
-    setBaseBtn.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-    setBaseBtn.Text = "📍 Set Base"
-    setBaseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    setBaseBtn.TextScaled = true
-    setBaseBtn.Font = Enum.Font.SourceSansBold
-    setBaseBtn.Parent = baseFrame
-    
-    local flyToBaseBtn = Instance.new("TextButton")
-    flyToBaseBtn.Size = UDim2.new(1, -20, 0, 30)
-    flyToBaseBtn.Position = UDim2.new(0, 10, 0, 80)
-    flyToBaseBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-    flyToBaseBtn.Text = "✈️ Fly to Base"
-    flyToBaseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    flyToBaseBtn.TextScaled = true
-    flyToBaseBtn.Font = Enum.Font.SourceSansBold
-    flyToBaseBtn.Parent = baseFrame
-    
-    -- Angoli arrotondati
-    for _, btn in pairs({setBaseBtn, flyToBaseBtn}) do
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = btn
-    end
-    
-    setBaseBtn.MouseButton1Click:Connect(function()
-        basePosition = rootPart.Position
-        setBaseBtn.Text = "✅ Base Set!"
-        wait(1)
-        setBaseBtn.Text = "📍 Set Base"
+    createModernButton(baseFrame, UDim2.new(1, -40, 0, 40), UDim2.new(0, 20, 0, 60), "📍 Set Current Position as Base", Color3.fromRGB(255, 193, 7), function()
+        local rootPart = getRootPart()
+        if rootPart then
+            basePosition = rootPart.Position
+            local button = baseFrame:FindFirstChild("SetBaseButton")
+            if button then button.Text = "✅ Base Position Saved!" end
+            wait(2)
+            if button then button.Text = "📍 Set Current Position as Base" end
+        end
     end)
     
-    flyToBaseBtn.MouseButton1Click:Connect(function()
+    createModernButton(baseFrame, UDim2.new(1, -40, 0, 40), UDim2.new(0, 20, 0, 110), "✈️ Fly to Base (Auto Mode)", Color3.fromRGB(0, 200, 255), function()
         if basePosition then
             flyToBase()
             baseGui:Destroy()
@@ -632,70 +816,109 @@ function createBaseGui()
     end)
 end
 
--- Fly to Base function
+-- Fly to Base function migliorata
 function flyToBase()
+    local rootPart = getRootPart()
+    if not rootPart or not basePosition then return end
+    
     local bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
     bodyVelocity.Parent = rootPart
     
-    -- Vai a 165 di altezza
-    local highPosition = Vector3.new(basePosition.X, basePosition.Y + 165, basePosition.Z)
-    bodyVelocity.Velocity = (highPosition - rootPart.Position).Unit * flySpeed
+    local bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+    bodyAngularVelocity.MaxTorque = Vector3.new(4000, 4000, 4000)
+    bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+    bodyAngularVelocity.Parent = rootPart
     
-    -- Gira il personaggio all'indietro
+    -- Posizione target a 165 di altezza sopra la base
+    local targetPosition = Vector3.new(basePosition.X, basePosition.Y + 165, basePosition.Z)
+    
+    -- Orienta il personaggio all'indietro
     rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position - rootPart.CFrame.LookVector)
     
-    -- Aspetta di arrivare vicino alla base
+    -- Calcola direzione e velocità
+    local direction = (targetPosition - rootPart.Position).Unit
+    bodyVelocity.Velocity = direction * config.flySpeed
+    
+    -- Monitora il volo
     spawn(function()
         repeat
             RunService.Heartbeat:Wait()
-        until (rootPart.Position - highPosition).Magnitude < 10
+            local distance = (rootPart.Position - targetPosition).Magnitude
+            if distance > 10 then
+                direction = (targetPosition - rootPart.Position).Unit
+                bodyVelocity.Velocity = direction * config.flySpeed
+            end
+        until (rootPart.Position - targetPosition).Magnitude < 10
         
+        -- Ferma il volo
         bodyVelocity:Destroy()
+        bodyAngularVelocity:Destroy()
         
-        -- Crea pulsante Down
+        -- Crea pulsante down
         createDownButton()
     end)
 end
 
--- Down Button
+-- Down Button migliorato
 function createDownButton()
     local downGui = Instance.new("ScreenGui")
     downGui.Name = "DownGui"
     downGui.Parent = CoreGui
     
-    local downBtn = Instance.new("TextButton")
-    downBtn.Size = UDim2.new(0, 100, 0, 50)
-    downBtn.Position = UDim2.new(0.5, -50, 0.8, 0)
-    downBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    downBtn.Text = "⬇️ DOWN"
-    downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downBtn.TextScaled = true
-    downBtn.Font = Enum.Font.SourceSansBold
-    downBtn.Parent = downGui
+    local downBtn = createModernFrame(downGui, UDim2.new(0, 120, 0, 60), UDim2.new(0.5, -60, 0.8, 0), Color3.fromRGB(220, 53, 69), 20, true)
+    downBtn.BackgroundTransparency = 0.1
     
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 15)
-    corner.Parent = downBtn
+    local downGradient = createGradient(downBtn, Color3.fromRGB(220, 53, 69), Color3.fromRGB(180, 20, 40), 45)
     
-    downBtn.MouseButton1Click:Connect(function()
-        rootPart.CFrame = CFrame.new(basePosition)
-        downGui:Destroy()
+    local downLabel = Instance.new("TextLabel")
+    downLabel.Size = UDim2.new(1, 0, 1, 0)
+    downLabel.BackgroundTransparency = 1
+    downLabel.Text = "⬇️ LAND"
+    downLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    downLabel.TextScaled = true
+    downLabel.Font = Enum.Font.SourceSansBold
+    downLabel.TextStrokeTransparency = 0.5
+    downLabel.Parent = downBtn
+    
+    -- Animazione pulsante
+    local pulseAnimation = TweenService:Create(downBtn, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Size = UDim2.new(0, 130, 0, 65)})
+    pulseAnimation:Play()
+    
+    downBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local rootPart = getRootPart()
+            if rootPart and basePosition then
+                rootPart.CFrame = CFrame.new(basePosition)
+                pulseAnimation:Cancel()
+                downGui:Destroy()
+            end
+        end
     end)
 end
 
--- Inizializza tutto
-createMainGui()
-
--- Cleanup quando il player esce
+-- Gestione cleanup
 Players.PlayerRemoving:Connect(function(leavingPlayer)
     if leavingPlayer == player then
         for _, connection in pairs(connections) do
-            if connection and connection.Disconnect then
+            if connection and typeof(connection) == "RBXScriptConnection" then
                 connection:Disconnect()
             elseif connection and connection.Destroy then
                 connection:Destroy()
             end
         end
+    end
+end)
+
+-- Inizializzazione
+spawn(function()
+    wait(1) -- Attende che tutto sia caricato
+    createMainGui()
+    
+    -- Animazione di entrata
+    local mainFrame = waterHubGui:FindFirstChild("Frame")
+    if mainFrame then
+        mainFrame.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 450, 0, 400)}):Play()
     end
 end)
