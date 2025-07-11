@@ -1,123 +1,153 @@
 local Luna = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nebula-Softworks/Luna-Interface-Suite/refs/heads/master/source.lua", true))()
 
--- Configurazione iniziale
+-- Configurazione finestra principale
 local WaterHub = Luna:CreateWindow({
     Name = "WATER HUB",
-    Themeable = {
-        Info = "Theme: Aqua"
-    }
+    Subtitle = "Premium Script Hub",
+    LogoID = "11848239866", -- Logo stile acqua
+    LoadingEnabled = true,
+    LoadingTitle = "WATER HUB",
+    LoadingSubtitle = "Loading Premium Features...",
+    
+    ConfigSettings = {
+        ConfigFolder = "WaterHubConfigs"
+    },
+    
+    KeySystem = false
 })
 
--- Tabs principali
-local MainTab = WaterHub:CreateTab("Main", "rbxassetid://4483345998")
-local ESPTab = WaterHub:CreateTab("ESP", "rbxassetid://4483345998")
-local ServerTab = WaterHub:CreateTab("Server", "rbxassetid://4483345998")
-local MiscTab = WaterHub:CreateTab("Misc", "rbxassetid://4483345998")
+-- Creazione tabs
+local MainTab = WaterHub:CreateTab("Main", "water_drop", "Lucide")
+local ESPTab = WaterHub:CreateTab("ESP", "user", "Lucide")
+local ServerTab = WaterHub:CreateTab("Server", "server", "Lucide")
+local MiscTab = WaterHub:CreateTab("Misc", "settings", "Lucide")
 
--- Funzioni principali
+-- Variabili globali
 local InfiniteJumpEnabled = false
 local GodModeEnabled = false
+local ESPEnabled = false
+local ESPObjects = {}
+
+-- ======= [ FUNZIONALITÀ MAIN TAB ] ======= --
+MainTab:CreateSection("Movement")
 
 -- Infinite Jump
-game:GetService("UserInputService").JumpRequest:Connect(function()
-    if InfiniteJumpEnabled then
-        game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+local InfiniteJumpToggle = MainTab:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Callback = function(Value)
+        InfiniteJumpEnabled = Value
     end
-end)
+}, "InfiniteJumpToggle")
 
 -- God Mode
-spawn(function()
-    while wait() do
-        if GodModeEnabled and game.Players.LocalPlayer.Character then
-            local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.Health = 100
-                humanoid.MaxHealth = 100
-            end
+local GodModeToggle = MainTab:CreateToggle({
+    Name = "God Mode",
+    CurrentValue = false,
+    Callback = function(Value)
+        GodModeEnabled = Value
+        if GodModeEnabled then
+            Luna:Notification({
+                Title = "God Mode Enabled",
+                Icon = "shield",
+                Content = "You are now invincible!",
+                ImageSource = "Lucide"
+            })
         end
     end
-end)
+}, "GodModeToggle")
 
--- Teleport Helper GUI
-local teleportFrame = Instance.new("Frame")
-teleportFrame.Size = UDim2.new(0, 100, 0, 60)
-teleportFrame.Position = UDim2.new(0.5, -50, 1, -100)
-teleportFrame.BackgroundTransparency = 0.7
-teleportFrame.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-teleportFrame.Visible = false
-teleportFrame.Parent = game.CoreGui
+-- Teleport Helper
+MainTab:CreateSection("Teleportation")
 
-local upButton = Instance.new("TextButton")
-upButton.Size = UDim2.new(1, 0, 0.5, 0)
-upButton.Text = "UP (+165)"
-upButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-upButton.Parent = teleportFrame
+local TeleportHelperToggle = MainTab:CreateToggle({
+    Name = "Teleport Helper GUI",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            TeleportGUI.Enabled = true
+        else
+            TeleportGUI.Enabled = false
+        end
+    end
+}, "TeleportHelperToggle")
 
-local downButton = Instance.new("TextButton")
-downButton.Size = UDim2.new(1, 0, 0.5, 0)
-downButton.Position = UDim2.new(0, 0, 0.5, 0)
-downButton.Text = "DOWN (-50)"
-downButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-downButton.Parent = teleportFrame
+-- GUI Teleport Helper
+local TeleportGUI = Instance.new("ScreenGui")
+TeleportGUI.Name = "WaterHubTeleportGUI"
+TeleportGUI.Enabled = false
+TeleportGUI.Parent = game.CoreGui
 
-upButton.MouseButton1Click:Connect(function()
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 120, 0, 80)
+Frame.Position = UDim2.new(0.85, 0, 0.7, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+Frame.BackgroundTransparency = 0.3
+Frame.Parent = TeleportGUI
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = Frame
+
+local UpButton = Instance.new("TextButton")
+UpButton.Size = UDim2.new(0.9, 0, 0.4, 0)
+UpButton.Position = UDim2.new(0.05, 0, 0.05, 0)
+UpButton.Text = "UP (+165)"
+UpButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+UpButton.Parent = Frame
+
+local DownButton = Instance.new("TextButton")
+DownButton.Size = UDim2.new(0.9, 0, 0.4, 0)
+DownButton.Position = UDim2.new(0.05, 0, 0.55, 0)
+DownButton.Text = "DOWN (-50)"
+DownButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+DownButton.Parent = Frame
+
+UICorner:Clone().Parent = UpButton
+UICorner:Clone().Parent = DownButton
+
+UpButton.MouseButton1Click:Connect(function()
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame * CFrame.new(0, 165, 0)
     end
 end)
 
-downButton.MouseButton1Click:Connect(function()
+DownButton.MouseButton1Click:Connect(function()
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame * CFrame.new(0, -50, 0)
     end
 end)
 
--- Elementi UI per Main Tab
-MainTab:CreateToggle({
-    Name = "Infinite Jump",
-    Callback = function(Value)
-        InfiniteJumpEnabled = Value
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "God Mode",
-    Callback = function(Value)
-        GodModeEnabled = Value
-    end
-})
-
-MainTab:CreateToggle({
-    Name = "Teleport Helper",
-    Callback = function(Value)
-        teleportFrame.Visible = Value
-    end
-})
-
--- ESP avanzato
-local ESPEnabled = false
-local ESPObjects = {}
-
+-- ======= [ SISTEMA ESP ] ======= --
 local function createESP(player)
+    if player == game.Players.LocalPlayer then return end
+    
     local character = player.Character
     if not character then return end
     
     local Box = Drawing.new("Quad")
     Box.Visible = false
-    Box.Color = Color3.new(0, 1, 1)
+    Box.Color = Color3.fromRGB(0, 255, 255)
     Box.Thickness = 2
     Box.Filled = false
     
     local Tracer = Drawing.new("Line")
     Tracer.Visible = false
-    Tracer.Color = Color3.new(0, 1, 1)
+    Tracer.Color = Color3.fromRGB(0, 200, 255)
     Tracer.Thickness = 2
+    
+    local NameLabel = Drawing.new("Text")
+    NameLabel.Visible = false
+    NameLabel.Color = Color3.fromRGB(150, 255, 255)
+    NameLabel.Size = 18
+    NameLabel.Outline = true
     
     ESPObjects[player] = {
         Box = Box,
         Tracer = Tracer,
+        Name = NameLabel,
         Player = player
     }
 end
@@ -126,42 +156,45 @@ local function updateESP()
     for player, esp in pairs(ESPObjects) do
         if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local rootPart = player.Character.HumanoidRootPart
+            local head = player.Character:FindFirstChild("Head")
             local rootPos, rootVis = workspace.CurrentCamera:WorldToViewportPoint(rootPart.Position)
             
             if rootVis then
-                local head = player.Character:FindFirstChild("Head")
+                -- Calcolo dimensioni dinamiche
                 local size = head and (head.Position - rootPart.Position).Magnitude * 1.5 or 5
                 
                 -- Aggiorna Box ESP
-                local corners = {
-                    Vector2.new(rootPos.X - size, rootPos.Y - size),
-                    Vector2.new(rootPos.X + size, rootPos.Y - size),
-                    Vector2.new(rootPos.X + size, rootPos.Y + size),
-                    Vector2.new(rootPos.X - size, rootPos.Y + size)
-                }
-                
-                esp.Box.PointA = corners[1]
-                esp.Box.PointB = corners[2]
-                esp.Box.PointC = corners[3]
-                esp.Box.PointD = corners[4]
-                esp.Box.Visible = ESPEnabled
+                esp.Box.PointA = Vector2.new(rootPos.X - size, rootPos.Y - size)
+                esp.Box.PointB = Vector2.new(rootPos.X + size, rootPos.Y - size)
+                esp.Box.PointC = Vector2.new(rootPos.X + size, rootPos.Y + size)
+                esp.Box.PointD = Vector2.new(rootPos.X - size, rootPos.Y + size)
                 
                 -- Aggiorna Tracer
                 esp.Tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y)
                 esp.Tracer.To = Vector2.new(rootPos.X, rootPos.Y)
+                
+                -- Aggiorna Nome
+                esp.Name.Position = Vector2.new(rootPos.X, rootPos.Y - size - 20)
+                esp.Name.Text = player.Name
+                
+                -- Visibilità
+                esp.Box.Visible = ESPEnabled
                 esp.Tracer.Visible = ESPEnabled
+                esp.Name.Visible = ESPEnabled
             else
                 esp.Box.Visible = false
                 esp.Tracer.Visible = false
+                esp.Name.Visible = false
             end
         else
             esp.Box.Visible = false
             esp.Tracer.Visible = false
+            esp.Name.Visible = false
         end
     end
 end
 
--- Gestione player ESP
+-- Gestione player
 game.Players.PlayerAdded:Connect(function(player)
     createESP(player)
 end)
@@ -170,28 +203,25 @@ game.Players.PlayerRemoving:Connect(function(player)
     if ESPObjects[player] then
         ESPObjects[player].Box:Remove()
         ESPObjects[player].Tracer:Remove()
+        ESPObjects[player].Name:Remove()
         ESPObjects[player] = nil
     end
 end)
 
 for _, player in ipairs(game.Players:GetPlayers()) do
-    if player ~= game.Players.LocalPlayer then
-        createESP(player)
-    end
+    createESP(player)
 end
 
-runService = game:GetService("RunService")
-runService.RenderStepped:Connect(updateESP)
-
--- Elementi UI per ESP Tab
+-- Elemento UI per ESP
 ESPTab:CreateToggle({
     Name = "Player ESP",
+    CurrentValue = false,
     Callback = function(Value)
         ESPEnabled = Value
     end
-})
+}, "PlayerESPToggle")
 
--- Funzioni Server
+-- ======= [ FUNZIONI SERVER ] ======= --
 ServerTab:CreateButton({
     Name = "Rejoin Server",
     Callback = function()
@@ -209,9 +239,21 @@ ServerTab:CreateButton({
 ServerTab:CreateButton({
     Name = "Server Hop",
     Callback = function()
-        local servers = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-        for _, server in ipairs(servers.data) do
-            if server.id ~= game.JobId then
+        Luna:Notification({
+            Title = "Server Hop",
+            Icon = "refresh-cw",
+            Content = "Finding new server...",
+            ImageSource = "Lucide"
+        })
+        
+        local servers = {}
+        local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")
+        if req then
+            servers = game:GetService("HttpService"):JSONDecode(req).data
+        end
+
+        for _, server in ipairs(servers) do
+            if server.id ~= game.JobId and server.playing < server.maxPlayers then
                 game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, server.id)
                 break
             end
@@ -219,13 +261,56 @@ ServerTab:CreateButton({
     end
 })
 
--- Misc Tab
-MiscTab:CreateLabel("Coming Soon...")
+-- ======= [ MISC TAB ] ======= --
+MiscTab:CreateParagraph({
+    Title = "Coming Soon",
+    Text = "More features will be added in future updates! Stay tuned."
+})
 
--- UI Design migliorato
+-- ======= [ CONFIGURAZIONI FINALI ] ======= --
+-- Applicazione tema
 Luna:ApplyTheme("Aurora")
-Luna:SetWatermark("WATER HUB v1.0")
-Luna:Notify("Water Hub", "Successfully loaded!", 5)
 
--- Inizializzazione
-teleportFrame.Visible = false
+-- Watermark personalizzato
+Luna:SetWatermark("WATER HUB v1.2 | " .. game.Players.LocalPlayer.Name)
+
+-- Notifica iniziale
+Luna:Notification({
+    Title = "WATER HUB LOADED",
+    Icon = "check",
+    Content = "Premium features activated!",
+    Duration = 5,
+    ImageSource = "Lucide"
+})
+
+-- Loop funzionalità principali
+game:GetService("RunService").Heartbeat:Connect(function()
+    -- Infinite Jump
+    if InfiniteJumpEnabled then
+        game:GetService("UserInputService").JumpRequest:Connect(function()
+            local char = game.Players.LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum:ChangeState("Jumping")
+                end
+            end
+        end)
+    end
+    
+    -- God Mode
+    if GodModeEnabled and game.Players.LocalPlayer.Character then
+        local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Health = humanoid.MaxHealth
+        end
+    end
+    
+    -- Aggiornamento ESP
+    if ESPEnabled then
+        updateESP()
+    end
+end)
+
+-- Caricamento configurazioni
+Luna:LoadAutoloadConfig()
