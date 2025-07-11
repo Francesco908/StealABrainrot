@@ -1,5 +1,5 @@
--- Water Hub Script - Versione Ottimizzata e Funzionale
--- Tutti i bug risolti, GUI completamente operativa
+-- Water Hub Script - Versione Completamente Corretta e Ottimizzata
+-- Tutti i bug risolti, GUI completamente operativa e movibile
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -28,6 +28,7 @@ local floatBody = nil
 local flyBody = nil
 local basePosition = nil
 local originalWalkSpeed = 16
+local characterAddedConnection = nil
 
 -- Funzione per ottenere character in modo sicuro
 local function getCharacter()
@@ -41,7 +42,7 @@ end
 
 local function getRootPart()
     local char = getCharacter()
-    return char and char:FindFirstChild("HumanoidRootPart")
+    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
 end
 
 -- Funzione per creare frame arrotondati
@@ -62,25 +63,33 @@ local function createFrame(parent, size, position, color, transparency)
 end
 
 -- Funzione per creare switch funzionanti
-local function createSwitch(parent, position, callback)
+local function createSwitch(parent, position, callback, initialState)
     local switchFrame = createFrame(parent, UDim2.new(0, 50, 0, 25), position, Color3.fromRGB(70, 70, 70), 0)
+    switchFrame.Active = true
     
     local switchButton = createFrame(switchFrame, UDim2.new(0, 21, 0, 21), UDim2.new(0, 2, 0, 2), Color3.fromRGB(255, 255, 255), 0)
     
-    local isOn = false
+    local isOn = initialState or false
     
-    local function toggle()
-        isOn = not isOn
-        
-        -- Animazione posizione
+    local function updateVisual(instant)
         local targetPos = isOn and UDim2.new(0, 27, 0, 2) or UDim2.new(0, 2, 0, 2)
         local targetColor = isOn and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(70, 70, 70)
         
-        local tween1 = TweenService:Create(switchButton, TweenInfo.new(0.2), {Position = targetPos})
-        local tween2 = TweenService:Create(switchFrame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor})
-        
-        tween1:Play()
-        tween2:Play()
+        if instant then
+            switchButton.Position = targetPos
+            switchFrame.BackgroundColor3 = targetColor
+        else
+            local tween1 = TweenService:Create(switchButton, TweenInfo.new(0.2), {Position = targetPos})
+            local tween2 = TweenService:Create(switchFrame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor})
+            
+            tween1:Play()
+            tween2:Play()
+        end
+    end
+    
+    local function toggle()
+        isOn = not isOn
+        updateVisual(false)
         
         if callback then
             callback(isOn)
@@ -88,43 +97,54 @@ local function createSwitch(parent, position, callback)
     end
     
     switchFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             toggle()
         end
     end)
     
+    -- Set initial state
+    if initialState then
+        updateVisual(true)
+    end
+    
     return switchFrame, toggle
 end
 
--- Funzione per rendere draggable
+-- Funzione migliorata per rendere draggable
 local function makeDraggable(frame)
     local dragToggle = nil
     local dragStart = nil
     local startPos = nil
     
+    local function updateDrag(input)
+        if dragToggle then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end
+    
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragToggle = true
             dragStart = input.Position
             startPos = frame.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragToggle = false
-                end
-            end)
+        end
+    end)
+    
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragToggle = false
         end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragToggle then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            updateDrag(input)
         end
     end)
 end
 
--- Funzioni principali
+-- Funzioni principali migliorate
 local function toggleInfiniteJump(enabled)
     states.infiniteJump = enabled
     
@@ -145,18 +165,20 @@ end
 
 local function toggleFloat(enabled)
     states.float = enabled
-    local rootPart = getRootPart()
     
     if floatBody then
         floatBody:Destroy()
         floatBody = nil
     end
     
-    if enabled and rootPart then
-        floatBody = Instance.new("BodyVelocity")
-        floatBody.MaxForce = Vector3.new(4000, 4000, 4000)
-        floatBody.Velocity = Vector3.new(0, 0, 0)
-        floatBody.Parent = rootPart
+    if enabled then
+        local rootPart = getRootPart()
+        if rootPart then
+            floatBody = Instance.new("BodyVelocity")
+            floatBody.MaxForce = Vector3.new(4000, 4000, 4000)
+            floatBody.Velocity = Vector3.new(0, 0, 0)
+            floatBody.Parent = rootPart
+        end
     end
 end
 
@@ -207,7 +229,6 @@ end
 
 local function toggleFly(enabled)
     states.fly = enabled
-    local rootPart = getRootPart()
     
     if flyBody then
         flyBody:Destroy()
@@ -219,39 +240,45 @@ local function toggleFly(enabled)
         connections.flyControl = nil
     end
     
-    if enabled and rootPart then
-        flyBody = Instance.new("BodyVelocity")
-        flyBody.MaxForce = Vector3.new(4000, 4000, 4000)
-        flyBody.Velocity = Vector3.new(0, 0, 0)
-        flyBody.Parent = rootPart
-        
-        connections.flyControl = RunService.Heartbeat:Connect(function()
-            if not flyBody or not flyBody.Parent then return end
+    if enabled then
+        local rootPart = getRootPart()
+        if rootPart then
+            flyBody = Instance.new("BodyVelocity")
+            flyBody.MaxForce = Vector3.new(4000, 4000, 4000)
+            flyBody.Velocity = Vector3.new(0, 0, 0)
+            flyBody.Parent = rootPart
             
-            local camera = workspace.CurrentCamera
-            local moveVector = Vector3.new(0, 0, 0)
-            
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                moveVector = moveVector + camera.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                moveVector = moveVector - camera.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                moveVector = moveVector - camera.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                moveVector = moveVector + camera.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                moveVector = moveVector + Vector3.new(0, 1, 0)
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                moveVector = moveVector - Vector3.new(0, 1, 0)
-            end
-            
-            flyBody.Velocity = moveVector * 50
-        end)
+            connections.flyControl = RunService.Heartbeat:Connect(function()
+                if not flyBody or not flyBody.Parent then 
+                    states.fly = false
+                    return 
+                end
+                
+                local camera = workspace.CurrentCamera
+                local moveVector = Vector3.new(0, 0, 0)
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    moveVector = moveVector + camera.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    moveVector = moveVector - camera.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    moveVector = moveVector - camera.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    moveVector = moveVector + camera.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    moveVector = moveVector + Vector3.new(0, 1, 0)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                    moveVector = moveVector - Vector3.new(0, 1, 0)
+                end
+                
+                flyBody.Velocity = moveVector * 50
+            end)
+        end
     end
 end
 
@@ -263,8 +290,10 @@ local function createPlayerESP(targetPlayer)
     local character = targetPlayer.Character
     local rootPart = character.HumanoidRootPart
     
-    if rootPart:FindFirstChild("WaterHubESP") then
-        return
+    -- Rimuovi ESP esistente prima di crearne uno nuovo
+    local existingESP = rootPart:FindFirstChild("WaterHubESP")
+    if existingESP then
+        existingESP:Destroy()
     end
     
     local espGui = Instance.new("BillboardGui")
@@ -344,6 +373,7 @@ local function createMinimizedIcon()
     minimizedIcon.ResetOnSpawn = false
     
     local iconFrame = createFrame(minimizedIcon, UDim2.new(0, 60, 0, 60), UDim2.new(0, 10, 0, 10), Color3.fromRGB(0, 170, 255), 0.1)
+    iconFrame.Active = true
     makeDraggable(iconFrame)
     
     local iconLabel = Instance.new("TextLabel")
@@ -356,7 +386,8 @@ local function createMinimizedIcon()
     iconLabel.Parent = iconFrame
     
     iconFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            wait(0.1) -- Prevent double click
             minimizedIcon:Destroy()
             minimizedIcon = nil
             createMainGui()
@@ -375,8 +406,9 @@ local function createMainGui()
     waterHubGui.Parent = CoreGui
     waterHubGui.ResetOnSpawn = false
     
-    -- Frame principale più piccolo
+    -- Frame principale
     local mainFrame = createFrame(waterHubGui, UDim2.new(0, 350, 0, 300), UDim2.new(0.5, -175, 0.5, -150), Color3.fromRGB(30, 30, 30), 0.05)
+    mainFrame.Active = true
     makeDraggable(mainFrame)
     
     -- Header
@@ -482,7 +514,7 @@ local function createMainGui()
     
     local ijSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 15), function(enabled)
         toggleInfiniteJump(enabled)
-    end)
+    end, states.infiniteJump)
     
     -- Float
     local floatLabel = Instance.new("TextLabel")
@@ -498,7 +530,7 @@ local function createMainGui()
     
     local floatSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 45), function(enabled)
         toggleFloat(enabled)
-    end)
+    end, states.float)
     
     -- Speed Boost
     local speedLabel = Instance.new("TextLabel")
@@ -514,7 +546,7 @@ local function createMainGui()
     
     local speedSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 75), function(enabled)
         toggleSpeedBoost(enabled)
-    end)
+    end, states.speedBoost)
     
     -- Noclip
     local noclipLabel = Instance.new("TextLabel")
@@ -530,7 +562,7 @@ local function createMainGui()
     
     local noclipSwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 105), function(enabled)
         toggleNoclip(enabled)
-    end)
+    end, states.noclip)
     
     -- Fly
     local flyLabel = Instance.new("TextLabel")
@@ -546,12 +578,12 @@ local function createMainGui()
     
     local flySwitch = createSwitch(mainContent, UDim2.new(1, -65, 0, 135), function(enabled)
         toggleFly(enabled)
-    end)
+    end, states.fly)
     
     -- Teleport Button
     local tpBtn = Instance.new("TextButton")
     tpBtn.Size = UDim2.new(0, 120, 0, 25)
-    tpBtn.Position = UDim2.new(0, 200, 0, 165)
+    tpBtn.Position = UDim2.new(0, 15, 0, 165)
     tpBtn.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
     tpBtn.Text = "🚀 Teleport"
     tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -563,6 +595,22 @@ local function createMainGui()
     local tpCorner = Instance.new("UICorner")
     tpCorner.CornerRadius = UDim.new(0, 6)
     tpCorner.Parent = tpBtn
+    
+    -- Base Button
+    local baseBtn = Instance.new("TextButton")
+    baseBtn.Size = UDim2.new(0, 120, 0, 25)
+    baseBtn.Position = UDim2.new(0, 145, 0, 165)
+    baseBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+    baseBtn.Text = "🏠 Base"
+    baseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    baseBtn.TextScaled = true
+    baseBtn.Font = Enum.Font.SourceSansBold
+    baseBtn.BorderSizePixel = 0
+    baseBtn.Parent = mainContent
+    
+    local baseCorner = Instance.new("UICorner")
+    baseCorner.CornerRadius = UDim.new(0, 6)
+    baseCorner.Parent = baseBtn
     
     -- CONTENUTO TAB VISUAL
     local visualContent = contentFrames[2]
@@ -581,7 +629,7 @@ local function createMainGui()
     
     local espSwitch = createSwitch(visualContent, UDim2.new(1, -65, 0, 15), function(enabled)
         toggleESP("players", enabled)
-    end)
+    end, states.espPlayers)
     
     -- ESP Names
     local espNameLabel = Instance.new("TextLabel")
@@ -597,7 +645,7 @@ local function createMainGui()
     
     local espNameSwitch = createSwitch(visualContent, UDim2.new(1, -65, 0, 50), function(enabled)
         toggleESP("names", enabled)
-    end)
+    end, states.espNames)
     
     -- CONTENUTO TAB MISC
     local miscContent = contentFrames[3]
@@ -628,8 +676,40 @@ local function createMainGui()
     autoStealCorner.CornerRadius = UDim.new(0, 8)
     autoStealCorner.Parent = autoStealBtn
     
+    -- CONTENUTO TAB SERVER
+    local serverContent = contentFrames[4]
+    
+    local serverLabel = Instance.new("TextLabel")
+    serverLabel.Size = UDim2.new(1, -20, 0, 30)
+    serverLabel.Position = UDim2.new(0, 10, 0, 15)
+    serverLabel.BackgroundTransparency = 1
+    serverLabel.Text = "🌐 Server Features Coming Soon..."
+    serverLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    serverLabel.TextScaled = true
+    serverLabel.Font = Enum.Font.SourceSansItalic
+    serverLabel.Parent = serverContent
+    
     -- Event handlers
     closeBtn.MouseButton1Click:Connect(function()
+        -- Disattiva tutte le funzioni prima di chiudere
+        for stateName, _ in pairs(states) do
+            if states[stateName] then
+                if stateName == "infiniteJump" then
+                    toggleInfiniteJump(false)
+                elseif stateName == "float" then
+                    toggleFloat(false)
+                elseif stateName == "speedBoost" then
+                    toggleSpeedBoost(false)
+                elseif stateName == "noclip" then
+                    toggleNoclip(false)
+                elseif stateName == "fly" then
+                    toggleFly(false)
+                elseif stateName == "espPlayers" or stateName == "espNames" then
+                    toggleESP(stateName == "espPlayers" and "players" or "names", false)
+                end
+            end
+        end
+        
         waterHubGui:Destroy()
         if minimizedIcon then
             minimizedIcon:Destroy()
@@ -648,6 +728,10 @@ local function createMainGui()
     autoStealBtn.MouseButton1Click:Connect(function()
         createAutoStealGui()
     end)
+    
+    baseBtn.MouseButton1Click:Connect(function()
+        createBaseGui()
+    end)
 end
 
 -- GUI Teleport
@@ -657,6 +741,7 @@ function createTeleportGui()
     tpGui.Parent = CoreGui
     
     local tpFrame = createFrame(tpGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.5, -100, 0.3, 0), Color3.fromRGB(40, 40, 40), 0.1)
+    tpFrame.Active = true
     makeDraggable(tpFrame)
     
     local tpTitle = Instance.new("TextLabel")
@@ -700,12 +785,37 @@ function createTeleportGui()
     downBtn.BorderSizePixel = 0
     downBtn.Parent = tpFrame
     
+    -- Height input
+    local heightLabel = Instance.new("TextLabel")
+    heightLabel.Size = UDim2.new(0, 40, 0, 20)
+    heightLabel.Position = UDim2.new(0, 20, 0, 85)
+    heightLabel.BackgroundTransparency = 1
+    heightLabel.Text = "Height:"
+    heightLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    heightLabel.TextScaled = true
+    heightLabel.Font = Enum.Font.SourceSans
+    heightLabel.Parent = tpFrame
+    
+    local heightInput = Instance.new("TextBox")
+    heightInput.Size = UDim2.new(0, 100, 0, 20)
+    heightInput.Position = UDim2.new(0, 70, 0, 85)
+    heightInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    heightInput.Text = "50"
+    heightInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    heightInput.TextScaled = true
+    heightInput.Font = Enum.Font.SourceSans
+    heightInput.Parent = tpFrame
+    
     -- Corners
     for _, btn in pairs({closeTPBtn, upBtn, downBtn}) do
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 6)
         corner.Parent = btn
     end
+    
+    local heightCorner = Instance.new("UICorner")
+    heightCorner.CornerRadius = UDim.new(0, 4)
+    heightCorner.Parent = heightInput
     
     -- Events
     closeTPBtn.MouseButton1Click:Connect(function()
@@ -714,15 +824,17 @@ function createTeleportGui()
     
     upBtn.MouseButton1Click:Connect(function()
         local rootPart = getRootPart()
+        local height = tonumber(heightInput.Text) or 50
         if rootPart then
-            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 156, 0)
+            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, height, 0)
         end
     end)
     
     downBtn.MouseButton1Click:Connect(function()
         local rootPart = getRootPart()
+        local height = tonumber(heightInput.Text) or 50
         if rootPart then
-            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, -50, 0)
+            rootPart.CFrame = rootPart.CFrame - Vector3.new(0, height, 0)
         end
     end)
 end
@@ -734,6 +846,7 @@ function createAutoStealGui()
     stealGui.Parent = CoreGui
     
     local stealFrame = createFrame(stealGui, UDim2.new(0, 250, 0, 150), UDim2.new(0.5, -125, 0.4, 0), Color3.fromRGB(40, 40, 40), 0.1)
+    stealFrame.Active = true
     makeDraggable(stealFrame)
     
     local stealTitle = Instance.new("TextLabel")
@@ -746,6 +859,15 @@ function createAutoStealGui()
     stealTitle.Font = Enum.Font.SourceSansBold
     stealTitle.Parent = stealFrame
     
+    local closeStealBtn = Instance.new("TextButton")
+    closeStealBtn.Size = UDim2.new(0, 25, 0, 25)
+    closeStealBtn.Position = UDim2.new(1, -30, 0, 5)
+    closeStealBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+    closeStealBtn.Text = "❌"
+    closeStealBtn.TextScaled = true
+    closeStealBtn.BorderSizePixel = 0
+    closeStealBtn.Parent = stealFrame
+    
     local keyBox = createFrame(stealFrame, UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 40), Color3.fromRGB(60, 60, 60), 0)
     
     local keyInput = Instance.new("TextBox")
@@ -756,6 +878,7 @@ function createAutoStealGui()
     keyInput.TextColor3 = Color3.fromRGB(200, 200, 200)
     keyInput.TextScaled = true
     keyInput.Font = Enum.Font.SourceSans
+    keyInput.ClearTextOnFocus = true
     keyInput.Parent = keyBox
     
     local subscribeBtn = Instance.new("TextButton")
@@ -781,15 +904,18 @@ function createAutoStealGui()
     enterBtn.Parent = stealFrame
     
     -- Corners
-    for _, btn in pairs({subscribeBtn, enterBtn}) do
+    for _, btn in pairs({subscribeBtn, enterBtn, closeStealBtn}) do
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 6)
         corner.Parent = btn
     end
     
+    closeStealBtn.MouseButton1Click:Connect(function()
+        stealGui:Destroy()
+    end)
+    
     enterBtn.MouseButton1Click:Connect(function()
         stealGui:Destroy()
-        createBaseGui()
     end)
 end
 
@@ -800,6 +926,7 @@ function createBaseGui()
     baseGui.Parent = CoreGui
     
     local baseFrame = createFrame(baseGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.7, 0, 0.3, 0), Color3.fromRGB(40, 40, 40), 0.1)
+    baseFrame.Active = true
     makeDraggable(baseFrame)
     
     local baseTitle = Instance.new("TextLabel")
@@ -811,6 +938,15 @@ function createBaseGui()
     baseTitle.TextScaled = true
     baseTitle.Font = Enum.Font.SourceSansBold
     baseTitle.Parent = baseFrame
+    
+    local closeBaseBtn = Instance.new("TextButton")
+    closeBaseBtn.Size = UDim2.new(0, 25, 0, 25)
+    closeBaseBtn.Position = UDim2.new(1, -30, 0, 5)
+    closeBaseBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+    closeBaseBtn.Text = "❌"
+    closeBaseBtn.TextScaled = true
+    closeBaseBtn.BorderSizePixel = 0
+    closeBaseBtn.Parent = baseFrame
     
     local setBaseBtn = Instance.new("TextButton")
     setBaseBtn.Size = UDim2.new(1, -20, 0, 30)
@@ -835,11 +971,15 @@ function createBaseGui()
     flyToBaseBtn.Parent = baseFrame
     
     -- Corners
-    for _, btn in pairs({setBaseBtn, flyToBaseBtn}) do
+    for _, btn in pairs({setBaseBtn, flyToBaseBtn, closeBaseBtn}) do
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 6)
         corner.Parent = btn
     end
+    
+    closeBaseBtn.MouseButton1Click:Connect(function()
+        baseGui:Destroy()
+    end)
     
     setBaseBtn.MouseButton1Click:Connect(function()
         local rootPart = getRootPart()
@@ -872,16 +1012,21 @@ function flyToBase()
     
     rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position - rootPart.CFrame.LookVector)
     
-    local direction = (targetPosition - rootPart.Position).Unit
-    bodyVelocity.Velocity = direction * 50
-    
-    spawn(function()
-        repeat
-            RunService.Heartbeat:Wait()
-        until (rootPart.Position - targetPosition).Magnitude < 10
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if not bodyVelocity or not bodyVelocity.Parent then
+            connection:Disconnect()
+            return
+        end
         
-        bodyVelocity:Destroy()
-        createDownButton()
+        local direction = (targetPosition - rootPart.Position).Unit
+        bodyVelocity.Velocity = direction * 50
+        
+        if (rootPart.Position - targetPosition).Magnitude < 10 then
+            connection:Disconnect()
+            bodyVelocity:Destroy()
+            createDownButton()
+        end
     end)
 end
 
@@ -892,6 +1037,7 @@ function createDownButton()
     downGui.Parent = CoreGui
     
     local downBtn = createFrame(downGui, UDim2.new(0, 100, 0, 50), UDim2.new(0.5, -50, 0.8, 0), Color3.fromRGB(220, 53, 69), 0.1)
+    downBtn.Active = true
     
     local downLabel = Instance.new("TextLabel")
     downLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -903,7 +1049,7 @@ function createDownButton()
     downLabel.Parent = downBtn
     
     downBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local rootPart = getRootPart()
             if rootPart and basePosition then
                 rootPart.CFrame = CFrame.new(basePosition)
@@ -911,6 +1057,28 @@ function createDownButton()
             end
         end
     end)
+end
+
+-- Gestione respawn del personaggio
+local function onCharacterAdded(character)
+    wait(0.5) -- Aspetta che il personaggio sia completamente caricato
+    
+    -- Riapplica gli stati attivi
+    if states.speedBoost then
+        toggleSpeedBoost(true)
+    end
+    if states.infiniteJump then
+        toggleInfiniteJump(true)
+    end
+    if states.float then
+        toggleFloat(true)
+    end
+    if states.noclip then
+        toggleNoclip(true)
+    end
+    if states.fly then
+        toggleFly(true)
+    end
 end
 
 -- Cleanup
@@ -923,8 +1091,14 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
         end
         if floatBody then floatBody:Destroy() end
         if flyBody then flyBody:Destroy() end
+        if characterAddedConnection then
+            characterAddedConnection:Disconnect()
+        end
     end
 end)
+
+-- Setup character respawn handler
+characterAddedConnection = player.CharacterAdded:Connect(onCharacterAdded)
 
 -- Inizializzazione
 spawn(function()
