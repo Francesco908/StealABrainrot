@@ -102,65 +102,175 @@ local function createLoadingScreen()
     loadingGui.Parent = CoreGui
     loadingGui.ResetOnSpawn = false
     loadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    loadingGui.DisplayOrder = 999999 -- Ensure it's on top
+    loadingGui.IgnoreGuiInset = true -- Full screen coverage
     
-    -- Background blur
+    -- Full screen background with gradient
     local background = Instance.new("Frame")
-    background.Size = UDim2.new(1, 0, 1, 0)
+    background.Size = UDim2.new(1, 0, 1, 36) -- Extra height for mobile notch
+    background.Position = UDim2.new(0, 0, 0, -36)
     background.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
-    background.BackgroundTransparency = 0
     background.BorderSizePixel = 0
     background.Parent = loadingGui
     
-    -- Water drop container
+    -- Gradient overlay
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 10, 20)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 30, 50)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 20))
+    })
+    gradient.Rotation = 45
+    gradient.Parent = background
+    
+    -- Water particles background
+    local particlesFrame = Instance.new("Frame")
+    particlesFrame.Size = UDim2.new(1, 0, 1, 0)
+    particlesFrame.BackgroundTransparency = 1
+    particlesFrame.Parent = background
+    
+    -- Create floating water particles
+    spawn(function()
+        for i = 1, 20 do
+            local particle = Instance.new("Frame")
+            particle.Size = UDim2.new(0, math.random(4, 12), 0, math.random(4, 12))
+            particle.Position = UDim2.new(math.random(), 0, math.random(), 0)
+            particle.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+            particle.BackgroundTransparency = 0.7
+            particle.BorderSizePixel = 0
+            particle.Parent = particlesFrame
+            
+            local particleCorner = Instance.new("UICorner")
+            particleCorner.CornerRadius = UDim.new(1, 0)
+            particleCorner.Parent = particle
+            
+            -- Animate particles
+            spawn(function()
+                while loadingGui and loadingGui.Parent do
+                    local floatTween = TweenService:Create(particle,
+                        TweenInfo.new(math.random(3, 6), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+                        {Position = UDim2.new(math.random(), 0, math.random(), 0)}
+                    )
+                    floatTween:Play()
+                    wait(math.random(1, 3))
+                end
+            end)
+        end
+    end)
+    
+    -- Main water drop container
     local dropContainer = Instance.new("Frame")
-    dropContainer.Size = UDim2.new(0, 200, 0, 200)
-    dropContainer.Position = UDim2.new(0.5, -100, 0.5, -100)
+    dropContainer.Size = UDim2.new(0, 300, 0, 300)
+    dropContainer.Position = UDim2.new(0.5, -150, 0.5, -150)
     dropContainer.BackgroundTransparency = 1
     dropContainer.Parent = loadingGui
     
-    -- Create water drop
+    -- Glow effect behind water drop
+    local glowEffect = Instance.new("ImageLabel")
+    glowEffect.Size = UDim2.new(1.5, 0, 1.5, 0)
+    glowEffect.Position = UDim2.new(-0.25, 0, -0.25, 0)
+    glowEffect.BackgroundTransparency = 1
+    glowEffect.Image = "rbxassetid://5028857084" -- Glow image
+    glowEffect.ImageColor3 = Color3.fromRGB(0, 170, 255)
+    glowEffect.ImageTransparency = 0.5
+    glowEffect.Parent = dropContainer
+    
+    -- Create spinning water drop
     local waterDrop = Instance.new("ImageLabel")
-    waterDrop.Size = UDim2.new(1, 0, 1, 0)
+    waterDrop.Size = UDim2.new(0.8, 0, 0.8, 0)
+    waterDrop.Position = UDim2.new(0.1, 0, 0.1, 0)
     waterDrop.BackgroundTransparency = 1
     waterDrop.Image = "rbxassetid://6034684930" -- Water drop icon
     waterDrop.ImageColor3 = Color3.fromRGB(0, 170, 255)
     waterDrop.Parent = dropContainer
     
-    -- Title
+    -- Title with better styling
+    local titleContainer = Instance.new("Frame")
+    titleContainer.Size = UDim2.new(1, 200, 0, 80)
+    titleContainer.Position = UDim2.new(0, -100, 1, 40)
+    titleContainer.BackgroundTransparency = 1
+    titleContainer.Parent = dropContainer
+    
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 50)
-    title.Position = UDim2.new(0, 0, 1, 20)
+    title.Size = UDim2.new(1, 0, 0, 60)
     title.BackgroundTransparency = 1
     title.Text = "WATER HUB"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextScaled = true
     title.Font = Enum.Font.SourceSansBold
-    title.Parent = dropContainer
+    title.Parent = titleContainer
+    
+    -- Add text stroke for better visibility
+    local titleStroke = Instance.new("UIStroke")
+    titleStroke.Color = Color3.fromRGB(0, 100, 200)
+    titleStroke.Thickness = 2
+    titleStroke.Parent = title
+    
+    -- Version label
+    local versionLabel = Instance.new("TextLabel")
+    versionLabel.Size = UDim2.new(1, 0, 0, 20)
+    versionLabel.Position = UDim2.new(0, 0, 0, 60)
+    versionLabel.BackgroundTransparency = 1
+    versionLabel.Text = "Professional Edition v2.0"
+    versionLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    versionLabel.TextScaled = true
+    versionLabel.Font = Enum.Font.SourceSansItalic
+    versionLabel.Parent = titleContainer
+    
+    -- Loading bar container
+    local loadingBarContainer = Instance.new("Frame")
+    loadingBarContainer.Size = UDim2.new(0, 400, 0, 8)
+    loadingBarContainer.Position = UDim2.new(0.5, -200, 0, 140)
+    loadingBarContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    loadingBarContainer.BorderSizePixel = 0
+    loadingBarContainer.Parent = titleContainer
+    
+    local loadingBarCorner = Instance.new("UICorner")
+    loadingBarCorner.CornerRadius = UDim.new(0, 4)
+    loadingBarCorner.Parent = loadingBarContainer
+    
+    -- Loading bar fill
+    local loadingBar = Instance.new("Frame")
+    loadingBar.Size = UDim2.new(0, 0, 1, 0)
+    loadingBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    loadingBar.BorderSizePixel = 0
+    loadingBar.Parent = loadingBarContainer
+    
+    local loadingBarFillCorner = Instance.new("UICorner")
+    loadingBarFillCorner.CornerRadius = UDim.new(0, 4)
+    loadingBarFillCorner.Parent = loadingBar
     
     -- Loading text
     local loadingText = Instance.new("TextLabel")
     loadingText.Size = UDim2.new(1, 0, 0, 30)
-    loadingText.Position = UDim2.new(0, 0, 1, 70)
+    loadingText.Position = UDim2.new(0, 0, 0, 160)
     loadingText.BackgroundTransparency = 1
-    loadingText.Text = "Loading..."
+    loadingText.Text = "Initializing..."
     loadingText.TextColor3 = Color3.fromRGB(200, 200, 200)
     loadingText.TextScaled = true
     loadingText.Font = Enum.Font.SourceSans
-    loadingText.Parent = dropContainer
+    loadingText.Parent = titleContainer
     
-    -- Animations
-    local dropTween = TweenService:Create(waterDrop, 
-        TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true),
-        {Size = UDim2.new(1.1, 0, 1.1, 0), Rotation = 360}
-    )
-    dropTween:Play()
+    -- Spinning animation for water drop (like minimized icon)
+    local spinConnection
+    spinConnection = RunService.Heartbeat:Connect(function()
+        if waterDrop and waterDrop.Parent then
+            waterDrop.Rotation = waterDrop.Rotation + 2
+            glowEffect.Rotation = glowEffect.Rotation - 1
+        else
+            spinConnection:Disconnect()
+        end
+    end)
     
-    -- Pulse effect
+    -- Pulse and scale animation
     spawn(function()
         local pulse = 0
         while loadingGui and loadingGui.Parent do
-            pulse = pulse + 0.1
-            waterDrop.ImageTransparency = 0.2 + math.sin(pulse) * 0.2
+            pulse = pulse + 0.05
+            waterDrop.ImageTransparency = 0.1 + math.sin(pulse) * 0.1
+            local scale = 0.8 + math.sin(pulse * 2) * 0.05
+            waterDrop.Size = UDim2.new(scale, 0, scale, 0)
+            waterDrop.Position = UDim2.new((1 - scale) / 2, 0, (1 - scale) / 2, 0)
             wait()
         end
     end)
@@ -168,21 +278,53 @@ local function createLoadingScreen()
     -- Loading progress simulation
     spawn(function()
         local loadingSteps = {
-            "Initializing...",
-            "Loading modules...",
-            "Setting up ESP...",
-            "Configuring mobile controls...",
-            "Activating God Mode...",
-            "Almost ready...",
-            "Welcome to Water Hub!"
+            {text = "Initializing Water Hub...", progress = 0.1},
+            {text = "Loading core modules...", progress = 0.2},
+            {text = "Setting up ESP systems...", progress = 0.35},
+            {text = "Configuring mobile controls...", progress = 0.5},
+            {text = "Activating God Mode...", progress = 0.65},
+            {text = "Loading user interface...", progress = 0.8},
+            {text = "Finalizing setup...", progress = 0.9},
+            {text = "Welcome to Water Hub!", progress = 1}
         }
         
         for i, step in ipairs(loadingSteps) do
-            loadingText.Text = step
-            wait(0.3)
+            loadingText.Text = step.text
+            
+            -- Animate loading bar
+            local barTween = TweenService:Create(loadingBar,
+                TweenInfo.new(0.3, Enum.EasingStyle.Quad),
+                {Size = UDim2.new(step.progress, 0, 1, 0)}
+            )
+            barTween:Play()
+            
+            wait(0.4)
         end
         
         wait(0.5)
+        
+        -- Success flash
+        local successFlash = Instance.new("Frame")
+        successFlash.Size = UDim2.new(1, 0, 1, 36)
+        successFlash.Position = UDim2.new(0, 0, 0, -36)
+        successFlash.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+        successFlash.BackgroundTransparency = 1
+        successFlash.BorderSizePixel = 0
+        successFlash.Parent = loadingGui
+        
+        local flashTween = TweenService:Create(successFlash,
+            TweenInfo.new(0.2, Enum.EasingStyle.Linear),
+            {BackgroundTransparency = 0.5}
+        )
+        flashTween:Play()
+        
+        wait(0.1)
+        
+        local flashOutTween = TweenService:Create(successFlash,
+            TweenInfo.new(0.3, Enum.EasingStyle.Linear),
+            {BackgroundTransparency = 1}
+        )
+        flashOutTween:Play()
         
         -- Fade out animation
         local fadeOut = TweenService:Create(background, 
@@ -195,18 +337,37 @@ local function createLoadingScreen()
             {ImageTransparency = 1}
         )
         
+        local glowFadeOut = TweenService:Create(glowEffect,
+            TweenInfo.new(0.5, Enum.EasingStyle.Quad),
+            {ImageTransparency = 1}
+        )
+        
         fadeOut:Play()
         dropFadeOut:Play()
+        glowFadeOut:Play()
         
-        for _, element in pairs(dropContainer:GetDescendants()) do
+        for _, element in pairs(loadingGui:GetDescendants()) do
             if element:IsA("TextLabel") then
                 TweenService:Create(element, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+            elseif element:IsA("Frame") and element ~= background then
+                TweenService:Create(element, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
             end
         end
         
         wait(0.5)
+        
+        if spinConnection then
+            spinConnection:Disconnect()
+        end
+        
         loadingGui:Destroy()
+        
+        -- Automatically open main GUI
         createMainGui()
+        
+        -- Enable God Mode after GUI is created
+        wait(0.1)
+        toggleGodMode(true)
     end)
 end
 
@@ -1362,8 +1523,4 @@ characterAddedConnection = player.CharacterAdded:Connect(onCharacterAdded)
 spawn(function()
     wait(0.1)
     createLoadingScreen()
-    
-    -- Enable God Mode on start
-    wait(2)
-    toggleGodMode(true)
 end)
