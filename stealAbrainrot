@@ -143,16 +143,17 @@ end
 
 local function createSwitch(parent, position, callback, initialState)
     local switchFrame = createFrame(parent, 
-        UDim2.new(0, isMobile and 70 or 60, 0, isMobile and 35 or 30), 
+        UDim2.new(0, isMobile and 60 or 50, 0, isMobile and 30 or 25), 
         position, 
         initialState and colors.primary or Color3.fromRGB(70, 70, 70), 
         0
     )
     switchFrame.Active = true
     
+    local buttonSize = isMobile and 26 or 22
     local switchButton = createFrame(switchFrame, 
-        UDim2.new(0, isMobile and 30 or 26, 0, isMobile and 30 or 26), 
-        initialState and UDim2.new(1, -32, 0, 2.5) or UDim2.new(0, 2, 0, 2), 
+        UDim2.new(0, buttonSize, 0, buttonSize), 
+        initialState and UDim2.new(1, -(buttonSize + 2), 0, 2) or UDim2.new(0, 2, 0, 2), 
         Color3.fromRGB(255, 255, 255), 
         0
     )
@@ -162,7 +163,7 @@ local function createSwitch(parent, position, callback, initialState)
     local function toggle()
         isOn = not isOn
         
-        local targetPos = isOn and UDim2.new(1, -(isMobile and 32 or 28), 0, 2) or UDim2.new(0, 2, 0, 2)
+        local targetPos = isOn and UDim2.new(1, -(buttonSize + 2), 0, 2) or UDim2.new(0, 2, 0, 2)
         local targetColor = isOn and colors.primary or Color3.fromRGB(70, 70, 70)
         
         TweenService:Create(switchButton, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Position = targetPos}):Play()
@@ -829,19 +830,21 @@ createMainGui = function()
     waterHubGui.ResetOnSpawn = false
     table.insert(openGuis, waterHubGui)
     
-    -- Main frame
+    -- Main frame with reduced size
+    local mainWidth = isMobile and 360 or 304
+    local mainHeight = isMobile and 400 or 280
     local mainFrame = createFrame(waterHubGui, 
-        UDim2.new(0, isMobile and 450 or 380, 0, isMobile and 500 or 350), 
-        UDim2.new(0.5, isMobile and -225 or -190, 0.5, isMobile and -250 or -175), 
+        UDim2.new(0, mainWidth, 0, mainHeight), 
+        UDim2.new(0.5, -mainWidth/2, 0.5, -mainHeight/2), 
         colors.background, 
         0
     )
     mainFrame.Active = true
     
     -- Entrance animation
-    mainFrame.Position = UDim2.new(0.5, isMobile and -225 or -190, 1.5, 0)
+    mainFrame.Position = UDim2.new(0.5, -mainWidth/2, 1.5, 0)
     TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
-        Position = UDim2.new(0.5, isMobile and -225 or -190, 0.5, isMobile and -250 or -175)
+        Position = UDim2.new(0.5, -mainWidth/2, 0.5, -mainHeight/2)
     }):Play()
     
     -- Header
@@ -957,7 +960,7 @@ createMainGui = function()
     
     local function addFeature(text, icon, callback, initialState)
         local container = Instance.new("Frame")
-        container.Size = UDim2.new(1, -20, 0, isMobile and 45 or 35)
+        container.Size = UDim2.new(1, -20, 0, isMobile and 40 or 30)
         container.Position = UDim2.new(0, 10, 0, yPos)
         container.BackgroundTransparency = 1
         container.Parent = mainContent
@@ -972,9 +975,9 @@ createMainGui = function()
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = container
         
-        createSwitch(container, UDim2.new(1, -(isMobile and 70 or 60), 0.5, -(isMobile and 17.5 or 15)), callback, initialState)
+        createSwitch(container, UDim2.new(1, -(isMobile and 60 or 50), 0, isMobile and 5 or 2.5), callback, initialState)
         
-        yPos = yPos + (isMobile and 50 or 40)
+        yPos = yPos + (isMobile and 45 or 35)
     end
     
     addFeature("God Mode", "🛡️", toggleGodMode, states.godMode)
@@ -986,13 +989,13 @@ createMainGui = function()
     
     -- Teleport button
     local tpBtn = createButton(mainContent, 
-        UDim2.new(0, isMobile and 160 or 140, 0, isMobile and 45 or 35), 
+        UDim2.new(0, isMobile and 140 or 120, 0, isMobile and 40 or 30), 
         UDim2.new(0, 10, 0, yPos), 
         colors.secondary, 
         "🚀 Teleport"
     )
     
-    mainContent.CanvasSize = UDim2.new(0, 0, 0, yPos + (isMobile and 55 or 45))
+    mainContent.CanvasSize = UDim2.new(0, 0, 0, yPos + (isMobile and 50 or 40))
     
     -- VISUAL TAB
     local visualContent = contentFrames[2]
@@ -1000,7 +1003,7 @@ createMainGui = function()
     
     local function addESP(text, icon, espType)
         local container = Instance.new("Frame")
-        container.Size = UDim2.new(1, -20, 0, isMobile and 45 or 35)
+        container.Size = UDim2.new(1, -20, 0, isMobile and 40 or 30)
         container.Position = UDim2.new(0, 10, 0, yPos)
         container.BackgroundTransparency = 1
         container.Parent = visualContent
@@ -1015,11 +1018,11 @@ createMainGui = function()
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = container
         
-        createSwitch(container, UDim2.new(1, -(isMobile and 70 or 60), 0.5, -(isMobile and 17.5 or 15)), function(enabled)
+        createSwitch(container, UDim2.new(1, -(isMobile and 60 or 50), 0, isMobile and 5 or 2.5), function(enabled)
             toggleESP(espType, enabled)
         end, states[espType])
         
-        yPos = yPos + (isMobile and 50 or 40)
+        yPos = yPos + (isMobile and 45 or 35)
     end
     
     addESP("ESP Box", "📦", "espBox")
