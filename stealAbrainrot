@@ -288,12 +288,11 @@ createFloatController = function()
     makeDraggable(controller)
     
     -- Joystick background
-    local joystickBg = createFrame(controller, 
-        UDim2.new(0.8, 0, 0.8, 0), 
-        UDim2.new(0.1, 0, 0.1, 0), 
-        Color3.fromRGB(50, 50, 50), 
-        0.3
-    )
+    local joystickBg = createFrameOfDepth(joystickBg, controller)
+    joystickBg.Size = UDim2.new(0.8, 0, 0.8, 0)
+    joystickBg.Position = UDim2.new(0.1, 0, 0.1, 0)
+    joystickBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    joystickBg.BackgroundTransparency = 0.3
     
     local joystickKnob = createFrame(joystickBg, 
         UDim2.new(0.4, 0, 0.4, 0), 
@@ -719,14 +718,14 @@ createTeleportGui = function()
     -- Buttons
     local upBtn = createButton(tpFrame, 
         UDim2.new(0, isMobile and 110 or 90, 0, isMobile and 45 or 35), 
-        UDim2.new(0, 20, 0, isMobile and 60 or 50), 
+        UDim2.new(0.5, -(isMobile and 55 or 45), 0, isMobile and 60 or 50), 
         colors.success, 
         "⬆️ UP"
     )
     
     local downBtn = createButton(tpFrame, 
         UDim2.new(0, isMobile and 110 or 90, 0, isMobile and 45 or 35), 
-        UDim2.new(1, -isMobile and 130 or -110, 0, isMobile and 60 or 50), 
+        UDim2.new(0.5, isMobile and 55 or 45, 0, isMobile and 60 or 50), 
         colors.danger, 
         "⬇️ DOWN"
     )
@@ -739,7 +738,7 @@ createTeleportGui = function()
     upBtn.MouseButton1Click:Connect(function()
         local rootPart = getRootPart()
         if rootPart then
-            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 50, 0)
+            rootPart.CFrame = rootPart.CFrame + Vector3.new(0, 165, 0)
         end
     end)
     
@@ -830,8 +829,8 @@ createMainGui = function()
     waterHubGui.ResetOnSpawn = false
     table.insert(openGuis, waterHubGui)
     
-    -- Main frame with reduced size
-    local mainWidth = isMobile and 360 or 304
+    -- Main frame with increased width
+    local mainWidth = isMobile and 420 or 360
     local mainHeight = isMobile and 400 or 280
     local mainFrame = createFrame(waterHubGui, 
         UDim2.new(0, mainWidth, 0, mainHeight), 
