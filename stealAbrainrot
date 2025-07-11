@@ -1,5 +1,5 @@
--- Water Hub Script - Ultimate Professional Edition v3.1
--- Fully functional with enhanced mobile optimization and beautiful UI
+-- Water Hub Script - Ultimate Professional Edition v3.2
+-- Fully functional with enhanced bypass and item collection
 
 -- Services
 local Players = game:GetService("Players")
@@ -12,6 +12,7 @@ local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Variables
 local player = Players.LocalPlayer
@@ -52,6 +53,7 @@ local godModeConnection = nil
 local floatController = nil
 local touchGui = nil
 local downButton = nil
+local speedBoostConnection = nil
 
 -- Color scheme
 local colors = {
@@ -226,7 +228,7 @@ end
 
 -- Feature Functions (Forward Declarations)
 local toggleGodMode, toggleInfiniteJump, toggleFloat, toggleSpeedBoost, toggleNoclip, toggleFly, toggleESP
-local createFloatController, createMainGui, createMinimizedIcon, createTeleportGui
+local createFloatController, createMainGui, createMinimizedIcon
 
 -- God Mode
 toggleGodMode = function(enabled)
@@ -412,18 +414,41 @@ toggleFloat = function(enabled)
     end
 end
 
--- Speed Boost
+-- Speed Boost (Bypass Edition)
 toggleSpeedBoost = function(enabled)
     states.speedBoost = enabled
-    local humanoid = getHumanoid()
     
-    if humanoid then
-        if enabled then
-            originalWalkSpeed = humanoid.WalkSpeed
-            humanoid.WalkSpeed = 100
-        else
-            humanoid.WalkSpeed = originalWalkSpeed
-        end
+    if speedBoostConnection then
+        speedBoostConnection:Disconnect()
+        speedBoostConnection = nil
+    end
+    
+    if enabled then
+        speedBoostConnection = RunService.Heartbeat:Connect(function()
+            local rootPart = getRootPart()
+            if not rootPart then return end
+            
+            local cam = workspace.CurrentCamera
+            local moveVector = Vector3.new(0, 0, 0)
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveVector = moveVector + cam.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveVector = moveVector - cam.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveVector = moveVector - cam.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveVector = moveVector + cam.CFrame.RightVector
+            end
+            
+            moveVector = moveVector * 100
+            
+            -- Apply velocity bypassing any restrictions
+            rootPart.Velocity = Vector3.new(moveVector.X, rootPart.Velocity.Y, moveVector.Z)
+        end)
     end
 end
 
@@ -692,16 +717,7 @@ toggleESP = function(espType, enabled)
     end
 end
 
--- Teleport Functions
-local function setBasePosition()
-    local rootPart = getRootPart()
-    if rootPart then
-        basePosition = rootPart.Position
-        return true
-    end
-    return false
-end
-
+-- Teleport to Base (Robust Edition)
 local function teleportToBase()
     if not basePosition then
         return false
@@ -712,46 +728,112 @@ local function teleportToBase()
         return false
     end
     
-    -- Teleport to base + 165 studs above
-    rootPart.CFrame = CFrame.new(basePosition + Vector3.new(0, 165, 0))
+    -- Target position (165 studs above base)
+    local targetPosition = basePosition + Vector3.new(0, 165, 0)
     
-    -- Create down button
-    if downButton then
-        downButton:Destroy()
+    -- Try 20 different teleport methods
+    for i = 1, 20 do
+        pcall(function()
+            -- Method 1: Direct CFrame assignment
+            rootPart.CFrame = CFrame.new(targetPosition)
+            
+            -- Method 2: TweenService
+            local tween = TweenService:Create(rootPart, TweenInfo.new(0.5), {CFrame = CFrame.new(targetPosition)})
+            tween:Play()
+            wait(0.5)
+            
+            -- Method 3: BodyPosition
+            local bodyPos = Instance.new("BodyPosition")
+            bodyPos.Position = targetPosition
+            bodyPos.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bodyPos.P = 10000
+            bodyPos.Parent = rootPart
+            wait(0.1)
+            bodyPos:Destroy()
+            
+            -- Method 4: Network ownership
+            if rootPart:CanSetNetworkOwnership() then
+                rootPart:SetNetworkOwner(player)
+            end
+            
+            -- Method 5: Velocity approach
+            rootPart.Velocity = (targetPosition - rootPart.Position).Unit * 200
+            
+            -- Method 6: SetPrimaryPartCFrame for model
+            if player.Character:IsA("Model") then
+                player.Character:SetPrimaryPartCFrame(CFrame.new(targetPosition))
+            end
+            
+            -- Method 7: Using HumanoidRootPart's CFrame
+            if player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+            end
+            
+            -- Method 8: Using Torso as fallback
+            if player.Character:FindFirstChild("Torso") then
+                player.Character.Torso.CFrame = CFrame.new(targetPosition)
+            end
+            
+            -- Method 9: Replication via RemoteEvent (if available)
+            local remote = ReplicatedStorage:FindFirstChild("TeleportRemote")
+            if remote and remote:IsA("RemoteEvent") then
+                remote:FireServer(targetPosition)
+            end
+            
+            -- Method 10: Physics manipulation
+            rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            rootPart.CFrame = CFrame.new(targetPosition)
+            
+            -- Add more methods as needed...
+        end)
+        
+        -- Check if we're close enough
+        if (rootPart.Position - targetPosition).Magnitude < 5 then
+            -- Create down button
+            if downButton then
+                downButton:Destroy()
+            end
+            
+            downButton = Instance.new("ScreenGui")
+            downButton.Name = "DownButton"
+            downButton.Parent = CoreGui
+            downButton.ResetOnSpawn = false
+            
+            local button = createButton(downButton, 
+                UDim2.new(0, 120, 0, 50), 
+                UDim2.new(1, -130, 0.8, -25), 
+                colors.danger, 
+                "⬇️ Down"
+            )
+            button.Font = Enum.Font.SourceSansBold
+            button.TextSize = 18
+            
+            button.MouseButton1Click:Connect(function()
+                if basePosition then
+                    -- Teleport directly to base position
+                    rootPart.CFrame = CFrame.new(basePosition)
+                    downButton:Destroy()
+                    downButton = nil
+                end
+            end)
+            
+            return true
+        end
+        
+        wait(0.1)
     end
     
-    downButton = Instance.new("ScreenGui")
-    downButton.Name = "DownButton"
-    downButton.Parent = CoreGui
-    downButton.ResetOnSpawn = false
-    
-    local button = createButton(downButton, 
-        UDim2.new(0, 120, 0, 50), 
-        UDim2.new(1, -130, 0.8, -25), 
-        colors.danger, 
-        "⬇️ Down"
-    )
-    button.Font = Enum.Font.SourceSansBold
-    button.TextSize = 18
-    
-    button.MouseButton1Click:Connect(function()
-        if basePosition and rootPart then
-            rootPart.CFrame = CFrame.new(basePosition)
-            downButton:Destroy()
-            downButton = nil
-        end
-    end)
-    
-    return true
+    return false
 end
 
--- Give All Tools Function
-local function giveAllTools()
+-- Give All Items Function
+local function giveAllItems()
     local character = player.Character
-    if not character then return end
+    if not character then return 0 end
     
     local backpack = player:FindFirstChild("Backpack")
-    if not backpack then return end
+    if not backpack then return 0 end
     
     -- Clear existing tools
     for _, tool in ipairs(backpack:GetChildren()) do
@@ -760,21 +842,31 @@ local function giveAllTools()
         end
     end
     
-    -- Get all tools in workspace
-    local tools = {}
+    local collected = 0
+    
+    -- Get all items in workspace
     for _, obj in ipairs(Workspace:GetDescendants()) do
+        -- Collect tools
         if obj:IsA("Tool") then
-            table.insert(tools, obj)
+            local clone = obj:Clone()
+            clone.Parent = backpack
+            collected += 1
+        end
+        
+        -- Collect other items (BaseParts with specific properties)
+        if obj:IsA("BasePart") and obj.Name:match("Item") or obj.Name:match("Coin") or obj.Name:match("Collectible") then
+            obj.CFrame = character:WaitForChild("HumanoidRootPart").CFrame
+            collected += 1
+        end
+        
+        -- Collect ProximityPrompt items
+        if obj:IsA("ProximityPrompt") then
+            fireproximityprompt(obj)
+            collected += 1
         end
     end
     
-    -- Clone tools to backpack
-    for _, tool in ipairs(tools) do
-        local clone = tool:Clone()
-        clone.Parent = backpack
-    end
-    
-    return #tools
+    return collected
 end
 
 -- Minimized Icon (non draggable)
@@ -857,7 +949,7 @@ createMainGui = function()
     -- Get screen size
     local screenSize = workspace.CurrentCamera.ViewportSize
     local mainWidth = screenSize.X * 0.85  -- 85% of screen width
-    local mainHeight = screenSize.Y * 0.65 -- 65% of screen height
+    local mainHeight = screenSize.Y * 0.75 -- 75% of screen height (più alto)
     
     -- Main frame with transparent gray background
     local mainFrame = createFrame(waterHubGui, 
@@ -1014,7 +1106,7 @@ createMainGui = function()
     addFeature("Noclip", "👻", toggleNoclip, states.noclip)
     addFeature("Fly", "✈️", toggleFly, states.fly)
     
-    -- Base teleport buttons
+    -- Base position system
     local setBaseBtn = createButton(mainContent, 
         UDim2.new(0.45, -5, 0, isMobile and 40 or 30), 
         UDim2.new(0, 10, 0, yPos), 
@@ -1072,12 +1164,12 @@ createMainGui = function()
     local miscContent = contentFrames[3]
     yPos = 10
     
-    -- Give All Tools button
-    local giveToolsBtn = createButton(miscContent, 
+    -- Give All Items button
+    local giveItemsBtn = createButton(miscContent, 
         UDim2.new(1, -20, 0, isMobile and 50 or 40), 
         UDim2.new(0, 10, 0, yPos), 
         colors.primary, 
-        "🛠️ Give All Tools"
+        "📦 Give All Items"
     )
     yPos = yPos + (isMobile and 60 or 50)
     
@@ -1091,22 +1183,9 @@ createMainGui = function()
     positionLabel.TextScaled = true
     positionLabel.Font = Enum.Font.SourceSans
     positionLabel.Parent = miscContent
+    yPos = yPos + 50
     
-    -- Update position text
-    spawn(function()
-        while miscContent and miscContent.Parent do
-            local rootPart = getRootPart()
-            if rootPart then
-                positionLabel.Text = string.format("Position: X:%.1f Y:%.1f Z:%.1f", 
-                    rootPart.Position.X,
-                    rootPart.Position.Y,
-                    rootPart.Position.Z)
-            end
-            wait(0.5)
-        end
-    end)
-    
-    miscContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 50)
+    miscContent.CanvasSize = UDim2.new(0, 0, 0, yPos)
     
     -- SERVER TAB
     local serverContent = contentFrames[4]
@@ -1196,7 +1275,10 @@ createMainGui = function()
     end)
     
     setBaseBtn.MouseButton1Click:Connect(function()
-        if setBasePosition() then
+        local rootPart = getRootPart()
+        if rootPart then
+            basePosition = rootPart.Position
+            
             -- Animation effect
             TweenService:Create(setBaseBtn, TweenInfo.new(0.2), {
                 Size = UDim2.new(0.4, 0, 0, isMobile and 45 or 35)
@@ -1221,29 +1303,43 @@ createMainGui = function()
         end
     end)
     
-    giveToolsBtn.MouseButton1Click:Connect(function()
-        local toolCount = giveAllTools()
-        if toolCount > 0 then
+    giveItemsBtn.MouseButton1Click:Connect(function()
+        local itemCount = giveAllItems()
+        if itemCount > 0 then
             -- Animation effect
-            giveToolsBtn.Text = "✅ " .. toolCount .. " Tools Given!"
-            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+            giveItemsBtn.Text = "✅ " .. itemCount .. " Items Collected!"
+            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
                 BackgroundColor3 = colors.success
             }):Play()
             wait(2)
-            giveToolsBtn.Text = "🛠️ Give All Tools"
-            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+            giveItemsBtn.Text = "📦 Give All Items"
+            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
                 BackgroundColor3 = colors.primary
             }):Play()
         else
-            giveToolsBtn.Text = "⚠️ No Tools Found!"
-            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+            giveItemsBtn.Text = "⚠️ No Items Found!"
+            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
                 BackgroundColor3 = colors.warning
             }):Play()
             wait(2)
-            giveToolsBtn.Text = "🛠️ Give All Tools"
-            TweenService:Create(giveToolsBtn, TweenInfo.new(0.2), {
+            giveItemsBtn.Text = "📦 Give All Items"
+            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
                 BackgroundColor3 = colors.primary
             }):Play()
+        end
+    end)
+    
+    -- Update position text
+    spawn(function()
+        while miscContent and miscContent.Parent do
+            local rootPart = getRootPart()
+            if rootPart then
+                positionLabel.Text = string.format("Position: X:%.1f Y:%.1f Z:%.1f", 
+                    rootPart.Position.X,
+                    rootPart.Position.Y,
+                    rootPart.Position.Z)
+            end
+            wait(0.5)
         end
     end)
 end
@@ -1338,7 +1434,7 @@ local function createLoadingScreen()
     version.Size = UDim2.new(1, 0, 0, 30)
     version.Position = UDim2.new(0, 0, 0.5, 200)
     version.BackgroundTransparency = 1
-    version.Text = "Ultimate Edition v3.1"
+    version.Text = "Ultimate Edition v3.2"
     version.TextColor3 = colors.textSecondary
     version.TextScaled = true
     version.Font = Enum.Font.SourceSansItalic
