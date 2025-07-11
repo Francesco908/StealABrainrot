@@ -154,11 +154,23 @@ local function toggleInfiniteJump(enabled)
         connections.infiniteJump = nil
     end
     
+    if connections.godMode then
+        connections.godMode:Disconnect()
+        connections.godMode = nil
+    end
+    
     if enabled then
         connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
             local humanoid = getHumanoid()
             if humanoid then
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+        
+        connections.godMode = RunService.Heartbeat:Connect(function()
+            local humanoid = getHumanoid()
+            if humanoid then
+                humanoid.Health = humanoid.MaxHealth
             end
         end)
     end
@@ -412,9 +424,9 @@ local function createMinimizedIcon()
     
     iconFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if waterHubGui then
-                waterHubGui:Destroy()
-                waterHubGui = nil
+            if minimizedIcon then
+                minimizedIcon:Destroy()
+                minimizedIcon = nil
             end
             createMainGui()
         end
@@ -746,7 +758,7 @@ function createTeleportGui()
     tpGui.Name = "TeleportGui"
     tpGui.Parent = CoreGui
     
-    local tpFrame = createFrame(tpGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.5, -100, 0.3, 0), Color3.fromRGB(40, 40, 40), 0.1)
+    local tpFrame =  = createFrame(tpGui, UDim2.new(0, 200, 0, 120), UDim2.new(0.5, -100, 0.3, 0), Color3.fromRGB(40, 40, 40), 0.1)
     tpFrame.Active = true
     makeDraggable(tpFrame)
     
