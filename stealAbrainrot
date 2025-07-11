@@ -24,7 +24,8 @@ local states = {
     fly = false
 }
 
-local floatBody = nil
+local floatBodyPosition = nil
+local floatBodyGyro = nil
 local flyBody = nil
 local basePosition = nil
 local originalWalkSpeed = 16
@@ -166,18 +167,42 @@ end
 local function toggleFloat(enabled)
     states.float = enabled
     
-    if floatBody then
-        floatBody:Destroy()
-        floatBody = nil
+    if floatBodyPosition then
+        floatBodyPosition:Destroy()
+        floatBodyPosition = nil
+    end
+    
+    if floatBodyGyro then
+        floatBodyGyro:Destroy()
+        floatBodyGyro = nil
     end
     
     if enabled then
         local rootPart = getRootPart()
         if rootPart then
-            floatBody = Instance.new("BodyVelocity")
-            floatBody.MaxForce = Vector3.new(4000, 4000, 4000)
-            floatBody.Velocity = Vector3.new(0, 0, 0)
-            floatBody.Parent = rootPart
+            floatBodyPosition = Instance.new("BodyPosition")
+            floatBodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+            floatBodyPosition.Position = rootPart.Position
+            floatBodyPosition.P = 10000
+            floatBodyPosition.D = 1000
+            floatBodyPosition.Parent = rootPart
+            
+            floatBodyGyro = Instance.new("BodyGyro")
+            floatBodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000)
+            floatBodyGyro.CFrame = rootPart.CFrame
+            floatBodyGyro.P = 10000
+            floatBodyGyro.D = 500
+            floatBodyGyro.Parent = rootPart
+            
+            local humanoid = getHumanoid()
+            if humanoid then
+                humanoid.PlatformStand = true
+            end
+        end
+    else
+        local humanoid = getHumanoid()
+        if humanoid then
+            humanoid.PlatformStand = false
         end
     end
 end
@@ -387,9 +412,10 @@ local function createMinimizedIcon()
     
     iconFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            wait(0.1) -- Prevent double click
-            minimizedIcon:Destroy()
-            minimizedIcon = nil
+            if waterHubGui then
+                waterHubGui:Destroy()
+                waterHubGui = nil
+            end
             createMainGui()
         end
     end)
@@ -660,22 +686,6 @@ local function createMainGui()
     buyLabel.Font = Enum.Font.SourceSansItalic
     buyLabel.Parent = miscContent
     
-    -- Auto Steal Button
-    local autoStealBtn = Instance.new("TextButton")
-    autoStealBtn.Size = UDim2.new(0, 200, 0, 35)
-    autoStealBtn.Position = UDim2.new(0, 15, 0, 60)
-    autoStealBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
-    autoStealBtn.Text = "🔥 Auto Steal"
-    autoStealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    autoStealBtn.TextScaled = true
-    autoStealBtn.Font = Enum.Font.SourceSansBold
-    autoStealBtn.BorderSizePixel = 0
-    autoStealBtn.Parent = miscContent
-    
-    local autoStealCorner = Instance.new("UICorner")
-    autoStealCorner.CornerRadius = UDim.new(0, 8)
-    autoStealCorner.Parent = autoStealBtn
-    
     -- CONTENUTO TAB SERVER
     local serverContent = contentFrames[4]
     
@@ -711,22 +721,18 @@ local function createMainGui()
         end
         
         waterHubGui:Destroy()
-        if minimizedIcon then
-            minimizedIcon:Destroy()
-        end
+        waterHubGui = nil
+        createMinimizedIcon()
     end)
     
     minimizeBtn.MouseButton1Click:Connect(function()
         waterHubGui:Destroy()
+        waterHubGui = nil
         createMinimizedIcon()
     end)
     
     tpBtn.MouseButton1Click:Connect(function()
         createTeleportGui()
-    end)
-    
-    autoStealBtn.MouseButton1Click:Connect(function()
-        createAutoStealGui()
     end)
     
     baseBtn.MouseButton1Click:Connect(function()
@@ -836,86 +842,6 @@ function createTeleportGui()
         if rootPart then
             rootPart.CFrame = rootPart.CFrame - Vector3.new(0, height, 0)
         end
-    end)
-end
-
--- Auto Steal GUI
-function createAutoStealGui()
-    local stealGui = Instance.new("ScreenGui")
-    stealGui.Name = "AutoStealGui"
-    stealGui.Parent = CoreGui
-    
-    local stealFrame = createFrame(stealGui, UDim2.new(0, 250, 0, 150), UDim2.new(0.5, -125, 0.4, 0), Color3.fromRGB(40, 40, 40), 0.1)
-    stealFrame.Active = true
-    makeDraggable(stealFrame)
-    
-    local stealTitle = Instance.new("TextLabel")
-    stealTitle.Size = UDim2.new(1, -40, 0, 30)
-    stealTitle.Position = UDim2.new(0, 10, 0, 5)
-    stealTitle.BackgroundTransparency = 1
-    stealTitle.Text = "🔑 Auto Steal Key"
-    stealTitle.TextColor3 = Color3.fromRGB(220, 53, 69)
-    stealTitle.TextScaled = true
-    stealTitle.Font = Enum.Font.SourceSansBold
-    stealTitle.Parent = stealFrame
-    
-    local closeStealBtn = Instance.new("TextButton")
-    closeStealBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeStealBtn.Position = UDim2.new(1, -30, 0, 5)
-    closeStealBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
-    closeStealBtn.Text = "❌"
-    closeStealBtn.TextScaled = true
-    closeStealBtn.BorderSizePixel = 0
-    closeStealBtn.Parent = stealFrame
-    
-    local keyBox = createFrame(stealFrame, UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 40), Color3.fromRGB(60, 60, 60), 0)
-    
-    local keyInput = Instance.new("TextBox")
-    keyInput.Size = UDim2.new(1, -10, 1, 0)
-    keyInput.Position = UDim2.new(0, 5, 0, 0)
-    keyInput.BackgroundTransparency = 1
-    keyInput.Text = "Enter Key..."
-    keyInput.TextColor3 = Color3.fromRGB(200, 200, 200)
-    keyInput.TextScaled = true
-    keyInput.Font = Enum.Font.SourceSans
-    keyInput.ClearTextOnFocus = true
-    keyInput.Parent = keyBox
-    
-    local subscribeBtn = Instance.new("TextButton")
-    subscribeBtn.Size = UDim2.new(0, 100, 0, 30)
-    subscribeBtn.Position = UDim2.new(0, 10, 0, 80)
-    subscribeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    subscribeBtn.Text = "📺 Subscribe"
-    subscribeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    subscribeBtn.TextScaled = true
-    subscribeBtn.Font = Enum.Font.SourceSansBold
-    subscribeBtn.BorderSizePixel = 0
-    subscribeBtn.Parent = stealFrame
-    
-    local enterBtn = Instance.new("TextButton")
-    enterBtn.Size = UDim2.new(0, 100, 0, 30)
-    enterBtn.Position = UDim2.new(0, 120, 0, 80)
-    enterBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-    enterBtn.Text = "✅ Enter"
-    enterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    enterBtn.TextScaled = true
-    enterBtn.Font = Enum.Font.SourceSansBold
-    enterBtn.BorderSizePixel = 0
-    enterBtn.Parent = stealFrame
-    
-    -- Corners
-    for _, btn in pairs({subscribeBtn, enterBtn, closeStealBtn}) do
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
-        corner.Parent = btn
-    end
-    
-    closeStealBtn.MouseButton1Click:Connect(function()
-        stealGui:Destroy()
-    end)
-    
-    enterBtn.MouseButton1Click:Connect(function()
-        stealGui:Destroy()
     end)
 end
 
@@ -1089,7 +1015,8 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
                 connection:Disconnect()
             end
         end
-        if floatBody then floatBody:Destroy() end
+        if floatBodyPosition then floatBodyPosition:Destroy() end
+        if floatBodyGyro then floatBodyGyro:Destroy() end
         if flyBody then flyBody:Destroy() end
         if characterAddedConnection then
             characterAddedConnection:Disconnect()
