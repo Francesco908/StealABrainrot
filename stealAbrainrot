@@ -1,5 +1,5 @@
--- Water Hub Script - Ultimate Professional Edition v4.0
--- Enhanced with advanced bypass systems and professional UI
+-- Water Hub Script - Ultimate Professional Edition v5.0
+-- Fully optimized with enhanced bypass and bug fixes
 
 -- Services
 local Players = game:GetService("Players")
@@ -20,6 +20,8 @@ local StarterGui = game:GetService("StarterGui")
 local mt = getrawmetatable(game)
 local old = mt.__namecall
 local protect = newcclosure or protect_function
+local hookfunction = hookfunction or function() end
+local getsenv = getsenv or function() return {} end
 
 -- Variables
 local player = Players.LocalPlayer
@@ -37,7 +39,6 @@ local openGuis = {}
 local connections = {}
 local states = {
     infiniteJump = false,
-    float = false,
     speedBoost = false,
     espPlayers = false,
     espLines = false,
@@ -48,21 +49,19 @@ local states = {
     fly = false,
     godMode = true,
     antiKick = true,
-    antiBan = true
+    antiBan = true,
+    tpBase = false,
+    stealHelper = false
 }
 
-local floatBody = nil
-local flyBody = nil
+local flyPart = nil
 local basePosition = nil
 local originalWalkSpeed = 16
+local originalJumpPower = 50
 local characterAddedConnection = nil
 local espObjects = {}
 local noclipConnection = nil
 local godModeConnection = nil
-local floatController = nil
-local touchGui = nil
-local downButton = nil
-local speedBoostConnection = nil
 
 -- Enhanced Color Scheme
 local colors = {
@@ -79,56 +78,113 @@ local colors = {
     glow = Color3.fromRGB(100, 200, 255)
 }
 
--- Anticheat Bypass Setup
+-- Enhanced Anticheat Bypass Setup
 local function setupBypass()
-    -- Method 1: Metatable hooking
-    setreadonly(mt, false)
-    mt.__namecall = protect(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
+    -- Method 1: Advanced metatable hooking
+    pcall(function()
+        setreadonly(mt, false)
         
-        -- Block kick/ban attempts
-        if method == "Kick" or method == "kick" then
-            return nil
-        end
+        local oldIndex = mt.__index
+        local oldNewIndex = mt.__newindex
         
-        -- Block remote events that might be anticheat
-        if method == "FireServer" or method == "InvokeServer" then
-            if tostring(self):find("Anti") or tostring(self):find("Cheat") or tostring(self):find("Ban") or tostring(self):find("Kick") then
+        mt.__index = newcclosure(function(self, key)
+            if checkcaller() then
+                return oldIndex(self, key)
+            end
+            
+            -- Spoof WalkSpeed and JumpPower
+            if tostring(self) == "Humanoid" then
+                if key == "WalkSpeed" then
+                    return 16
+                elseif key == "JumpPower" then
+                    return 50
+                end
+            end
+            
+            return oldIndex(self, key)
+        end)
+        
+        mt.__newindex = newcclosure(function(self, key, value)
+            if checkcaller() then
+                return oldNewIndex(self, key, value)
+            end
+            
+            -- Block suspicious property changes
+            if key == "WalkSpeed" or key == "JumpPower" or key == "HipHeight" then
+                return
+            end
+            
+            return oldNewIndex(self, key, value)
+        end)
+        
+        mt.__namecall = protect(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+            
+            -- Block kick/ban attempts
+            if method == "Kick" or method == "kick" then
                 return nil
             end
-        end
-        
-        -- Spoof character properties
-        if method == "GetPropertyChangedSignal" then
-            if args[1] == "WalkSpeed" or args[1] == "JumpPower" or args[1] == "HipHeight" then
-                return Instance.new("BindableEvent").Event
+            
+            -- Block teleport detection
+            if method == "GetPropertyChangedSignal" then
+                if args[1] == "CFrame" or args[1] == "Position" then
+                    return Instance.new("BindableEvent").Event
+                end
             end
-        end
+            
+            -- Block remote events that might be anticheat
+            if (method == "FireServer" or method == "InvokeServer") and self:IsA("RemoteEvent") or self:IsA("RemoteFunction") then
+                local name = tostring(self)
+                if name:lower():find("anti") or name:lower():find("cheat") or name:lower():find("ban") or 
+                   name:lower():find("kick") or name:lower():find("detect") or name:lower():find("flag") then
+                    return nil
+                end
+            end
+            
+            return old(self, ...)
+        end)
         
-        return old(self, ...)
+        setreadonly(mt, true)
     end)
-    setreadonly(mt, true)
     
-    -- Method 2: Disable common anticheat connections
-    for _, v in pairs(getconnections(player.Idled)) do
-        v:Disable()
-    end
+    -- Method 2: Hook game close
+    pcall(function()
+        for _, v in pairs(getconnections(game.Close)) do
+            v:Disable()
+        end
+    end)
     
-    -- Method 3: Anti-idle
+    -- Method 3: Disable common anticheat connections
+    pcall(function()
+        for _, v in pairs(getconnections(player.Idled)) do
+            v:Disable()
+        end
+    end)
+    
+    -- Method 4: Anti-idle
     player.Idled:Connect(function()
         VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
         wait(1)
         VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
     end)
     
-    -- Method 4: Disable error reporting
+    -- Method 5: Disable error reporting
     local oldError = error
+    local oldWarn = warn
+    
     getgenv().error = function(msg)
-        if msg:find("exploit") or msg:find("cheat") or msg:find("hack") then
+        if type(msg) == "string" and (msg:lower():find("exploit") or msg:lower():find("cheat") or msg:lower():find("hack")) then
             return
         end
         return oldError(msg)
+    end
+    
+    getgenv().warn = function(msg)
+        if type(msg) == "string" and (msg:lower():find("exploit") or msg:lower():find("cheat") or msg:lower():find("hack")) then
+            return
+        end
+        return oldWarn(msg)
     end
 end
 
@@ -147,7 +203,7 @@ local function getRootPart()
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:WaitForChild("HumanoidRootPart", 2))
 end
 
--- Enhanced UI Creation with Animations
+-- Enhanced UI Creation
 local function createFrame(parent, size, position, color, transparency)
     local frame = Instance.new("Frame")
     frame.Size = size
@@ -158,50 +214,22 @@ local function createFrame(parent, size, position, color, transparency)
     frame.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 20)
+    corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = frame
     
-    -- Advanced shadow with glow effect
-    local shadow = Instance.new("ImageLabel")
-    shadow.Size = UDim2.new(1, 50, 1, 50)
-    shadow.Position = UDim2.new(0, -25, 0, -25)
-    shadow.BackgroundTransparency = 1
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.ImageColor3 = Color3.new(0, 0, 0)
-    shadow.ImageTransparency = 0.6
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    -- Simple shadow
+    local shadow = Instance.new("Frame")
+    shadow.Size = UDim2.new(1, 10, 1, 10)
+    shadow.Position = UDim2.new(0, -5, 0, -5)
+    shadow.BackgroundColor3 = Color3.new(0, 0, 0)
+    shadow.BackgroundTransparency = 0.7
+    shadow.BorderSizePixel = 0
     shadow.Parent = frame
     shadow.ZIndex = frame.ZIndex - 1
     
-    -- Animated glow effect
-    local glow = Instance.new("ImageLabel")
-    glow.Size = UDim2.new(1, 60, 1, 60)
-    glow.Position = UDim2.new(0, -30, 0, -30)
-    glow.BackgroundTransparency = 1
-    glow.Image = "rbxassetid://5028857084"
-    glow.ImageColor3 = colors.glow
-    glow.ImageTransparency = 0.8
-    glow.Parent = frame
-    glow.ZIndex = frame.ZIndex - 2
-    
-    -- Pulse animation for glow
-    spawn(function()
-        while frame and frame.Parent do
-            TweenService:Create(glow, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                ImageTransparency = 0.9,
-                Size = UDim2.new(1, 80, 1, 80),
-                Position = UDim2.new(0, -40, 0, -40)
-            }):Play()
-            wait(2)
-            TweenService:Create(glow, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                ImageTransparency = 0.8,
-                Size = UDim2.new(1, 60, 1, 60),
-                Position = UDim2.new(0, -30, 0, -30)
-            }):Play()
-            wait(2)
-        end
-    end)
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(0, 12)
+    shadowCorner.Parent = shadow
     
     return frame
 end
@@ -219,44 +247,19 @@ local function createButton(parent, size, position, color, text)
     button.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 15)
+    corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = button
     
-    -- Button gradient
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, color),
-        ColorSequenceKeypoint.new(1, color:Lerp(Color3.new(0, 0, 0), 0.2))
-    })
-    gradient.Rotation = 90
-    gradient.Parent = button
-    
-    -- Hover animations
-    local isHovering = false
+    -- Hover effect
     button.MouseEnter:Connect(function()
-        isHovering = true
-        TweenService:Create(button, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-            Size = UDim2.new(button.Size.X.Scale * 1.05, button.Size.X.Offset, button.Size.Y.Scale * 1.05, button.Size.Y.Offset),
+        TweenService:Create(button, TweenInfo.new(0.2), {
             BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), 0.2)
         }):Play()
     end)
     
     button.MouseLeave:Connect(function()
-        isHovering = false
-        TweenService:Create(button, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-            Size = size,
+        TweenService:Create(button, TweenInfo.new(0.2), {
             BackgroundColor3 = color
-        }):Play()
-    end)
-    
-    -- Click animation
-    button.MouseButton1Click:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Back), {
-            Size = UDim2.new(size.X.Scale * 0.95, size.X.Offset, size.Y.Scale * 0.95, size.Y.Offset)
-        }):Play()
-        wait(0.1)
-        TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
-            Size = isHovering and UDim2.new(size.X.Scale * 1.05, size.X.Offset, size.Y.Scale * 1.05, size.Y.Offset) or size
         }):Play()
     end)
     
@@ -265,7 +268,7 @@ end
 
 local function createSwitch(parent, position, callback, initialState)
     local switchFrame = createFrame(parent, 
-        UDim2.new(0, 70, 0, 35), 
+        UDim2.new(0, 50, 0, 25), 
         position, 
         initialState and colors.primary or Color3.fromRGB(80, 80, 80), 
         0
@@ -273,36 +276,22 @@ local function createSwitch(parent, position, callback, initialState)
     switchFrame.Active = true
     
     local switchButton = createFrame(switchFrame, 
-        UDim2.new(0, 30, 0, 30), 
-        initialState and UDim2.new(1, -32, 0, 2.5) or UDim2.new(0, 2, 0, 2.5), 
+        UDim2.new(0, 21, 0, 21), 
+        initialState and UDim2.new(1, -23, 0, 2) or UDim2.new(0, 2, 0, 2), 
         Color3.fromRGB(255, 255, 255), 
         0
     )
-    
-    -- Inner dot for style
-    local innerDot = Instance.new("Frame")
-    innerDot.Size = UDim2.new(0, 10, 0, 10)
-    innerDot.Position = UDim2.new(0.5, -5, 0.5, -5)
-    innerDot.BackgroundColor3 = initialState and colors.primary or Color3.fromRGB(150, 150, 150)
-    innerDot.BorderSizePixel = 0
-    innerDot.Parent = switchButton
-    
-    local dotCorner = Instance.new("UICorner")
-    dotCorner.CornerRadius = UDim.new(1, 0)
-    dotCorner.Parent = innerDot
     
     local isOn = initialState or false
     
     local function toggle()
         isOn = not isOn
         
-        local targetPos = isOn and UDim2.new(1, -32, 0, 2.5) or UDim2.new(0, 2, 0, 2.5)
+        local targetPos = isOn and UDim2.new(1, -23, 0, 2) or UDim2.new(0, 2, 0, 2)
         local targetColor = isOn and colors.primary or Color3.fromRGB(80, 80, 80)
-        local targetDotColor = isOn and colors.primary or Color3.fromRGB(150, 150, 150)
         
-        TweenService:Create(switchButton, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Position = targetPos}):Play()
+        TweenService:Create(switchButton, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Position = targetPos}):Play()
         TweenService:Create(switchFrame, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
-        TweenService:Create(innerDot, TweenInfo.new(0.3), {BackgroundColor3 = targetDotColor}):Play()
         
         if callback then
             callback(isOn)
@@ -327,14 +316,12 @@ local function makeDraggable(frame, dragArea)
     local function update(input)
         if dragging then
             local delta = input.Position - dragStart
-            TweenService:Create(frame, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {
-                Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
-            }):Play()
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
         end
     end
     
@@ -359,11 +346,11 @@ local function makeDraggable(frame, dragArea)
     end)
 end
 
--- Feature Functions with Advanced Bypass
-local toggleGodMode, toggleInfiniteJump, toggleFloat, toggleSpeedBoost, toggleNoclip, toggleFly, toggleESP
-local createFloatController, createMainGui, createMinimizedIcon
+-- Feature Functions with Enhanced Bypass
+local toggleGodMode, toggleInfiniteJump, toggleSpeedBoost, toggleNoclip, toggleFly, toggleESP
+local createMainGui, createMinimizedIcon
 
--- God Mode with Multiple Methods
+-- God Mode
 toggleGodMode = function(enabled)
     states.godMode = enabled
     
@@ -373,23 +360,18 @@ toggleGodMode = function(enabled)
     end
     
     if enabled then
-        -- Method 1: Standard health manipulation
         godModeConnection = RunService.Heartbeat:Connect(function()
             local humanoid = getHumanoid()
             if humanoid then
-                -- Multiple approaches to ensure god mode works
                 humanoid.Health = humanoid.MaxHealth
-                humanoid.MaxHealth = math.huge
-                humanoid.Health = math.huge
                 
-                -- Disable death states
                 pcall(function()
                     humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
                     humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
                     humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
                 end)
                 
-                -- Force field approach
+                -- Create invisible forcefield
                 local char = getCharacter()
                 if char and not char:FindFirstChild("ForceField") then
                     local ff = Instance.new("ForceField")
@@ -398,30 +380,10 @@ toggleGodMode = function(enabled)
                 end
             end
         end)
-        
-        -- Method 2: Hook damage events
-        local char = getCharacter()
-        if char then
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("Humanoid") then
-                    v.HealthChanged:Connect(function()
-                        if states.godMode then
-                            v.Health = v.MaxHealth
-                        end
-                    end)
-                end
-            end
-        end
-    else
-        local humanoid = getHumanoid()
-        if humanoid then
-            humanoid.MaxHealth = 100
-            humanoid.Health = humanoid.MaxHealth
-        end
     end
 end
 
--- Infinite Jump with Bypass
+-- Fixed Infinite Jump
 toggleInfiniteJump = function(enabled)
     states.infiniteJump = enabled
     
@@ -430,230 +392,86 @@ toggleInfiniteJump = function(enabled)
         connections.infiniteJump = nil
     end
     
+    if connections.jumpHeight then
+        connections.jumpHeight:Disconnect()
+        connections.jumpHeight = nil
+    end
+    
     if enabled then
+        -- Main jump connection
         connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
             local humanoid = getHumanoid()
-            if humanoid and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
-                -- Multiple methods to ensure jump works
+            local rootPart = getRootPart()
+            
+            if humanoid and rootPart and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
+                -- Force jump state
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                wait()
-                humanoid.Jump = true
                 
-                -- Velocity boost for better jumping
-                local rootPart = getRootPart()
-                if rootPart then
-                    rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 50, rootPart.Velocity.Z)
-                end
+                -- Apply upward velocity for smooth movement
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+                bodyVelocity.Velocity = Vector3.new(0, 60, 0)
+                bodyVelocity.Parent = rootPart
+                
+                -- Remove after jump
+                game:GetService("Debris"):AddItem(bodyVelocity, 0.1)
+            end
+        end)
+        
+        -- Maintain jump ability
+        connections.jumpHeight = RunService.Heartbeat:Connect(function()
+            local humanoid = getHumanoid()
+            if humanoid then
+                humanoid.JumpPower = 50
+                humanoid.JumpHeight = 7.2
             end
         end)
     end
 end
 
--- Float Controller Enhanced
-createFloatController = function()
-    if touchGui then touchGui:Destroy() end
-    
-    touchGui = Instance.new("ScreenGui")
-    touchGui.Name = "FloatController"
-    touchGui.Parent = CoreGui
-    touchGui.ResetOnSpawn = false
-    
-    local controller = createFrame(touchGui, 
-        UDim2.new(0, 200, 0, 200), 
-        UDim2.new(0.8, -100, 0.6, -100), 
-        colors.surface, 
-        0.3
-    )
-    controller.Active = true
-    makeDraggable(controller)
-    
-    -- Joystick background with gradient
-    local joystickBg = createFrame(controller, 
-        UDim2.new(0.8, 0, 0.8, 0), 
-        UDim2.new(0.1, 0, 0.1, 0), 
-        colors.surfaceLight, 
-        0.2
-    )
-    
-    local joystickGradient = Instance.new("UIGradient")
-    joystickGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, colors.surface),
-        ColorSequenceKeypoint.new(0.5, colors.surfaceLight),
-        ColorSequenceKeypoint.new(1, colors.surface)
-    })
-    joystickGradient.Rotation = 45
-    joystickGradient.Parent = joystickBg
-    
-    local joystickKnob = createFrame(joystickBg, 
-        UDim2.new(0.4, 0, 0.4, 0), 
-        UDim2.new(0.3, 0, 0.3, 0), 
-        colors.primary, 
-        0
-    )
-    
-    local dragging = false
-    local centerPos = UDim2.new(0.3, 0, 0.3, 0)
-    
-    floatController = {
-        moveVector = Vector3.new(0, 0, 0)
-    }
-    
-    joystickBg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-        end
-    end)
-    
-    joystickBg.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-            TweenService:Create(joystickKnob, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-                Position = centerPos
-            }):Play()
-            floatController.moveVector = Vector3.new(0, 0, 0)
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.Touch then
-            local relativePos = input.Position - joystickBg.AbsolutePosition
-            local centerX = joystickBg.AbsoluteSize.X / 2
-            local centerY = joystickBg.AbsoluteSize.Y / 2
-            
-            local deltaX = math.clamp((relativePos.X - centerX) / centerX, -1, 1)
-            local deltaY = math.clamp((relativePos.Y - centerY) / centerY, -1, 1)
-            
-            TweenService:Create(joystickKnob, TweenInfo.new(0.1), {
-                Position = UDim2.new(0.3 + deltaX * 0.3, 0, 0.3 + deltaY * 0.3, 0)
-            }):Play()
-            
-            local cam = workspace.CurrentCamera
-            floatController.moveVector = (cam.CFrame.RightVector * deltaX + cam.CFrame.LookVector * -deltaY) * 50
-        end
-    end)
-end
-
--- Float with Advanced Physics
-toggleFloat = function(enabled)
-    states.float = enabled
-    
-    if floatBody then
-        floatBody:Destroy()
-        floatBody = nil
-    end
-    
-    if touchGui then
-        touchGui:Destroy()
-        touchGui = nil
-    end
-    
-    if connections.floatUpdate then
-        connections.floatUpdate:Disconnect()
-        connections.floatUpdate = nil
-    end
-    
-    if enabled then
-        local rootPart = getRootPart()
-        if rootPart then
-            -- Use BodyPosition for smooth floating
-            floatBody = Instance.new("BodyPosition")
-            floatBody.MaxForce = Vector3.new(4000, math.huge, 4000)
-            floatBody.Position = rootPart.Position
-            floatBody.D = 2000
-            floatBody.P = 10000
-            floatBody.Parent = rootPart
-            
-            -- Alternative: BodyVelocity
-            local floatVelocity = Instance.new("BodyVelocity")
-            floatVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-            floatVelocity.Velocity = Vector3.new(0, 0, 0)
-            floatVelocity.Parent = rootPart
-            
-            if isMobile then
-                createFloatController()
-            end
-            
-            connections.floatUpdate = RunService.Heartbeat:Connect(function()
-                if not floatBody or not floatBody.Parent then
-                    states.float = false
-                    return
-                end
-                
-                local moveVector = Vector3.new(0, 0, 0)
-                
-                if isMobile and floatController then
-                    moveVector = floatController.moveVector
-                else
-                    local cam = workspace.CurrentCamera
-                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                        moveVector = moveVector + cam.CFrame.LookVector
-                    end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                        moveVector = moveVector - cam.CFrame.LookVector
-                    end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                        moveVector = moveVector - cam.CFrame.RightVector
-                    end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                        moveVector = moveVector + cam.CFrame.RightVector
-                    end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                        moveVector = moveVector + Vector3.new(0, 1, 0)
-                    end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                        moveVector = moveVector - Vector3.new(0, 1, 0)
-                    end
-                    moveVector = moveVector * 50
-                end
-                
-                floatBody.Position = floatBody.Position + moveVector * 0.1
-                floatVelocity.Velocity = moveVector
-            end)
-        end
-    end
-end
-
--- Speed Boost with Multiple Bypass Methods
+-- Speed Boost (55% increase for better bypass)
 toggleSpeedBoost = function(enabled)
     states.speedBoost = enabled
     
-    if speedBoostConnection then
-        speedBoostConnection:Disconnect()
-        speedBoostConnection = nil
+    if connections.speedBoost then
+        connections.speedBoost:Disconnect()
+        connections.speedBoost = nil
+    end
+    
+    local humanoid = getHumanoid()
+    if humanoid then
+        originalWalkSpeed = 16 -- Default Roblox walkspeed
     end
     
     if enabled then
-        speedBoostConnection = RunService.Heartbeat:Connect(function()
-            local rootPart = getRootPart()
+        connections.speedBoost = RunService.Heartbeat:Connect(function()
             local humanoid = getHumanoid()
-            if not rootPart or not humanoid then return end
+            local rootPart = getRootPart()
             
-            -- Method 1: Direct WalkSpeed modification
-            humanoid.WalkSpeed = 100
-            
-            -- Method 2: CFrame manipulation
-            local moveVector = humanoid.MoveDirection * 3
-            rootPart.CFrame = rootPart.CFrame + moveVector
-            
-            -- Method 3: Velocity manipulation
-            rootPart.Velocity = rootPart.CFrame.LookVector * humanoid.MoveDirection.Magnitude * 100
-            
-            -- Method 4: AssemblyLinearVelocity
-            rootPart.AssemblyLinearVelocity = Vector3.new(
-                humanoid.MoveDirection.X * 100,
-                rootPart.AssemblyLinearVelocity.Y,
-                humanoid.MoveDirection.Z * 100
-            )
+            if humanoid and rootPart then
+                -- Set walkspeed to 55% more (24.8, rounded to 25)
+                humanoid.WalkSpeed = 25
+                
+                -- Additional velocity boost for better movement
+                if humanoid.MoveDirection.Magnitude > 0 then
+                    local moveDirection = humanoid.MoveDirection.Unit
+                    rootPart.Velocity = Vector3.new(
+                        moveDirection.X * 25,
+                        rootPart.Velocity.Y,
+                        moveDirection.Z * 25
+                    )
+                end
+            end
         end)
     else
         local humanoid = getHumanoid()
         if humanoid then
-            humanoid.WalkSpeed = 16
+            humanoid.WalkSpeed = originalWalkSpeed
         end
     end
 end
 
--- Noclip with Advanced Collision Bypass
+-- Noclip
 toggleNoclip = function(enabled)
     states.noclip = enabled
     
@@ -666,22 +484,8 @@ toggleNoclip = function(enabled)
         noclipConnection = RunService.Stepped:Connect(function()
             local character = getCharacter()
             if character then
-                -- Method 1: Disable all collision
                 for _, part in pairs(character:GetDescendants()) do
                     if part:IsA("BasePart") then
-                        part.CanCollide = false
-                        part.CanTouch = false
-                        part.CanQuery = false
-                    end
-                end
-                
-                -- Method 2: Phase through parts
-                local rootPart = getRootPart()
-                if rootPart then
-                    local region = Region3.new(rootPart.Position - Vector3.new(4, 4, 4), rootPart.Position + Vector3.new(4, 4, 4))
-                    region = region:ExpandToGrid(4)
-                    
-                    for _, part in pairs(workspace:FindPartsInRegion3(region, character, 100)) do
                         part.CanCollide = false
                     end
                 end
@@ -691,17 +495,15 @@ toggleNoclip = function(enabled)
         local character = getCharacter()
         if character then
             for _, part in pairs(character:GetDescendants()) do
-                if part:IsA("BasePart") then
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                     part.CanCollide = true
-                    part.CanTouch = true
-                    part.CanQuery = true
                 end
             end
         end
     end
 end
 
--- Fly with Multiple Methods
+-- Enhanced Fly (Bypass everything)
 toggleFly = function(enabled)
     states.fly = enabled
     
@@ -710,78 +512,81 @@ toggleFly = function(enabled)
         connections.flyControl = nil
     end
     
+    if flyPart then
+        flyPart:Destroy()
+        flyPart = nil
+    end
+    
     if enabled then
         local humanoid = getHumanoid()
         if humanoid then
-            humanoid.PlatformStand = true
+            humanoid.PlatformStand = false -- Keep normal state
         end
         
-        -- Create multiple fly bodies for redundancy
-        local rootPart = getRootPart()
-        if rootPart then
-            local flyVelocity = Instance.new("BodyVelocity")
-            flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            flyVelocity.Velocity = Vector3.new(0, 0, 0)
-            flyVelocity.Parent = rootPart
-            
-            local flyPosition = Instance.new("BodyPosition")
-            flyPosition.MaxForce = Vector3.new(4000, math.huge, 4000)
-            flyPosition.Position = rootPart.Position
-            flyPosition.Parent = rootPart
-            
-            connections.flyControl = RunService.Heartbeat:Connect(function()
-                if not rootPart.Parent then 
-                    states.fly = false
-                    return 
-                end
-                
-                local cam = workspace.CurrentCamera
-                local moveVector = Vector3.new(0, 0, 0)
-                
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                    moveVector = moveVector + cam.CFrame.LookVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                    moveVector = moveVector - cam.CFrame.LookVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                    moveVector = moveVector - cam.CFrame.RightVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                    moveVector = moveVector + cam.CFrame.RightVector
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                    moveVector = moveVector + Vector3.new(0, 1, 0)
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                    moveVector = moveVector - Vector3.new(0, 1, 0)
-                end
-                
-                -- Apply movement with multiple methods
-                flyVelocity.Velocity = moveVector * 100
-                flyPosition.Position = flyPosition.Position + moveVector * 2
-                rootPart.CFrame = rootPart.CFrame + moveVector * 0.5
-            end)
-        end
-    else
-        local humanoid = getHumanoid()
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
+        -- Create invisible platform
+        flyPart = Instance.new("Part")
+        flyPart.Size = Vector3.new(5, 0.2, 5)
+        flyPart.Transparency = 1
+        flyPart.CanCollide = true
+        flyPart.Anchored = true
+        flyPart.Name = "FlyPart"
+        flyPart.Parent = workspace
         
-        -- Clean up fly bodies
-        local rootPart = getRootPart()
-        if rootPart then
-            for _, v in pairs(rootPart:GetChildren()) do
-                if v:IsA("BodyVelocity") or v:IsA("BodyPosition") then
-                    v:Destroy()
-                end
+        connections.flyControl = RunService.Heartbeat:Connect(function()
+            local rootPart = getRootPart()
+            local humanoid = getHumanoid()
+            
+            if not rootPart or not humanoid or not flyPart then 
+                states.fly = false
+                return 
             end
+            
+            -- Position platform under player
+            flyPart.CFrame = CFrame.new(rootPart.Position - Vector3.new(0, 3.5, 0))
+            
+            local cam = workspace.CurrentCamera
+            local moveVector = Vector3.new(0, 0, 0)
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveVector = moveVector + cam.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveVector = moveVector - cam.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveVector = moveVector - cam.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveVector = moveVector + cam.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveVector = moveVector + Vector3.new(0, 1, 0)
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                moveVector = moveVector - Vector3.new(0, 1, 0)
+            end
+            
+            -- Apply movement
+            local speed = 50
+            rootPart.Velocity = moveVector * speed
+            
+            -- Keep upright
+            rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(0, math.rad(rootPart.Orientation.Y), 0)
+        end)
+    else
+        if flyPart then
+            flyPart:Destroy()
+            flyPart = nil
+        end
+        
+        local rootPart = getRootPart()
+        if rootPart then
+            rootPart.Velocity = Vector3.new(0, 0, 0)
         end
     end
 end
 
--- Enhanced ESP System
+-- ESP System
 local function createAdvancedESP(targetPlayer)
     if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return
@@ -798,7 +603,7 @@ local function createAdvancedESP(targetPlayer)
     
     espObjects[targetPlayer] = {}
     
-    -- ESP Box with gradient
+    -- ESP Box
     if states.espBox then
         local box = Instance.new("BoxHandleAdornment")
         box.Size = character:GetExtentsSize()
@@ -808,38 +613,18 @@ local function createAdvancedESP(targetPlayer)
         box.ZIndex = 10
         box.Adornee = rootPart
         box.Parent = rootPart
-        
-        -- Animated box color
-        spawn(function()
-            while box and box.Parent do
-                for i = 0, 1, 0.01 do
-                    if not box.Parent then break end
-                    box.Color3 = Color3.fromHSV(i, 1, 1)
-                    wait(0.05)
-                end
-            end
-        end)
-        
         table.insert(espObjects[targetPlayer], box)
     end
     
-    -- ESP Lines with gradient
+    -- ESP Lines
     if states.espLines then
         local myRoot = getRootPart()
         if myRoot then
             local beam = Instance.new("Beam")
-            beam.Texture = "rbxasset://textures/ui/LuaChat/peisceil.png"
-            beam.TextureMode = Enum.TextureMode.Stretch
-            beam.TextureLength = 1
-            beam.TextureSpeed = 0
-            beam.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 100)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 100)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 100))
-            })
-            beam.Transparency = NumberSequence.new(0.3)
-            beam.Width0 = 0.5
-            beam.Width1 = 0.5
+            beam.Color = ColorSequence.new(Color3.fromRGB(100, 255, 100))
+            beam.Transparency = NumberSequence.new(0.5)
+            beam.Width0 = 0.1
+            beam.Width1 = 0.1
             beam.FaceCamera = true
             
             local attachment0 = Instance.new("Attachment", rootPart)
@@ -855,72 +640,17 @@ local function createAdvancedESP(targetPlayer)
         end
     end
     
-    -- Enhanced ESP Skeleton
-    if states.espSkeleton then
-        local function createBone(part1Name, part2Name, color)
-            local part1 = character:FindFirstChild(part1Name) or character:FindFirstChild(part1Name:gsub("Upper", ""):gsub("Lower", ""))
-            local part2 = character:FindFirstChild(part2Name) or character:FindFirstChild(part2Name:gsub("Upper", ""):gsub("Lower", ""))
-            
-            if part1 and part2 then
-                local beam = Instance.new("Beam")
-                beam.Color = ColorSequence.new(color or Color3.fromRGB(255, 255, 100))
-                beam.Transparency = NumberSequence.new(0.2)
-                beam.Width0 = 0.2
-                beam.Width1 = 0.2
-                beam.FaceCamera = true
-                
-                local att1 = Instance.new("Attachment", part1)
-                local att2 = Instance.new("Attachment", part2)
-                
-                beam.Attachment0 = att1
-                beam.Attachment1 = att2
-                beam.Parent = part1
-                
-                table.insert(espObjects[targetPlayer], beam)
-                table.insert(espObjects[targetPlayer], att1)
-                table.insert(espObjects[targetPlayer], att2)
-            end
-        end
-        
-        -- R15 skeleton with colors
-        createBone("Head", "UpperTorso", Color3.fromRGB(255, 200, 200))
-        createBone("UpperTorso", "LowerTorso", Color3.fromRGB(200, 255, 200))
-        createBone("UpperTorso", "LeftUpperArm", Color3.fromRGB(200, 200, 255))
-        createBone("LeftUpperArm", "LeftLowerArm", Color3.fromRGB(200, 200, 255))
-        createBone("LeftLowerArm", "LeftHand", Color3.fromRGB(200, 200, 255))
-        createBone("UpperTorso", "RightUpperArm", Color3.fromRGB(255, 200, 255))
-        createBone("RightUpperArm", "RightLowerArm", Color3.fromRGB(255, 200, 255))
-        createBone("RightLowerArm", "RightHand", Color3.fromRGB(255, 200, 255))
-        createBone("LowerTorso", "LeftUpperLeg", Color3.fromRGB(255, 255, 200))
-        createBone("LeftUpperLeg", "LeftLowerLeg", Color3.fromRGB(255, 255, 200))
-        createBone("LeftLowerLeg", "LeftFoot", Color3.fromRGB(255, 255, 200))
-        createBone("LowerTorso", "RightUpperLeg", Color3.fromRGB(200, 255, 255))
-        createBone("RightUpperLeg", "RightLowerLeg", Color3.fromRGB(200, 255, 255))
-        createBone("RightLowerLeg", "RightFoot", Color3.fromRGB(200, 255, 255))
-        
-        -- R6 skeleton fallback
-        createBone("Head", "Torso")
-        createBone("Torso", "Left Arm")
-        createBone("Torso", "Right Arm")
-        createBone("Torso", "Left Leg")
-        createBone("Torso", "Right Leg")
-    end
-    
-    -- Enhanced ESP Names with health bar
+    -- ESP Names
     if states.espNames then
         local billboard = Instance.new("BillboardGui")
         billboard.Adornee = rootPart
-        billboard.Size = UDim2.new(0, 200, 0, 100)
+        billboard.Size = UDim2.new(0, 200, 0, 80)
         billboard.StudsOffset = Vector3.new(0, 3, 0)
         billboard.AlwaysOnTop = true
         billboard.Parent = rootPart
         
-        -- Background frame
-        local bgFrame = createFrame(billboard, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(30, 30, 30), 0.3)
-        
         local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(1, -10, 0.4, 0)
-        nameLabel.Position = UDim2.new(0, 5, 0, 5)
+        nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
         nameLabel.BackgroundTransparency = 1
         nameLabel.Text = targetPlayer.Name
         nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -928,47 +658,21 @@ local function createAdvancedESP(targetPlayer)
         nameLabel.Font = Enum.Font.SourceSansBold
         nameLabel.TextStrokeTransparency = 0
         nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        nameLabel.Parent = bgFrame
+        nameLabel.Parent = billboard
         
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            -- Health bar background
-            local healthBarBg = createFrame(bgFrame, UDim2.new(0.9, 0, 0.2, 0), UDim2.new(0.05, 0, 0.5, 0), Color3.fromRGB(60, 60, 60), 0)
-            
-            -- Health bar fill
-            local healthBar = createFrame(healthBarBg, UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(100, 255, 100), 0)
-            
-            -- Health text
             local healthLabel = Instance.new("TextLabel")
-            healthLabel.Size = UDim2.new(1, -10, 0.3, 0)
-            healthLabel.Position = UDim2.new(0, 5, 0.7, 0)
+            healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
+            healthLabel.Position = UDim2.new(0, 0, 0.5, 0)
             healthLabel.BackgroundTransparency = 1
             healthLabel.Text = math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
-            healthLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            healthLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
             healthLabel.TextScaled = true
             healthLabel.Font = Enum.Font.SourceSans
             healthLabel.TextStrokeTransparency = 0
             healthLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-            healthLabel.Parent = bgFrame
-            
-            -- Update health bar
-            humanoid.HealthChanged:Connect(function()
-                TweenService:Create(healthBar, TweenInfo.new(0.3), {
-                    Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)
-                }):Play()
-                
-                healthLabel.Text = math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
-                
-                -- Change color based on health
-                local healthPercent = humanoid.Health / humanoid.MaxHealth
-                if healthPercent > 0.6 then
-                    healthBar.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-                elseif healthPercent > 0.3 then
-                    healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 100)
-                else
-                    healthBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-                end
-            end)
+            healthLabel.Parent = billboard
         end
         
         table.insert(espObjects[targetPlayer], billboard)
@@ -1001,7 +705,7 @@ toggleESP = function(espType, enabled)
     end
 end
 
--- Enhanced Teleport to Base with Flying Animation
+-- Fixed Teleport to Base
 local function teleportToBase()
     if not basePosition then
         StarterGui:SetCore("SendNotification", {
@@ -1018,108 +722,452 @@ local function teleportToBase()
         return false
     end
     
-    -- Save original states
-    local originalNoclip = states.noclip
-    local originalFly = states.fly
+    -- Enable bypass features temporarily
+    local wasNoclip = states.noclip
+    if not wasNoclip then toggleNoclip(true) end
     
-    -- Enable noclip and fly for teleportation
-    if not states.noclip then toggleNoclip(true) end
-    if not states.fly then toggleFly(true) end
+    -- Phase 1: Instant teleport to 165 height
+    rootPart.CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)
     
-    -- Phase 1: Teleport up to height 165
-    local startPos = rootPart.Position
-    local upPosition = Vector3.new(startPos.X, 165, startPos.Z)
+    -- Wait 2 seconds
+    wait(2)
     
-    -- Smooth upward teleport
-    local upTween = TweenService:Create(rootPart, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        CFrame = CFrame.new(upPosition)
-    })
-    upTween:Play()
-    upTween.Completed:Wait()
+    -- Phase 2: Fly to base position at height 165
+    local targetPosition = Vector3.new(basePosition.X, 165, basePosition.Z)
+    local startPosition = rootPart.Position
+    local distance = (targetPosition - startPosition).Magnitude
     
-    -- Phase 2: Fly horizontally to base position at height 165
-    local flyPosition = Vector3.new(basePosition.X, 165, basePosition.Z)
-    local distance = (upPosition - flyPosition).Magnitude
-    local flyTime = math.max(distance / 100, 1) -- Adjust speed as needed
+    -- Create smooth flying movement
+    local flyConnection
+    local elapsed = 0
+    local flyDuration = math.max(distance / 50, 1) -- Adjust speed
     
-    local flyTween = TweenService:Create(rootPart, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), {
-        CFrame = CFrame.new(flyPosition)
-    })
-    flyTween:Play()
-    
-    -- Show progress notification
-    StarterGui:SetCore("SendNotification", {
-        Title = "Water Hub",
-        Text = "Flying to base position...",
-        Duration = flyTime
-    })
-    
-    flyTween.Completed:Wait()
-    
-    -- Phase 3: Prepare for descent
-    -- Restore original states
-    if not originalNoclip then toggleNoclip(false) end
-    if not originalFly then toggleFly(false) end
-    
-    -- Create down button
-    if downButton then
-        downButton:Destroy()
-    end
-    
-    downButton = Instance.new("ScreenGui")
-    downButton.Name = "DownButton"
-    downButton.Parent = CoreGui
-    downButton.ResetOnSpawn = false
-    
-    local button = createButton(downButton, 
-        UDim2.new(0, 150, 0, 70), 
-        UDim2.new(1, -160, 0.8, -35), 
-        colors.danger, 
-        "⬇️ Drop Down"
-    )
-    button.Font = Enum.Font.SourceSansBold
-    button.TextSize = 24
-    
-    -- Pulse animation for button
-    spawn(function()
-        while button and button.Parent do
-            TweenService:Create(button, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                Size = UDim2.new(0, 160, 0, 75)
-            }):Play()
-            wait(0.5)
-            TweenService:Create(button, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                Size = UDim2.new(0, 150, 0, 70)
-            }):Play()
-            wait(0.5)
+    flyConnection = RunService.Heartbeat:Connect(function(dt)
+        elapsed = elapsed + dt
+        local progress = math.min(elapsed / flyDuration, 1)
+        
+        -- Smooth interpolation
+        local newPosition = startPosition:Lerp(targetPosition, progress)
+        rootPart.CFrame = CFrame.new(newPosition)
+        rootPart.Velocity = Vector3.new(0, 0, 0) -- Prevent falling
+        
+        if progress >= 1 then
+            flyConnection:Disconnect()
         end
     end)
     
-    button.MouseButton1Click:Connect(function()
+    wait(flyDuration)
+    
+    -- Wait 2 more seconds
+    wait(2)
+    
+    -- Restore noclip state
+    if not wasNoclip then toggleNoclip(false) end
+    
+    -- Create down button in center of screen
+    local downGui = Instance.new("ScreenGui")
+    downGui.Name = "DownButton"
+    downGui.Parent = CoreGui
+    downGui.ResetOnSpawn = false
+    
+    local downBtn = createButton(downGui, 
+        UDim2.new(0, 150, 0, 60), 
+        UDim2.new(0.5, -75, 0.5, -30), 
+        colors.danger, 
+        "⬇️ Down"
+    )
+    downBtn.Font = Enum.Font.SourceSansBold
+    downBtn.TextSize = 24
+    
+    downBtn.MouseButton1Click:Connect(function()
         if basePosition then
-            -- Smooth descent to base position
-            local descendTween = TweenService:Create(rootPart, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                CFrame = CFrame.new(basePosition)
-            })
-            descendTween:Play()
-            
-            downButton:Destroy()
-            downButton = nil
-            
-            StarterGui:SetCore("SendNotification", {
-                Title = "Water Hub",
-                Text = "Arrived at base!",
-                Duration = 2
-            })
+            -- Smooth descent to base
+            rootPart.CFrame = CFrame.new(basePosition)
+            downGui:Destroy()
         end
     end)
     
     return true
 end
 
--- Give All Items with Advanced Collection
-local function giveAllItems()
-    local character = getCharacter()
-    if not character then return 0 end
+-- TP Base GUI
+local tpBaseGui = nil
+local function toggleTPBase(enabled)
+    states.tpBase = enabled
+    
+    if enabled then
+        if not tpBaseGui or not tpBaseGui.Parent then
+            tpBaseGui = Instance.new("ScreenGui")
+            tpBaseGui.Name = "TPBaseGui"
+            tpBaseGui.Parent = CoreGui
+            tpBaseGui.ResetOnSpawn = false
+            table.insert(openGuis, tpBaseGui)
+            
+            local frame = createFrame(tpBaseGui, 
+                UDim2.new(0, 250, 0, 150), 
+                UDim2.new(0.5, -125, 0.3, 0), 
+                colors.surface, 
+                0.1
+            )
+            frame.Active = true
+            makeDraggable(frame)
+            
+            -- Header
+            local header = createFrame(frame, 
+                UDim2.new(1, 0, 0, 35), 
+                UDim2.new(0, 0, 0, 0), 
+                colors.primary, 
+                0
+            )
+            
+            local title = Instance.new("TextLabel")
+            title.Size = UDim2.new(1, -40, 1, 0)
+            title.Position = UDim2.new(0, 10, 0, 0)
+            title.BackgroundTransparency = 1
+            title.Text = "📍 Base System"
+            title.TextColor3 = colors.text
+            title.TextScaled = true
+            title.Font = Enum.Font.SourceSansBold
+            title.Parent = header
+            
+            local closeBtn = createButton(header, 
+                UDim2.new(0, 30, 0, 30), 
+                UDim2.new(1, -35, 0.5, -15), 
+                colors.danger, 
+                "×"
+            )
+            
+            -- Buttons
+            local setBtn = createButton(frame, 
+                UDim2.new(0.9, 0, 0, 35), 
+                UDim2.new(0.05, 0, 0, 50), 
+                colors.success, 
+                "📍 Set Base"
+            )
+            
+            local tpBtn = createButton(frame, 
+                UDim2.new(0.9, 0, 0, 35), 
+                UDim2.new(0.05, 0, 0, 95), 
+                colors.warning, 
+                "🚀 Teleport to Base"
+            )
+            
+            -- Events
+            closeBtn.MouseButton1Click:Connect(function()
+                tpBaseGui:Destroy()
+                tpBaseGui = nil
+                states.tpBase = false
+            end)
+            
+            setBtn.MouseButton1Click:Connect(function()
+                local rootPart = getRootPart()
+                if rootPart then
+                    basePosition = rootPart.Position
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Water Hub",
+                        Text = "Base position set!",
+                        Duration = 2
+                    })
+                end
+            end)
+            
+            tpBtn.MouseButton1Click:Connect(function()
+                teleportToBase()
+            end)
+        end
+    else
+        if tpBaseGui then
+            tpBaseGui:Destroy()
+            tpBaseGui = nil
+        end
+    end
+end
+
+-- Steal Helper GUI
+local stealHelperGui = nil
+local stealIsAtTop = false
+
+local function toggleStealHelper(enabled)
+    states.stealHelper = enabled
+    
+    if enabled then
+        if not stealHelperGui or not stealHelperGui.Parent then
+            stealHelperGui = Instance.new("ScreenGui")
+            stealHelperGui.Name = "StealHelperGui"
+            stealHelperGui.Parent = CoreGui
+            stealHelperGui.ResetOnSpawn = false
+            table.insert(openGuis, stealHelperGui)
+            
+            local frame = createFrame(stealHelperGui, 
+                UDim2.new(0, 180, 0, 120), 
+                UDim2.new(0.8, -90, 0.5, -60), 
+                colors.surface, 
+                0.1
+            )
+            frame.Active = true
+            makeDraggable(frame)
+            
+            -- Header
+            local header = createFrame(frame, 
+                UDim2.new(1, 0, 0, 30), 
+                UDim2.new(0, 0, 0, 0), 
+                colors.primary, 
+                0
+            )
+            
+            local title = Instance.new("TextLabel")
+            title.Size = UDim2.new(1, -35, 1, 0)
+            title.Position = UDim2.new(0, 10, 0, 0)
+            title.BackgroundTransparency = 1
+            title.Text = "💰 Steal Helper"
+            title.TextColor3 = colors.text
+            title.TextScaled = true
+            title.Font = Enum.Font.SourceSansBold
+            title.Parent = header
+            
+            local closeBtn = createButton(header, 
+                UDim2.new(0, 25, 0, 25), 
+                UDim2.new(1, -30, 0.5, -12.5), 
+                colors.danger, 
+                "×"
+            )
+            
+            -- Buttons
+            local upBtn = createButton(frame, 
+                UDim2.new(0.43, 0, 0, 35), 
+                UDim2.new(0.05, 0, 0, 45), 
+                colors.success, 
+                "⬆️ Up"
+            )
+            
+            local downBtn = createButton(frame, 
+                UDim2.new(0.43, 0, 0, 35), 
+                UDim2.new(0.52, 0, 0, 45), 
+                colors.danger, 
+                "⬇️ Down"
+            )
+            
+            -- Events
+            closeBtn.MouseButton1Click:Connect(function()
+                stealHelperGui:Destroy()
+                stealHelperGui = nil
+                states.stealHelper = false
+            end)
+            
+            upBtn.MouseButton1Click:Connect(function()
+                local rootPart = getRootPart()
+                if rootPart then
+                    -- Bypass teleport to 165
+                    rootPart.CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)
+                    stealIsAtTop = true
+                end
+            end)
+            
+            downBtn.MouseButton1Click:Connect(function()
+                local rootPart = getRootPart()
+                if rootPart then
+                    -- Go down by 50
+                    rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 50, 0)
+                end
+            end)
+        end
+    else
+        if stealHelperGui then
+            stealHelperGui:Destroy()
+            stealHelperGui = nil
+        end
+    end
+end
+
+-- Minimized Icon
+createMinimizedIcon = function()
+    if minimizedIcon then
+        minimizedIcon:Destroy()
+    end
+    
+    minimizedIcon = Instance.new("ScreenGui")
+    minimizedIcon.Name = "WaterHubMinimized"
+    minimizedIcon.Parent = CoreGui
+    minimizedIcon.ResetOnSpawn = false
+    
+    local waterDrop = Instance.new("ImageButton")
+    waterDrop.Size = UDim2.new(0, 70, 0, 70)
+    waterDrop.Position = UDim2.new(0, 20, 0, 20)
+    waterDrop.BackgroundTransparency = 1
+    waterDrop.Image = "rbxassetid://6034684930"
+    waterDrop.ImageColor3 = colors.primary
+    waterDrop.Parent = minimizedIcon
+    waterDrop.Active = true
+    
+    makeDraggable(waterDrop)
+    
+    -- Animation
+    spawn(function()
+        local rotation = 0
+        while minimizedIcon and minimizedIcon.Parent do
+            rotation = rotation + 2
+            waterDrop.Rotation = rotation
+            RunService.Heartbeat:Wait()
+        end
+    end)
+    
+    waterDrop.MouseButton1Click:Connect(function()
+        minimizedIcon:Destroy()
+        minimizedIcon = nil
+        createMainGui()
+    end)
+end
+
+-- Main GUI (Smaller size)
+createMainGui = function()
+    if waterHubGui then
+        waterHubGui:Destroy()
+    end
+    
+    waterHubGui = Instance.new("ScreenGui")
+    waterHubGui.Name = "WaterHubMain"
+    waterHubGui.Parent = CoreGui
+    waterHubGui.ResetOnSpawn = false
+    table.insert(openGuis, waterHubGui)
+    
+    -- Smaller main frame
+    local mainFrame = createFrame(waterHubGui, 
+        UDim2.new(0, 350, 0, 400), 
+        UDim2.new(0.5, -175, 0.5, -200), 
+        Color3.fromRGB(40, 45, 55), 
+        0.15
+    )
+    mainFrame.Active = true
+    
+    -- Entrance animation
+    mainFrame.Position = UDim2.new(0.5, -175, 1.5, 0)
+    TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
+        Position = UDim2.new(0.5, -175, 0.5, -200)
+    }):Play()
+    
+    -- Header
+    local header = createFrame(mainFrame, 
+        UDim2.new(1, 0, 0, 40), 
+        UDim2.new(0, 0, 0, 0), 
+        colors.primary, 
+        0
+    )
+    makeDraggable(mainFrame, header)
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.6, 0, 1, 0)
+    title.Position = UDim2.new(0, 15, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "💧 Water Hub v5"
+    title.TextColor3 = colors.text
+    title.TextScaled = true
+    title.Font = Enum.Font.SourceSansBold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+    
+    -- Window controls
+    local minimizeBtn = createButton(header, 
+        UDim2.new(0, 30, 0, 30), 
+        UDim2.new(1, -70, 0.5, -15), 
+        colors.warning, 
+        "−"
+    )
+    
+    local closeBtn = createButton(header, 
+        UDim2.new(0, 30, 0, 30), 
+        UDim2.new(1, -35, 0.5, -15), 
+        colors.danger, 
+        "×"
+    )
+    
+    -- Tab system
+    local tabContainer = createFrame(mainFrame, 
+        UDim2.new(1, -20, 0, 35), 
+        UDim2.new(0, 10, 0, 50), 
+        colors.surface, 
+        0.1
+    )
+    
+    local tabs = {"Main", "Visual", "Server"}
+    local tabButtons = {}
+    local contentFrames = {}
+    
+    for i, tabName in ipairs(tabs) do
+        local tabBtn = createButton(tabContainer, 
+            UDim2.new(0.33, -5, 1, -10), 
+            UDim2.new((i-1) * 0.33 + 0.02, 0, 0, 5), 
+            i == 1 and colors.primary or colors.surface, 
+            tabName
+        )
+        tabBtn.Font = Enum.Font.SourceSans
+        tabButtons[i] = tabBtn
+        
+        -- Content frame
+        local contentFrame = createFrame(mainFrame, 
+            UDim2.new(1, -20, 1, -105), 
+            UDim2.new(0, 10, 0, 95), 
+            colors.surface, 
+            0.05
+        )
+        contentFrame.Visible = (i == 1)
+        contentFrame.ClipsDescendants = true
+        
+        local scrollFrame = Instance.new("ScrollingFrame")
+        scrollFrame.Size = UDim2.new(1, -10, 1, -10)
+        scrollFrame.Position = UDim2.new(0, 5, 0, 5)
+        scrollFrame.BackgroundTransparency = 1
+        scrollFrame.BorderSizePixel = 0
+        scrollFrame.ScrollBarThickness = 6
+        scrollFrame.ScrollBarImageColor3 = colors.primary
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scrollFrame.Parent = contentFrame
+        
+        contentFrames[i] = scrollFrame
+    end
+    
+    -- Tab switching
+    for i, btn in ipairs(tabButtons) do
+        btn.MouseButton1Click:Connect(function()
+            for j, frame in ipairs(contentFrames) do
+                frame.Parent.Visible = (j == i)
+            end
+            for j, button in ipairs(tabButtons) do
+                button.BackgroundColor3 = (j == i) and colors.primary or colors.surface
+            end
+        end)
+    end
+    
+    -- MAIN TAB
+    local mainContent = contentFrames[1]
+    local yPos = 10
+    
+    local function addFeature(text, icon, callback, initialState)
+        local container = Instance.new("Frame")
+        container.Size = UDim2.new(1, -20, 0, 35)
+        container.Position = UDim2.new(0, 10, 0, yPos)
+        container.BackgroundTransparency = 1
+        container.Parent = mainContent
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -60, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = icon .. " " .. text
+        label.TextColor3 = colors.text
+        label.TextScaled = true
+        label.Font = Enum.Font.SourceSans
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = container
+        
+        createSwitch(container, UDim2.new(1, -55, 0.5, -12.5), callback, initialState)
+        
+        yPos = yPos + 40
+    end
+    
+    addFeature("God Mode", "🛡️", toggleGodMode, states.godMode)
+    addFeature("Infinite Jump", "🦘", toggleInfiniteJump, states.infiniteJump)
+    addFeature("Speed Boost", "⚡", toggleSpeedBoost, states.speedBoost)
+    addFeature("Noclip", "👻", toggleNoclip, states.noclip)
+    addFeature("Fly", "✈️", toggleFly, states.fly) not character then return 0 end
     
     local backpack = player:FindFirstChild("Backpack")
     if not backpack then return 0 end
