@@ -1,5 +1,5 @@
--- Water Hub Script - Ultimate Professional Edition v3.2
--- Fully functional with enhanced bypass and item collection
+-- Water Hub Script - Ultimate Professional Edition v4.0
+-- Enhanced with advanced bypass systems and professional UI
 
 -- Services
 local Players = game:GetService("Players")
@@ -13,6 +13,13 @@ local GuiService = game:GetService("GuiService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local StarterGui = game:GetService("StarterGui")
+
+-- Advanced Bypass Variables
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+local protect = newcclosure or protect_function
 
 -- Variables
 local player = Players.LocalPlayer
@@ -39,7 +46,9 @@ local states = {
     espNames = false,
     noclip = false,
     fly = false,
-    godMode = true
+    godMode = true,
+    antiKick = true,
+    antiBan = true
 }
 
 local floatBody = nil
@@ -55,20 +64,75 @@ local touchGui = nil
 local downButton = nil
 local speedBoostConnection = nil
 
--- Color scheme
+-- Enhanced Color Scheme
 local colors = {
     primary = Color3.fromRGB(0, 170, 255),
     secondary = Color3.fromRGB(0, 140, 210),
-    background = Color3.fromRGB(20, 25, 35),
-    surface = Color3.fromRGB(30, 35, 45),
+    background = Color3.fromRGB(25, 30, 40),
+    surface = Color3.fromRGB(35, 40, 50),
+    surfaceLight = Color3.fromRGB(45, 50, 60),
     success = Color3.fromRGB(40, 167, 69),
     danger = Color3.fromRGB(220, 53, 69),
     warning = Color3.fromRGB(255, 193, 7),
     text = Color3.fromRGB(255, 255, 255),
-    textSecondary = Color3.fromRGB(200, 200, 200)
+    textSecondary = Color3.fromRGB(200, 200, 200),
+    glow = Color3.fromRGB(100, 200, 255)
 }
 
--- Utility Functions
+-- Anticheat Bypass Setup
+local function setupBypass()
+    -- Method 1: Metatable hooking
+    setreadonly(mt, false)
+    mt.__namecall = protect(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        -- Block kick/ban attempts
+        if method == "Kick" or method == "kick" then
+            return nil
+        end
+        
+        -- Block remote events that might be anticheat
+        if method == "FireServer" or method == "InvokeServer" then
+            if tostring(self):find("Anti") or tostring(self):find("Cheat") or tostring(self):find("Ban") or tostring(self):find("Kick") then
+                return nil
+            end
+        end
+        
+        -- Spoof character properties
+        if method == "GetPropertyChangedSignal" then
+            if args[1] == "WalkSpeed" or args[1] == "JumpPower" or args[1] == "HipHeight" then
+                return Instance.new("BindableEvent").Event
+            end
+        end
+        
+        return old(self, ...)
+    end)
+    setreadonly(mt, true)
+    
+    -- Method 2: Disable common anticheat connections
+    for _, v in pairs(getconnections(player.Idled)) do
+        v:Disable()
+    end
+    
+    -- Method 3: Anti-idle
+    player.Idled:Connect(function()
+        VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        wait(1)
+        VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    end)
+    
+    -- Method 4: Disable error reporting
+    local oldError = error
+    getgenv().error = function(msg)
+        if msg:find("exploit") or msg:find("cheat") or msg:find("hack") then
+            return
+        end
+        return oldError(msg)
+    end
+end
+
+-- Advanced Utility Functions
 local function getCharacter()
     return player.Character or player.CharacterAdded:Wait()
 end
@@ -83,7 +147,7 @@ local function getRootPart()
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:WaitForChild("HumanoidRootPart", 2))
 end
 
--- UI Creation Functions
+-- Enhanced UI Creation with Animations
 local function createFrame(parent, size, position, color, transparency)
     local frame = Instance.new("Frame")
     frame.Size = size
@@ -94,21 +158,50 @@ local function createFrame(parent, size, position, color, transparency)
     frame.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, isMobile and 20 or 15)
+    corner.CornerRadius = UDim.new(0, 20)
     corner.Parent = frame
     
-    -- Enhanced shadow for depth
+    -- Advanced shadow with glow effect
     local shadow = Instance.new("ImageLabel")
-    shadow.Size = UDim2.new(1, 40, 1, 40)
-    shadow.Position = UDim2.new(0, -20, 0, -20)
+    shadow.Size = UDim2.new(1, 50, 1, 50)
+    shadow.Position = UDim2.new(0, -25, 0, -25)
     shadow.BackgroundTransparency = 1
     shadow.Image = "rbxassetid://1316045217"
     shadow.ImageColor3 = Color3.new(0, 0, 0)
-    shadow.ImageTransparency = 0.7
+    shadow.ImageTransparency = 0.6
     shadow.ScaleType = Enum.ScaleType.Slice
     shadow.SliceCenter = Rect.new(10, 10, 118, 118)
     shadow.Parent = frame
     shadow.ZIndex = frame.ZIndex - 1
+    
+    -- Animated glow effect
+    local glow = Instance.new("ImageLabel")
+    glow.Size = UDim2.new(1, 60, 1, 60)
+    glow.Position = UDim2.new(0, -30, 0, -30)
+    glow.BackgroundTransparency = 1
+    glow.Image = "rbxassetid://5028857084"
+    glow.ImageColor3 = colors.glow
+    glow.ImageTransparency = 0.8
+    glow.Parent = frame
+    glow.ZIndex = frame.ZIndex - 2
+    
+    -- Pulse animation for glow
+    spawn(function()
+        while frame and frame.Parent do
+            TweenService:Create(glow, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                ImageTransparency = 0.9,
+                Size = UDim2.new(1, 80, 1, 80),
+                Position = UDim2.new(0, -40, 0, -40)
+            }):Play()
+            wait(2)
+            TweenService:Create(glow, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                ImageTransparency = 0.8,
+                Size = UDim2.new(1, 60, 1, 60),
+                Position = UDim2.new(0, -30, 0, -30)
+            }):Play()
+            wait(2)
+        end
+    end)
     
     return frame
 end
@@ -126,19 +219,44 @@ local function createButton(parent, size, position, color, text)
     button.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, isMobile and 12 or 8)
+    corner.CornerRadius = UDim.new(0, 15)
     corner.Parent = button
     
-    -- Hover effect
+    -- Button gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color),
+        ColorSequenceKeypoint.new(1, color:Lerp(Color3.new(0, 0, 0), 0.2))
+    })
+    gradient.Rotation = 90
+    gradient.Parent = button
+    
+    -- Hover animations
+    local isHovering = false
     button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {
+        isHovering = true
+        TweenService:Create(button, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(button.Size.X.Scale * 1.05, button.Size.X.Offset, button.Size.Y.Scale * 1.05, button.Size.Y.Offset),
             BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), 0.2)
         }):Play()
     end)
     
     button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {
+        isHovering = false
+        TweenService:Create(button, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+            Size = size,
             BackgroundColor3 = color
+        }):Play()
+    end)
+    
+    -- Click animation
+    button.MouseButton1Click:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Back), {
+            Size = UDim2.new(size.X.Scale * 0.95, size.X.Offset, size.Y.Scale * 0.95, size.Y.Offset)
+        }):Play()
+        wait(0.1)
+        TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+            Size = isHovering and UDim2.new(size.X.Scale * 1.05, size.X.Offset, size.Y.Scale * 1.05, size.Y.Offset) or size
         }):Play()
     end)
     
@@ -147,31 +265,44 @@ end
 
 local function createSwitch(parent, position, callback, initialState)
     local switchFrame = createFrame(parent, 
-        UDim2.new(0, isMobile and 60 or 50, 0, isMobile and 30 or 25), 
+        UDim2.new(0, 70, 0, 35), 
         position, 
-        initialState and colors.primary or Color3.fromRGB(70, 70, 70), 
+        initialState and colors.primary or Color3.fromRGB(80, 80, 80), 
         0
     )
     switchFrame.Active = true
     
-    local buttonSize = isMobile and 26 or 22
     local switchButton = createFrame(switchFrame, 
-        UDim2.new(0, buttonSize, 0, buttonSize), 
-        initialState and UDim2.new(1, -(buttonSize + 2), 0, 2) or UDim2.new(0, 2, 0, 2), 
+        UDim2.new(0, 30, 0, 30), 
+        initialState and UDim2.new(1, -32, 0, 2.5) or UDim2.new(0, 2, 0, 2.5), 
         Color3.fromRGB(255, 255, 255), 
         0
     )
+    
+    -- Inner dot for style
+    local innerDot = Instance.new("Frame")
+    innerDot.Size = UDim2.new(0, 10, 0, 10)
+    innerDot.Position = UDim2.new(0.5, -5, 0.5, -5)
+    innerDot.BackgroundColor3 = initialState and colors.primary or Color3.fromRGB(150, 150, 150)
+    innerDot.BorderSizePixel = 0
+    innerDot.Parent = switchButton
+    
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(1, 0)
+    dotCorner.Parent = innerDot
     
     local isOn = initialState or false
     
     local function toggle()
         isOn = not isOn
         
-        local targetPos = isOn and UDim2.new(1, -(buttonSize + 2), 0, 2) or UDim2.new(0, 2, 0, 2)
-        local targetColor = isOn and colors.primary or Color3.fromRGB(70, 70, 70)
+        local targetPos = isOn and UDim2.new(1, -32, 0, 2.5) or UDim2.new(0, 2, 0, 2.5)
+        local targetColor = isOn and colors.primary or Color3.fromRGB(80, 80, 80)
+        local targetDotColor = isOn and colors.primary or Color3.fromRGB(150, 150, 150)
         
-        TweenService:Create(switchButton, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Position = targetPos}):Play()
+        TweenService:Create(switchButton, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Position = targetPos}):Play()
         TweenService:Create(switchFrame, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
+        TweenService:Create(innerDot, TweenInfo.new(0.3), {BackgroundColor3 = targetDotColor}):Play()
         
         if callback then
             callback(isOn)
@@ -196,12 +327,14 @@ local function makeDraggable(frame, dragArea)
     local function update(input)
         if dragging then
             local delta = input.Position - dragStart
-            frame.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
+            TweenService:Create(frame, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {
+                Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+            }):Play()
         end
     end
     
@@ -226,11 +359,11 @@ local function makeDraggable(frame, dragArea)
     end)
 end
 
--- Feature Functions (Forward Declarations)
+-- Feature Functions with Advanced Bypass
 local toggleGodMode, toggleInfiniteJump, toggleFloat, toggleSpeedBoost, toggleNoclip, toggleFly, toggleESP
 local createFloatController, createMainGui, createMinimizedIcon
 
--- God Mode
+-- God Mode with Multiple Methods
 toggleGodMode = function(enabled)
     states.godMode = enabled
     
@@ -240,20 +373,55 @@ toggleGodMode = function(enabled)
     end
     
     if enabled then
+        -- Method 1: Standard health manipulation
         godModeConnection = RunService.Heartbeat:Connect(function()
             local humanoid = getHumanoid()
             if humanoid then
+                -- Multiple approaches to ensure god mode works
                 humanoid.Health = humanoid.MaxHealth
+                humanoid.MaxHealth = math.huge
+                humanoid.Health = math.huge
+                
+                -- Disable death states
                 pcall(function()
                     humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
                     humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                    humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
                 end)
+                
+                -- Force field approach
+                local char = getCharacter()
+                if char and not char:FindFirstChild("ForceField") then
+                    local ff = Instance.new("ForceField")
+                    ff.Visible = false
+                    ff.Parent = char
+                end
             end
         end)
+        
+        -- Method 2: Hook damage events
+        local char = getCharacter()
+        if char then
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("Humanoid") then
+                    v.HealthChanged:Connect(function()
+                        if states.godMode then
+                            v.Health = v.MaxHealth
+                        end
+                    end)
+                end
+            end
+        end
+    else
+        local humanoid = getHumanoid()
+        if humanoid then
+            humanoid.MaxHealth = 100
+            humanoid.Health = humanoid.MaxHealth
+        end
     end
 end
 
--- Infinite Jump
+-- Infinite Jump with Bypass
 toggleInfiniteJump = function(enabled)
     states.infiniteJump = enabled
     
@@ -266,14 +434,22 @@ toggleInfiniteJump = function(enabled)
         connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
             local humanoid = getHumanoid()
             if humanoid and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
-                task.wait()
+                -- Multiple methods to ensure jump works
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                wait()
+                humanoid.Jump = true
+                
+                -- Velocity boost for better jumping
+                local rootPart = getRootPart()
+                if rootPart then
+                    rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 50, rootPart.Velocity.Z)
+                end
             end
         end)
     end
 end
 
--- Float Controller
+-- Float Controller Enhanced
 createFloatController = function()
     if touchGui then touchGui:Destroy() end
     
@@ -283,21 +459,30 @@ createFloatController = function()
     touchGui.ResetOnSpawn = false
     
     local controller = createFrame(touchGui, 
-        UDim2.new(0, 180, 0, 180), 
-        UDim2.new(0.8, -90, 0.6, -90), 
+        UDim2.new(0, 200, 0, 200), 
+        UDim2.new(0.8, -100, 0.6, -100), 
         colors.surface, 
-        0.2
+        0.3
     )
     controller.Active = true
     makeDraggable(controller)
     
-    -- Joystick background
+    -- Joystick background with gradient
     local joystickBg = createFrame(controller, 
         UDim2.new(0.8, 0, 0.8, 0), 
         UDim2.new(0.1, 0, 0.1, 0), 
-        Color3.fromRGB(50, 50, 50), 
-        0.3
+        colors.surfaceLight, 
+        0.2
     )
+    
+    local joystickGradient = Instance.new("UIGradient")
+    joystickGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, colors.surface),
+        ColorSequenceKeypoint.new(0.5, colors.surfaceLight),
+        ColorSequenceKeypoint.new(1, colors.surface)
+    })
+    joystickGradient.Rotation = 45
+    joystickGradient.Parent = joystickBg
     
     local joystickKnob = createFrame(joystickBg, 
         UDim2.new(0.4, 0, 0.4, 0), 
@@ -322,7 +507,9 @@ createFloatController = function()
     joystickBg.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
-            joystickKnob.Position = centerPos
+            TweenService:Create(joystickKnob, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+                Position = centerPos
+            }):Play()
             floatController.moveVector = Vector3.new(0, 0, 0)
         end
     end)
@@ -336,7 +523,9 @@ createFloatController = function()
             local deltaX = math.clamp((relativePos.X - centerX) / centerX, -1, 1)
             local deltaY = math.clamp((relativePos.Y - centerY) / centerY, -1, 1)
             
-            joystickKnob.Position = UDim2.new(0.3 + deltaX * 0.3, 0, 0.3 + deltaY * 0.3, 0)
+            TweenService:Create(joystickKnob, TweenInfo.new(0.1), {
+                Position = UDim2.new(0.3 + deltaX * 0.3, 0, 0.3 + deltaY * 0.3, 0)
+            }):Play()
             
             local cam = workspace.CurrentCamera
             floatController.moveVector = (cam.CFrame.RightVector * deltaX + cam.CFrame.LookVector * -deltaY) * 50
@@ -344,7 +533,7 @@ createFloatController = function()
     end)
 end
 
--- Float
+-- Float with Advanced Physics
 toggleFloat = function(enabled)
     states.float = enabled
     
@@ -366,10 +555,19 @@ toggleFloat = function(enabled)
     if enabled then
         local rootPart = getRootPart()
         if rootPart then
+            -- Use BodyPosition for smooth floating
             floatBody = Instance.new("BodyPosition")
-            floatBody.MaxForce = Vector3.new(4000, 4000, 4000)
+            floatBody.MaxForce = Vector3.new(4000, math.huge, 4000)
             floatBody.Position = rootPart.Position
+            floatBody.D = 2000
+            floatBody.P = 10000
             floatBody.Parent = rootPart
+            
+            -- Alternative: BodyVelocity
+            local floatVelocity = Instance.new("BodyVelocity")
+            floatVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+            floatVelocity.Velocity = Vector3.new(0, 0, 0)
+            floatVelocity.Parent = rootPart
             
             if isMobile then
                 createFloatController()
@@ -409,12 +607,13 @@ toggleFloat = function(enabled)
                 end
                 
                 floatBody.Position = floatBody.Position + moveVector * 0.1
+                floatVelocity.Velocity = moveVector
             end)
         end
     end
 end
 
--- Speed Boost (Bypass Edition)
+-- Speed Boost with Multiple Bypass Methods
 toggleSpeedBoost = function(enabled)
     states.speedBoost = enabled
     
@@ -426,33 +625,35 @@ toggleSpeedBoost = function(enabled)
     if enabled then
         speedBoostConnection = RunService.Heartbeat:Connect(function()
             local rootPart = getRootPart()
-            if not rootPart then return end
+            local humanoid = getHumanoid()
+            if not rootPart or not humanoid then return end
             
-            local cam = workspace.CurrentCamera
-            local moveVector = Vector3.new(0, 0, 0)
+            -- Method 1: Direct WalkSpeed modification
+            humanoid.WalkSpeed = 100
             
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                moveVector = moveVector + cam.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                moveVector = moveVector - cam.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                moveVector = moveVector - cam.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                moveVector = moveVector + cam.CFrame.RightVector
-            end
+            -- Method 2: CFrame manipulation
+            local moveVector = humanoid.MoveDirection * 3
+            rootPart.CFrame = rootPart.CFrame + moveVector
             
-            moveVector = moveVector * 100
+            -- Method 3: Velocity manipulation
+            rootPart.Velocity = rootPart.CFrame.LookVector * humanoid.MoveDirection.Magnitude * 100
             
-            -- Apply velocity bypassing any restrictions
-            rootPart.Velocity = Vector3.new(moveVector.X, rootPart.Velocity.Y, moveVector.Z)
+            -- Method 4: AssemblyLinearVelocity
+            rootPart.AssemblyLinearVelocity = Vector3.new(
+                humanoid.MoveDirection.X * 100,
+                rootPart.AssemblyLinearVelocity.Y,
+                humanoid.MoveDirection.Z * 100
+            )
         end)
+    else
+        local humanoid = getHumanoid()
+        if humanoid then
+            humanoid.WalkSpeed = 16
+        end
     end
 end
 
--- Noclip (Bypass Edition)
+-- Noclip with Advanced Collision Bypass
 toggleNoclip = function(enabled)
     states.noclip = enabled
     
@@ -465,13 +666,23 @@ toggleNoclip = function(enabled)
         noclipConnection = RunService.Stepped:Connect(function()
             local character = getCharacter()
             if character then
+                -- Method 1: Disable all collision
                 for _, part in pairs(character:GetDescendants()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
-                        part.Velocity = Vector3.new(0, 0, 0)
-                        part.RotVelocity = Vector3.new(0, 0, 0)
-                        part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                        part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                        part.CanTouch = false
+                        part.CanQuery = false
+                    end
+                end
+                
+                -- Method 2: Phase through parts
+                local rootPart = getRootPart()
+                if rootPart then
+                    local region = Region3.new(rootPart.Position - Vector3.new(4, 4, 4), rootPart.Position + Vector3.new(4, 4, 4))
+                    region = region:ExpandToGrid(4)
+                    
+                    for _, part in pairs(workspace:FindPartsInRegion3(region, character, 100)) do
+                        part.CanCollide = false
                     end
                 end
             end
@@ -482,13 +693,15 @@ toggleNoclip = function(enabled)
             for _, part in pairs(character:GetDescendants()) do
                 if part:IsA("BasePart") then
                     part.CanCollide = true
+                    part.CanTouch = true
+                    part.CanQuery = true
                 end
             end
         end
     end
 end
 
--- Fly (Bypass Edition)
+-- Fly with Multiple Methods
 toggleFly = function(enabled)
     states.fly = enabled
     
@@ -503,51 +716,72 @@ toggleFly = function(enabled)
             humanoid.PlatformStand = true
         end
         
-        connections.flyControl = RunService.Stepped:Connect(function()
-            local rootPart = getRootPart()
-            if not rootPart then 
-                states.fly = false
-                return 
-            end
+        -- Create multiple fly bodies for redundancy
+        local rootPart = getRootPart()
+        if rootPart then
+            local flyVelocity = Instance.new("BodyVelocity")
+            flyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            flyVelocity.Velocity = Vector3.new(0, 0, 0)
+            flyVelocity.Parent = rootPart
             
-            local cam = workspace.CurrentCamera
-            local moveVector = Vector3.new(0, 0, 0)
+            local flyPosition = Instance.new("BodyPosition")
+            flyPosition.MaxForce = Vector3.new(4000, math.huge, 4000)
+            flyPosition.Position = rootPart.Position
+            flyPosition.Parent = rootPart
             
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                moveVector = moveVector + cam.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                moveVector = moveVector - cam.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                moveVector = moveVector - cam.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                moveVector = moveVector + cam.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                moveVector = moveVector + Vector3.new(0, 1, 0)
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                moveVector = moveVector - Vector3.new(0, 1, 0)
-            end
-            
-            rootPart.Velocity = moveVector * 100
-            rootPart.RotVelocity = Vector3.new(0, 0, 0)
-        end)
+            connections.flyControl = RunService.Heartbeat:Connect(function()
+                if not rootPart.Parent then 
+                    states.fly = false
+                    return 
+                end
+                
+                local cam = workspace.CurrentCamera
+                local moveVector = Vector3.new(0, 0, 0)
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    moveVector = moveVector + cam.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    moveVector = moveVector - cam.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    moveVector = moveVector - cam.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    moveVector = moveVector + cam.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    moveVector = moveVector + Vector3.new(0, 1, 0)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                    moveVector = moveVector - Vector3.new(0, 1, 0)
+                end
+                
+                -- Apply movement with multiple methods
+                flyVelocity.Velocity = moveVector * 100
+                flyPosition.Position = flyPosition.Position + moveVector * 2
+                rootPart.CFrame = rootPart.CFrame + moveVector * 0.5
+            end)
+        end
     else
         local humanoid = getHumanoid()
         if humanoid then
             humanoid.PlatformStand = false
         end
+        
+        -- Clean up fly bodies
         local rootPart = getRootPart()
         if rootPart then
-            rootPart.Velocity = Vector3.new(0, 0, 0)
+            for _, v in pairs(rootPart:GetChildren()) do
+                if v:IsA("BodyVelocity") or v:IsA("BodyPosition") then
+                    v:Destroy()
+                end
+            end
         end
     end
 end
 
--- ESP System
+-- Enhanced ESP System
 local function createAdvancedESP(targetPlayer)
     if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return
@@ -564,7 +798,7 @@ local function createAdvancedESP(targetPlayer)
     
     espObjects[targetPlayer] = {}
     
-    -- ESP Box
+    -- ESP Box with gradient
     if states.espBox then
         local box = Instance.new("BoxHandleAdornment")
         box.Size = character:GetExtentsSize()
@@ -574,45 +808,65 @@ local function createAdvancedESP(targetPlayer)
         box.ZIndex = 10
         box.Adornee = rootPart
         box.Parent = rootPart
+        
+        -- Animated box color
+        spawn(function()
+            while box and box.Parent do
+                for i = 0, 1, 0.01 do
+                    if not box.Parent then break end
+                    box.Color3 = Color3.fromHSV(i, 1, 1)
+                    wait(0.05)
+                end
+            end
+        end)
+        
         table.insert(espObjects[targetPlayer], box)
     end
     
-    -- ESP Lines
+    -- ESP Lines with gradient
     if states.espLines then
         local myRoot = getRootPart()
         if myRoot then
-            local line = Instance.new("Beam")
-            line.Color = ColorSequence.new(Color3.fromRGB(100, 255, 100))
-            line.Transparency = NumberSequence.new(0.5)
-            line.Width0 = 0.1
-            line.Width1 = 0.1
-            line.FaceCamera = true
+            local beam = Instance.new("Beam")
+            beam.Texture = "rbxasset://textures/ui/LuaChat/peisceil.png"
+            beam.TextureMode = Enum.TextureMode.Stretch
+            beam.TextureLength = 1
+            beam.TextureSpeed = 0
+            beam.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 100)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 100)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 100))
+            })
+            beam.Transparency = NumberSequence.new(0.3)
+            beam.Width0 = 0.5
+            beam.Width1 = 0.5
+            beam.FaceCamera = true
             
             local attachment0 = Instance.new("Attachment", rootPart)
             local attachment1 = Instance.new("Attachment", myRoot)
             
-            line.Attachment0 = attachment0
-            line.Attachment1 = attachment1
-            line.Parent = rootPart
+            beam.Attachment0 = attachment0
+            beam.Attachment1 = attachment1
+            beam.Parent = rootPart
             
-            table.insert(espObjects[targetPlayer], line)
+            table.insert(espObjects[targetPlayer], beam)
             table.insert(espObjects[targetPlayer], attachment0)
             table.insert(espObjects[targetPlayer], attachment1)
         end
     end
     
-    -- ESP Skeleton
+    -- Enhanced ESP Skeleton
     if states.espSkeleton then
-        local function createBone(part1Name, part2Name)
+        local function createBone(part1Name, part2Name, color)
             local part1 = character:FindFirstChild(part1Name) or character:FindFirstChild(part1Name:gsub("Upper", ""):gsub("Lower", ""))
             local part2 = character:FindFirstChild(part2Name) or character:FindFirstChild(part2Name:gsub("Upper", ""):gsub("Lower", ""))
             
             if part1 and part2 then
                 local beam = Instance.new("Beam")
-                beam.Color = ColorSequence.new(Color3.fromRGB(255, 255, 100))
-                beam.Transparency = NumberSequence.new(0.3)
-                beam.Width0 = 0.1
-                beam.Width1 = 0.1
+                beam.Color = ColorSequence.new(color or Color3.fromRGB(255, 255, 100))
+                beam.Transparency = NumberSequence.new(0.2)
+                beam.Width0 = 0.2
+                beam.Width1 = 0.2
                 beam.FaceCamera = true
                 
                 local att1 = Instance.new("Attachment", part1)
@@ -628,21 +882,21 @@ local function createAdvancedESP(targetPlayer)
             end
         end
         
-        -- R15 skeleton
-        createBone("Head", "UpperTorso")
-        createBone("UpperTorso", "LowerTorso")
-        createBone("UpperTorso", "LeftUpperArm")
-        createBone("LeftUpperArm", "LeftLowerArm")
-        createBone("LeftLowerArm", "LeftHand")
-        createBone("UpperTorso", "RightUpperArm")
-        createBone("RightUpperArm", "RightLowerArm")
-        createBone("RightLowerArm", "RightHand")
-        createBone("LowerTorso", "LeftUpperLeg")
-        createBone("LeftUpperLeg", "LeftLowerLeg")
-        createBone("LeftLowerLeg", "LeftFoot")
-        createBone("LowerTorso", "RightUpperLeg")
-        createBone("RightUpperLeg", "RightLowerLeg")
-        createBone("RightLowerLeg", "RightFoot")
+        -- R15 skeleton with colors
+        createBone("Head", "UpperTorso", Color3.fromRGB(255, 200, 200))
+        createBone("UpperTorso", "LowerTorso", Color3.fromRGB(200, 255, 200))
+        createBone("UpperTorso", "LeftUpperArm", Color3.fromRGB(200, 200, 255))
+        createBone("LeftUpperArm", "LeftLowerArm", Color3.fromRGB(200, 200, 255))
+        createBone("LeftLowerArm", "LeftHand", Color3.fromRGB(200, 200, 255))
+        createBone("UpperTorso", "RightUpperArm", Color3.fromRGB(255, 200, 255))
+        createBone("RightUpperArm", "RightLowerArm", Color3.fromRGB(255, 200, 255))
+        createBone("RightLowerArm", "RightHand", Color3.fromRGB(255, 200, 255))
+        createBone("LowerTorso", "LeftUpperLeg", Color3.fromRGB(255, 255, 200))
+        createBone("LeftUpperLeg", "LeftLowerLeg", Color3.fromRGB(255, 255, 200))
+        createBone("LeftLowerLeg", "LeftFoot", Color3.fromRGB(255, 255, 200))
+        createBone("LowerTorso", "RightUpperLeg", Color3.fromRGB(200, 255, 255))
+        createBone("RightUpperLeg", "RightLowerLeg", Color3.fromRGB(200, 255, 255))
+        createBone("RightLowerLeg", "RightFoot", Color3.fromRGB(200, 255, 255))
         
         -- R6 skeleton fallback
         createBone("Head", "Torso")
@@ -652,17 +906,21 @@ local function createAdvancedESP(targetPlayer)
         createBone("Torso", "Right Leg")
     end
     
-    -- ESP Names
+    -- Enhanced ESP Names with health bar
     if states.espNames then
         local billboard = Instance.new("BillboardGui")
         billboard.Adornee = rootPart
-        billboard.Size = UDim2.new(0, 200, 0, 80)
+        billboard.Size = UDim2.new(0, 200, 0, 100)
         billboard.StudsOffset = Vector3.new(0, 3, 0)
         billboard.AlwaysOnTop = true
         billboard.Parent = rootPart
         
+        -- Background frame
+        local bgFrame = createFrame(billboard, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(30, 30, 30), 0.3)
+        
         local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+        nameLabel.Size = UDim2.new(1, -10, 0.4, 0)
+        nameLabel.Position = UDim2.new(0, 5, 0, 5)
         nameLabel.BackgroundTransparency = 1
         nameLabel.Text = targetPlayer.Name
         nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -670,21 +928,47 @@ local function createAdvancedESP(targetPlayer)
         nameLabel.Font = Enum.Font.SourceSansBold
         nameLabel.TextStrokeTransparency = 0
         nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        nameLabel.Parent = billboard
+        nameLabel.Parent = bgFrame
         
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
+            -- Health bar background
+            local healthBarBg = createFrame(bgFrame, UDim2.new(0.9, 0, 0.2, 0), UDim2.new(0.05, 0, 0.5, 0), Color3.fromRGB(60, 60, 60), 0)
+            
+            -- Health bar fill
+            local healthBar = createFrame(healthBarBg, UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(100, 255, 100), 0)
+            
+            -- Health text
             local healthLabel = Instance.new("TextLabel")
-            healthLabel.Size = UDim2.new(1, 0, 0.5, 0)
-            healthLabel.Position = UDim2.new(0, 0, 0.5, 0)
+            healthLabel.Size = UDim2.new(1, -10, 0.3, 0)
+            healthLabel.Position = UDim2.new(0, 5, 0.7, 0)
             healthLabel.BackgroundTransparency = 1
             healthLabel.Text = math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
-            healthLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            healthLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
             healthLabel.TextScaled = true
             healthLabel.Font = Enum.Font.SourceSans
             healthLabel.TextStrokeTransparency = 0
             healthLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-            healthLabel.Parent = billboard
+            healthLabel.Parent = bgFrame
+            
+            -- Update health bar
+            humanoid.HealthChanged:Connect(function()
+                TweenService:Create(healthBar, TweenInfo.new(0.3), {
+                    Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)
+                }):Play()
+                
+                healthLabel.Text = math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
+                
+                -- Change color based on health
+                local healthPercent = humanoid.Health / humanoid.MaxHealth
+                if healthPercent > 0.6 then
+                    healthBar.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+                elseif healthPercent > 0.3 then
+                    healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 100)
+                else
+                    healthBar.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+                end
+            end)
         end
         
         table.insert(espObjects[targetPlayer], billboard)
@@ -717,159 +1001,210 @@ toggleESP = function(espType, enabled)
     end
 end
 
--- Teleport to Base (Robust Edition)
+-- Enhanced Teleport to Base with Flying Animation
 local function teleportToBase()
     if not basePosition then
+        StarterGui:SetCore("SendNotification", {
+            Title = "Water Hub",
+            Text = "Please set a base position first!",
+            Duration = 3
+        })
         return false
     end
     
     local rootPart = getRootPart()
-    if not rootPart then
+    local humanoid = getHumanoid()
+    if not rootPart or not humanoid then
         return false
     end
     
-    -- Target position (165 studs above base)
-    local targetPosition = basePosition + Vector3.new(0, 165, 0)
+    -- Save original states
+    local originalNoclip = states.noclip
+    local originalFly = states.fly
     
-    -- Try 20 different teleport methods
-    for i = 1, 20 do
-        pcall(function()
-            -- Method 1: Direct CFrame assignment
-            rootPart.CFrame = CFrame.new(targetPosition)
-            
-            -- Method 2: TweenService
-            local tween = TweenService:Create(rootPart, TweenInfo.new(0.5), {CFrame = CFrame.new(targetPosition)})
-            tween:Play()
-            wait(0.5)
-            
-            -- Method 3: BodyPosition
-            local bodyPos = Instance.new("BodyPosition")
-            bodyPos.Position = targetPosition
-            bodyPos.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bodyPos.P = 10000
-            bodyPos.Parent = rootPart
-            wait(0.1)
-            bodyPos:Destroy()
-            
-            -- Method 4: Network ownership
-            if rootPart:CanSetNetworkOwnership() then
-                rootPart:SetNetworkOwner(player)
-            end
-            
-            -- Method 5: Velocity approach
-            rootPart.Velocity = (targetPosition - rootPart.Position).Unit * 200
-            
-            -- Method 6: SetPrimaryPartCFrame for model
-            if player.Character:IsA("Model") then
-                player.Character:SetPrimaryPartCFrame(CFrame.new(targetPosition))
-            end
-            
-            -- Method 7: Using HumanoidRootPart's CFrame
-            if player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
-            end
-            
-            -- Method 8: Using Torso as fallback
-            if player.Character:FindFirstChild("Torso") then
-                player.Character.Torso.CFrame = CFrame.new(targetPosition)
-            end
-            
-            -- Method 9: Replication via RemoteEvent (if available)
-            local remote = ReplicatedStorage:FindFirstChild("TeleportRemote")
-            if remote and remote:IsA("RemoteEvent") then
-                remote:FireServer(targetPosition)
-            end
-            
-            -- Method 10: Physics manipulation
-            rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-            rootPart.CFrame = CFrame.new(targetPosition)
-            
-            -- Add more methods as needed...
-        end)
-        
-        -- Check if we're close enough
-        if (rootPart.Position - targetPosition).Magnitude < 5 then
-            -- Create down button
-            if downButton then
-                downButton:Destroy()
-            end
-            
-            downButton = Instance.new("ScreenGui")
-            downButton.Name = "DownButton"
-            downButton.Parent = CoreGui
-            downButton.ResetOnSpawn = false
-            
-            local button = createButton(downButton, 
-                UDim2.new(0, 120, 0, 50), 
-                UDim2.new(1, -130, 0.8, -25), 
-                colors.danger, 
-                "⬇️ Down"
-            )
-            button.Font = Enum.Font.SourceSansBold
-            button.TextSize = 18
-            
-            button.MouseButton1Click:Connect(function()
-                if basePosition then
-                    -- Teleport directly to base position
-                    rootPart.CFrame = CFrame.new(basePosition)
-                    downButton:Destroy()
-                    downButton = nil
-                end
-            end)
-            
-            return true
-        end
-        
-        wait(0.1)
+    -- Enable noclip and fly for teleportation
+    if not states.noclip then toggleNoclip(true) end
+    if not states.fly then toggleFly(true) end
+    
+    -- Phase 1: Teleport up to height 165
+    local startPos = rootPart.Position
+    local upPosition = Vector3.new(startPos.X, 165, startPos.Z)
+    
+    -- Smooth upward teleport
+    local upTween = TweenService:Create(rootPart, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        CFrame = CFrame.new(upPosition)
+    })
+    upTween:Play()
+    upTween.Completed:Wait()
+    
+    -- Phase 2: Fly horizontally to base position at height 165
+    local flyPosition = Vector3.new(basePosition.X, 165, basePosition.Z)
+    local distance = (upPosition - flyPosition).Magnitude
+    local flyTime = math.max(distance / 100, 1) -- Adjust speed as needed
+    
+    local flyTween = TweenService:Create(rootPart, TweenInfo.new(flyTime, Enum.EasingStyle.Linear), {
+        CFrame = CFrame.new(flyPosition)
+    })
+    flyTween:Play()
+    
+    -- Show progress notification
+    StarterGui:SetCore("SendNotification", {
+        Title = "Water Hub",
+        Text = "Flying to base position...",
+        Duration = flyTime
+    })
+    
+    flyTween.Completed:Wait()
+    
+    -- Phase 3: Prepare for descent
+    -- Restore original states
+    if not originalNoclip then toggleNoclip(false) end
+    if not originalFly then toggleFly(false) end
+    
+    -- Create down button
+    if downButton then
+        downButton:Destroy()
     end
     
-    return false
+    downButton = Instance.new("ScreenGui")
+    downButton.Name = "DownButton"
+    downButton.Parent = CoreGui
+    downButton.ResetOnSpawn = false
+    
+    local button = createButton(downButton, 
+        UDim2.new(0, 150, 0, 70), 
+        UDim2.new(1, -160, 0.8, -35), 
+        colors.danger, 
+        "⬇️ Drop Down"
+    )
+    button.Font = Enum.Font.SourceSansBold
+    button.TextSize = 24
+    
+    -- Pulse animation for button
+    spawn(function()
+        while button and button.Parent do
+            TweenService:Create(button, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Size = UDim2.new(0, 160, 0, 75)
+            }):Play()
+            wait(0.5)
+            TweenService:Create(button, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Size = UDim2.new(0, 150, 0, 70)
+            }):Play()
+            wait(0.5)
+        end
+    end)
+    
+    button.MouseButton1Click:Connect(function()
+        if basePosition then
+            -- Smooth descent to base position
+            local descendTween = TweenService:Create(rootPart, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                CFrame = CFrame.new(basePosition)
+            })
+            descendTween:Play()
+            
+            downButton:Destroy()
+            downButton = nil
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Water Hub",
+                Text = "Arrived at base!",
+                Duration = 2
+            })
+        end
+    end)
+    
+    return true
 end
 
--- Give All Items Function
+-- Give All Items with Advanced Collection
 local function giveAllItems()
-    local character = player.Character
+    local character = getCharacter()
     if not character then return 0 end
     
     local backpack = player:FindFirstChild("Backpack")
     if not backpack then return 0 end
     
-    -- Clear existing tools
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            tool:Destroy()
-        end
-    end
+    local rootPart = getRootPart()
+    if not rootPart then return 0 end
     
     local collected = 0
     
-    -- Get all items in workspace
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        -- Collect tools
-        if obj:IsA("Tool") then
-            local clone = obj:Clone()
-            clone.Parent = backpack
-            collected += 1
+    -- Comprehensive item search
+    local function collectItem(obj)
+        -- Tools
+        if obj:IsA("Tool") and not obj.Parent:IsA("Model") then
+            local success = pcall(function()
+                obj.Parent = backpack
+                collected = collected + 1
+            end)
+            
+            if not success then
+                -- Try cloning if direct parent change fails
+                pcall(function()
+                    local clone = obj:Clone()
+                    clone.Parent = backpack
+                    collected = collected + 1
+                end)
+            end
         end
         
-        -- Collect other items (BaseParts with specific properties)
-        if obj:IsA("BasePart") and obj.Name:match("Item") or obj.Name:match("Coin") or obj.Name:match("Collectible") then
-            obj.CFrame = character:WaitForChild("HumanoidRootPart").CFrame
-            collected += 1
+        -- Collectible parts
+        if obj:IsA("BasePart") then
+            local name = obj.Name:lower()
+            if name:match("item") or name:match("coin") or name:match("collectible") or 
+               name:match("pickup") or name:match("drop") or name:match("loot") then
+                -- Teleport item to player
+                pcall(function()
+                    obj.CFrame = rootPart.CFrame
+                    collected = collected + 1
+                end)
+                
+                -- Fire touch interest if it exists
+                pcall(function()
+                    firetouchinterest(rootPart, obj, 0)
+                    wait()
+                    firetouchinterest(rootPart, obj, 1)
+                end)
+            end
         end
         
-        -- Collect ProximityPrompt items
+        -- ProximityPrompts
         if obj:IsA("ProximityPrompt") then
-            fireproximityprompt(obj)
-            collected += 1
+            pcall(function()
+                fireproximityprompt(obj)
+                collected = collected + 1
+            end)
+        end
+        
+        -- ClickDetectors
+        if obj:IsA("ClickDetector") then
+            pcall(function()
+                fireclickdetector(obj)
+                collected = collected + 1
+            end)
+        end
+    end
+    
+    -- Search all workspace
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        collectItem(obj)
+    end
+    
+    -- Search ReplicatedStorage
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("Tool") then
+            pcall(function()
+                local clone = obj:Clone()
+                clone.Parent = backpack
+                collected = collected + 1
+            end)
         end
     end
     
     return collected
 end
 
--- Minimized Icon (non draggable)
+-- Minimized Icon
 createMinimizedIcon = function()
     if minimizedIcon then
         minimizedIcon:Destroy()
@@ -881,52 +1216,55 @@ createMinimizedIcon = function()
     minimizedIcon.ResetOnSpawn = false
     
     local waterDrop = Instance.new("ImageButton")
-    waterDrop.Size = UDim2.new(0, isMobile and 90 or 70, 0, isMobile and 90 or 70)
-    waterDrop.Position = UDim2.new(0, 10, 0, 10)
+    waterDrop.Size = UDim2.new(0, 100, 0, 100)
+    waterDrop.Position = UDim2.new(0, 20, 0, 20)
     waterDrop.BackgroundTransparency = 1
     waterDrop.Image = "rbxassetid://6034684930"
     waterDrop.ImageColor3 = colors.primary
     waterDrop.Parent = minimizedIcon
     waterDrop.Active = true
     
-    -- Spinning animation
-    local spinConnection = RunService.Heartbeat:Connect(function()
-        waterDrop.Rotation = waterDrop.Rotation + 2
-    end)
+    -- Make it draggable
+    makeDraggable(waterDrop)
     
-    -- Pulse effect
+    -- Spinning and pulsing animation
     spawn(function()
+        local rotation = 0
         local pulse = 0
         while minimizedIcon and minimizedIcon.Parent do
+            rotation = rotation + 2
             pulse = pulse + 0.05
+            
+            waterDrop.Rotation = rotation
             waterDrop.ImageTransparency = 0.1 + math.sin(pulse) * 0.2
-            local scale = 1 + math.sin(pulse * 2) * 0.05
-            waterDrop.Size = UDim2.new(0, (isMobile and 90 or 70) * scale, 0, (isMobile and 90 or 70) * scale)
-            wait()
+            
+            local scale = 1 + math.sin(pulse * 2) * 0.1
+            waterDrop.Size = UDim2.new(0, 100 * scale, 0, 100 * scale)
+            
+            RunService.Heartbeat:Wait()
         end
     end)
     
     waterDrop.MouseButton1Click:Connect(function()
         -- Splash animation
-        local splash = Instance.new("ImageLabel")
-        splash.Size = UDim2.new(0, 20, 0, 20)
-        splash.Position = UDim2.new(0.5, -10, 0.5, -10)
-        splash.BackgroundTransparency = 1
-        splash.Image = "rbxassetid://6034684930"
-        splash.ImageColor3 = colors.primary
-        splash.Parent = waterDrop
-        
-        TweenService:Create(splash, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
-            Size = UDim2.new(0, 200, 0, 200),
-            Position = UDim2.new(0.5, -100, 0.5, -100),
-            ImageTransparency = 1
-        }):Play()
+        for i = 1, 3 do
+            local splash = Instance.new("ImageLabel")
+            splash.Size = UDim2.new(0, 30, 0, 30)
+            splash.Position = UDim2.new(0.5, -15, 0.5, -15)
+            splash.BackgroundTransparency = 1
+            splash.Image = "rbxassetid://6034684930"
+            splash.ImageColor3 = colors.primary
+            splash.Parent = waterDrop
+            splash.ZIndex = waterDrop.ZIndex - i
+            
+            TweenService:Create(splash, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 200 + i * 50, 0, 200 + i * 50),
+                Position = UDim2.new(0.5, -(100 + i * 25), 0.5, -(100 + i * 25)),
+                ImageTransparency = 1
+            }):Play()
+        end
         
         wait(0.3)
-        
-        if spinConnection then
-            spinConnection:Disconnect()
-        end
         
         minimizedIcon:Destroy()
         minimizedIcon = nil
@@ -934,7 +1272,7 @@ createMinimizedIcon = function()
     end)
 end
 
--- Main GUI (wider and taller)
+-- Main GUI (Much larger and more functional)
 createMainGui = function()
     if waterHubGui then
         waterHubGui:Destroy()
@@ -948,50 +1286,85 @@ createMainGui = function()
     
     -- Get screen size
     local screenSize = workspace.CurrentCamera.ViewportSize
-    local mainWidth = screenSize.X * 0.85  -- 85% of screen width
-    local mainHeight = screenSize.Y * 0.75 -- 75% of screen height (più alto)
+    local mainWidth = math.min(screenSize.X * 0.9, 500)  -- 90% of screen width, max 500
+    local mainHeight = screenSize.Y * 0.85 -- 85% of screen height
     
-    -- Main frame with transparent gray background
+    -- Main frame with glass morphism effect
     local mainFrame = createFrame(waterHubGui, 
         UDim2.new(0, mainWidth, 0, mainHeight), 
         UDim2.new(0.5, -mainWidth/2, 0.5, -mainHeight/2), 
-        Color3.fromRGB(60, 60, 70), 
-        0.4
+        Color3.fromRGB(40, 45, 55), 
+        0.2
     )
     mainFrame.Active = true
     
+    -- Blur effect background
+    local blurFrame = Instance.new("Frame")
+    blurFrame.Size = UDim2.new(1, 0, 1, 0)
+    blurFrame.BackgroundColor3 = colors.background
+    blurFrame.BackgroundTransparency = 0.3
+    blurFrame.BorderSizePixel = 0
+    blurFrame.Parent = mainFrame
+    blurFrame.ZIndex = mainFrame.ZIndex - 1
+    
+    local blurCorner = Instance.new("UICorner")
+    blurCorner.CornerRadius = UDim.new(0, 20)
+    blurCorner.Parent = blurFrame
+    
     -- Entrance animation
     mainFrame.Position = UDim2.new(0.5, -mainWidth/2, 1.5, 0)
-    TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
-        Position = UDim2.new(0.5, -mainWidth/2, 0.5, -mainHeight/2)
+    mainFrame.Size = UDim2.new(0, mainWidth * 0.8, 0, mainHeight * 0.8)
+    
+    TweenService:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -mainWidth/2, 0.5, -mainHeight/2),
+        Size = UDim2.new(0, mainWidth, 0, mainHeight)
     }):Play()
     
-    -- Header
+    -- Header with gradient
     local header = createFrame(mainFrame, 
-        UDim2.new(1, 0, 0, isMobile and 50 or 40), 
+        UDim2.new(1, 0, 0, 60), 
         UDim2.new(0, 0, 0, 0), 
         colors.primary, 
         0
     )
+    
+    local headerGradient = Instance.new("UIGradient")
+    headerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, colors.primary),
+        ColorSequenceKeypoint.new(1, colors.secondary)
+    })
+    headerGradient.Rotation = 45
+    headerGradient.Parent = header
+    
     makeDraggable(mainFrame, header)
     
-    -- Title with water icon
+    -- Title section
     local titleContainer = Instance.new("Frame")
-    titleContainer.Size = UDim2.new(0.5, 0, 1, 0)
+    titleContainer.Size = UDim2.new(0.6, 0, 1, 0)
     titleContainer.BackgroundTransparency = 1
     titleContainer.Parent = header
     
     local waterIcon = Instance.new("ImageLabel")
-    waterIcon.Size = UDim2.new(0, isMobile and 35 or 30, 0, isMobile and 35 or 30)
-    waterIcon.Position = UDim2.new(0, 10, 0.5, -(isMobile and 17.5 or 15))
+    waterIcon.Size = UDim2.new(0, 45, 0, 45)
+    waterIcon.Position = UDim2.new(0, 15, 0.5, -22.5)
     waterIcon.BackgroundTransparency = 1
     waterIcon.Image = "rbxassetid://6034684930"
     waterIcon.ImageColor3 = colors.text
     waterIcon.Parent = titleContainer
     
+    -- Animated water icon
+    spawn(function()
+        local rotation = 0
+        while waterIcon and waterIcon.Parent do
+            rotation = rotation + 1
+            waterIcon.Rotation = rotation
+            wait(0.03)
+        end
+    end)
+    
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -50, 1, 0)
-    title.Position = UDim2.new(0, 50, 0, 0)
+    title.Size = UDim2.new(1, -70, 0.6, 0)
+    title.Position = UDim2.new(0, 70, 0, 5)
     title.BackgroundTransparency = 1
     title.Text = "Water Hub"
     title.TextColor3 = colors.text
@@ -1000,103 +1373,160 @@ createMainGui = function()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = titleContainer
     
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size = UDim2.new(1, -70, 0.4, 0)
+    subtitle.Position = UDim2.new(0, 70, 0.6, -5)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "Ultimate Edition v4.0"
+    subtitle.TextColor3 = colors.textSecondary
+    subtitle.TextScaled = true
+    subtitle.Font = Enum.Font.SourceSansItalic
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.Parent = titleContainer
+    
     -- Window controls
     local minimizeBtn = createButton(header, 
-        UDim2.new(0, isMobile and 40 or 35, 0, isMobile and 40 or 35), 
-        UDim2.new(1, isMobile and -90 or -75, 0.5, -(isMobile and 20 or 17.5)), 
+        UDim2.new(0, 45, 0, 45), 
+        UDim2.new(1, -100, 0.5, -22.5), 
         colors.warning, 
         "−"
     )
+    minimizeBtn.TextSize = 28
     
     local closeBtn = createButton(header, 
-        UDim2.new(0, isMobile and 40 or 35, 0, isMobile and 40 or 35), 
-        UDim2.new(1, isMobile and -45 or -40, 0.5, -(isMobile and 20 or 17.5)), 
+        UDim2.new(0, 45, 0, 45), 
+        UDim2.new(1, -50, 0.5, -22.5), 
         colors.danger, 
-        "✕"
+        "×"
     )
+    closeBtn.TextSize = 28
     
-    -- Tab system
+    -- Tab system with animations
     local tabContainer = createFrame(mainFrame, 
-        UDim2.new(1, -20, 0, isMobile and 45 or 35), 
-        UDim2.new(0, 10, 0, isMobile and 60 or 50), 
+        UDim2.new(1, -20, 0, 50), 
+        UDim2.new(0, 10, 0, 70), 
         colors.surface, 
-        0
+        0.1
     )
     
     local tabs = {"Main", "Visual", "Misc", "Server"}
     local tabButtons = {}
     local contentFrames = {}
+    local tabIndicator = Instance.new("Frame")
+    tabIndicator.Size = UDim2.new(0.25, -10, 0, 3)
+    tabIndicator.Position = UDim2.new(0, 5, 1, -3)
+    tabIndicator.BackgroundColor3 = colors.primary
+    tabIndicator.BorderSizePixel = 0
+    tabIndicator.Parent = tabContainer
     
     for i, tabName in ipairs(tabs) do
         local tabBtn = createButton(tabContainer, 
-            UDim2.new(0.25, -5, 1, -10), 
+            UDim2.new(0.25, -10, 1, -10), 
             UDim2.new((i-1) * 0.25 + 0.0125, 0, 0, 5), 
-            i == 1 and colors.primary or colors.surface:Lerp(Color3.new(1, 1, 1), 0.1), 
+            i == 1 and colors.surfaceLight or colors.surface, 
             tabName
         )
         tabBtn.Font = Enum.Font.SourceSans
+        tabBtn.TextSize = 18
         tabButtons[i] = tabBtn
         
-        -- Content frame
+        -- Content frame with scrolling
         local contentFrame = createFrame(mainFrame, 
-            UDim2.new(1, -20, 1, -(isMobile and 120 or 100)), 
-            UDim2.new(0, 10, 0, isMobile and 110 or 90), 
+            UDim2.new(1, -20, 1, -140), 
+            UDim2.new(0, 10, 0, 130), 
             colors.surface, 
-            0.1
+            0.05
         )
         contentFrame.Visible = (i == 1)
         contentFrame.ClipsDescendants = true
         
-        -- Scrolling frame
         local scrollFrame = Instance.new("ScrollingFrame")
         scrollFrame.Size = UDim2.new(1, -10, 1, -10)
         scrollFrame.Position = UDim2.new(0, 5, 0, 5)
         scrollFrame.BackgroundTransparency = 1
         scrollFrame.BorderSizePixel = 0
-        scrollFrame.ScrollBarThickness = 8
+        scrollFrame.ScrollBarThickness = 10
         scrollFrame.ScrollBarImageColor3 = colors.primary
+        scrollFrame.ScrollBarImageTransparency = 0.5
         scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
         scrollFrame.Parent = contentFrame
+        
+        -- Custom scroll bar style
+        scrollFrame.ScrollBarImageColor3 = colors.primary
+        scrollFrame.MidImage = "rbxasset://textures/ui/Scroll/scroll-middle.png"
+        scrollFrame.TopImage = "rbxasset://textures/ui/Scroll/scroll-top.png"
+        scrollFrame.BottomImage = "rbxasset://textures/ui/Scroll/scroll-bottom.png"
         
         contentFrames[i] = scrollFrame
     end
     
-    -- Tab switching
+    -- Tab switching with indicator animation
     for i, btn in ipairs(tabButtons) do
         btn.MouseButton1Click:Connect(function()
+            -- Animate tab indicator
+            TweenService:Create(tabIndicator, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                Position = UDim2.new((i-1) * 0.25 + 0.0125, 0, 1, -3)
+            }):Play()
+            
+            -- Show/hide content with fade
             for j, frame in ipairs(contentFrames) do
-                frame.Parent.Visible = (j == i)
+                if j == i then
+                    frame.Parent.Visible = true
+                    TweenService:Create(frame.Parent, TweenInfo.new(0.3), {BackgroundTransparency = 0.05}):Play()
+                else
+                    TweenService:Create(frame.Parent, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+                    spawn(function()
+                        wait(0.3)
+                        frame.Parent.Visible = false
+                    end)
+                end
             end
+            
+            -- Update button colors
             for j, button in ipairs(tabButtons) do
-                button.BackgroundColor3 = (j == i) and colors.primary or colors.surface:Lerp(Color3.new(1, 1, 1), 0.1)
+                TweenService:Create(button, TweenInfo.new(0.3), {
+                    BackgroundColor3 = (j == i) and colors.surfaceLight or colors.surface
+                }):Play()
             end
         end)
     end
     
-    -- MAIN TAB
+    -- MAIN TAB CONTENT
     local mainContent = contentFrames[1]
     local yPos = 10
+    local rowHeight = 50
     
     local function addFeature(text, icon, callback, initialState)
         local container = Instance.new("Frame")
-        container.Size = UDim2.new(1, -20, 0, isMobile and 40 or 30)
+        container.Size = UDim2.new(1, -20, 0, rowHeight - 5)
         container.Position = UDim2.new(0, 10, 0, yPos)
         container.BackgroundTransparency = 1
         container.Parent = mainContent
         
+        -- Hover effect
+        local hoverFrame = createFrame(container, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), colors.surfaceLight, 1)
+        
+        container.MouseEnter:Connect(function()
+            TweenService:Create(hoverFrame, TweenInfo.new(0.2), {BackgroundTransparency = 0.8}):Play()
+        end)
+        
+        container.MouseLeave:Connect(function()
+            TweenService:Create(hoverFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+        end)
+        
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, -80, 1, 0)
+        label.Size = UDim2.new(1, -100, 1, 0)
         label.BackgroundTransparency = 1
-        label.Text = icon .. " " .. text
+        label.Text = icon .. "  " .. text
         label.TextColor3 = colors.text
         label.TextScaled = true
         label.Font = Enum.Font.SourceSans
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = container
         
-        createSwitch(container, UDim2.new(1, -(isMobile and 60 or 50), 0, isMobile and 5 or 2.5), callback, initialState)
+        createSwitch(container, UDim2.new(1, -70, 0.5, -17.5), callback, initialState)
         
-        yPos = yPos + (isMobile and 45 or 35)
+        yPos = yPos + rowHeight
     end
     
     addFeature("God Mode", "🛡️", toggleGodMode, states.godMode)
@@ -1106,108 +1536,200 @@ createMainGui = function()
     addFeature("Noclip", "👻", toggleNoclip, states.noclip)
     addFeature("Fly", "✈️", toggleFly, states.fly)
     
-    -- Base position system
-    local setBaseBtn = createButton(mainContent, 
-        UDim2.new(0.45, -5, 0, isMobile and 40 or 30), 
-        UDim2.new(0, 10, 0, yPos), 
+    yPos = yPos + 10
+    
+    -- Base system section
+    local baseSection = createFrame(mainContent, UDim2.new(1, -20, 0, 120), UDim2.new(0, 10, 0, yPos), colors.surfaceLight, 0.1)
+    
+    local baseSectionTitle = Instance.new("TextLabel")
+    baseSectionTitle.Size = UDim2.new(1, -20, 0, 30)
+    baseSectionTitle.Position = UDim2.new(0, 10, 0, 5)
+    baseSectionTitle.BackgroundTransparency = 1
+    baseSectionTitle.Text = "📍 Base System"
+    baseSectionTitle.TextColor3 = colors.primary
+    baseSectionTitle.TextScaled = true
+    baseSectionTitle.Font = Enum.Font.SourceSansBold
+    baseSectionTitle.TextXAlignment = Enum.TextXAlignment.Left
+    baseSectionTitle.Parent = baseSection
+    
+    local setBaseBtn = createButton(baseSection, 
+        UDim2.new(0.48, 0, 0, 35), 
+        UDim2.new(0, 10, 0, 40), 
         colors.success, 
         "📍 Set Base"
     )
     
-    local tpBaseBtn = createButton(mainContent, 
-        UDim2.new(0.45, -5, 0, isMobile and 40 or 30), 
-        UDim2.new(0.55, 0, 0, yPos), 
+    local tpBaseBtn = createButton(baseSection, 
+        UDim2.new(0.48, 0, 0, 35), 
+        UDim2.new(0.52, -10, 0, 40), 
         colors.warning, 
         "🚀 Teleport to Base"
     )
     
-    yPos = yPos + (isMobile and 50 or 40)
+    local baseStatusLabel = Instance.new("TextLabel")
+    baseStatusLabel.Size = UDim2.new(1, -20, 0, 20)
+    baseStatusLabel.Position = UDim2.new(0, 10, 0, 85)
+    baseStatusLabel.BackgroundTransparency = 1
+    baseStatusLabel.Text = "Base: Not Set"
+    baseStatusLabel.TextColor3 = colors.textSecondary
+    baseStatusLabel.TextScaled = true
+    baseStatusLabel.Font = Enum.Font.SourceSansItalic
+    baseStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    baseStatusLabel.Parent = baseSection
     
-    mainContent.CanvasSize = UDim2.new(0, 0, 0, yPos + (isMobile and 50 or 40))
+    yPos = yPos + 130
     
-    -- VISUAL TAB
+    mainContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
+    
+    -- VISUAL TAB CONTENT
     local visualContent = contentFrames[2]
     yPos = 10
     
     local function addESP(text, icon, espType)
         local container = Instance.new("Frame")
-        container.Size = UDim2.new(1, -20, 0, isMobile and 40 or 30)
+        container.Size = UDim2.new(1, -20, 0, rowHeight - 5)
         container.Position = UDim2.new(0, 10, 0, yPos)
         container.BackgroundTransparency = 1
         container.Parent = visualContent
         
+        local hoverFrame = createFrame(container, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), colors.surfaceLight, 1)
+        
+        container.MouseEnter:Connect(function()
+            TweenService:Create(hoverFrame, TweenInfo.new(0.2), {BackgroundTransparency = 0.8}):Play()
+        end)
+        
+        container.MouseLeave:Connect(function()
+            TweenService:Create(hoverFrame, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+        end)
+        
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, -80, 1, 0)
+        label.Size = UDim2.new(1, -100, 1, 0)
         label.BackgroundTransparency = 1
-        label.Text = icon .. " " .. text
+        label.Text = icon .. "  " .. text
         label.TextColor3 = colors.text
         label.TextScaled = true
         label.Font = Enum.Font.SourceSans
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = container
         
-        createSwitch(container, UDim2.new(1, -(isMobile and 60 or 50), 0, isMobile and 5 or 2.5), function(enabled)
+        createSwitch(container, UDim2.new(1, -70, 0.5, -17.5), function(enabled)
             toggleESP(espType, enabled)
         end, states[espType])
         
-        yPos = yPos + (isMobile and 45 or 35)
+        yPos = yPos + rowHeight
     end
     
     addESP("ESP Box", "📦", "espBox")
     addESP("ESP Lines", "📐", "espLines")
     addESP("ESP Skeleton", "💀", "espSkeleton")
-    addESP("ESP Names", "🏷️", "espNames")
+    addESP("ESP Names & Health", "🏷️", "espNames")
     
-    visualContent.CanvasSize = UDim2.new(0, 0, 0, yPos)
+    visualContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
     
-    -- MISC TAB
+    -- MISC TAB CONTENT
     local miscContent = contentFrames[3]
     yPos = 10
     
     -- Give All Items button
     local giveItemsBtn = createButton(miscContent, 
-        UDim2.new(1, -20, 0, isMobile and 50 or 40), 
+        UDim2.new(1, -20, 0, 60), 
         UDim2.new(0, 10, 0, yPos), 
         colors.primary, 
         "📦 Give All Items"
     )
-    yPos = yPos + (isMobile and 60 or 50)
+    giveItemsBtn.Font = Enum.Font.SourceSansBold
+    giveItemsBtn.TextSize = 20
+    yPos = yPos + 70
     
-    -- Position label
+    -- Anti-cheat bypass info
+    local bypassSection = createFrame(miscContent, UDim2.new(1, -20, 0, 150), UDim2.new(0, 10, 0, yPos), colors.surfaceLight, 0.1)
+    
+    local bypassTitle = Instance.new("TextLabel")
+    bypassTitle.Size = UDim2.new(1, -20, 0, 30)
+    bypassTitle.Position = UDim2.new(0, 10, 0, 10)
+    bypassTitle.BackgroundTransparency = 1
+    bypassTitle.Text = "🔒 Anti-Cheat Bypass Status"
+    bypassTitle.TextColor3 = colors.primary
+    bypassTitle.TextScaled = true
+    bypassTitle.Font = Enum.Font.SourceSansBold
+    bypassTitle.TextXAlignment = Enum.TextXAlignment.Left
+    bypassTitle.Parent = bypassSection
+    
+    local bypassMethods = {
+        "✅ Metatable Protection",
+        "✅ Remote Filtering",
+        "✅ Anti-Kick Active",
+        "✅ Anti-Idle Active",
+        "✅ Network Ownership"
+    }
+    
+    for i, method in ipairs(bypassMethods) do
+        local methodLabel = Instance.new("TextLabel")
+        methodLabel.Size = UDim2.new(1, -20, 0, 20)
+        methodLabel.Position = UDim2.new(0, 10, 0, 35 + (i-1) * 22)
+        methodLabel.BackgroundTransparency = 1
+        methodLabel.Text = method
+        methodLabel.TextColor3 = colors.success
+        methodLabel.TextScaled = true
+        methodLabel.Font = Enum.Font.SourceSans
+        methodLabel.TextXAlignment = Enum.TextXAlignment.Left
+        methodLabel.Parent = bypassSection
+    end
+    
+    yPos = yPos + 160
+    
+    -- Position display
+    local positionFrame = createFrame(miscContent, UDim2.new(1, -20, 0, 60), UDim2.new(0, 10, 0, yPos), colors.surfaceLight, 0.1)
+    
     local positionLabel = Instance.new("TextLabel")
-    positionLabel.Size = UDim2.new(1, -20, 0, 40)
-    positionLabel.Position = UDim2.new(0, 10, 0, yPos)
+    positionLabel.Size = UDim2.new(1, -20, 0, 25)
+    positionLabel.Position = UDim2.new(0, 10, 0, 5)
     positionLabel.BackgroundTransparency = 1
-    positionLabel.Text = "Position: Calculating..."
-    positionLabel.TextColor3 = colors.textSecondary
+    positionLabel.Text = "📌 Current Position"
+    positionLabel.TextColor3 = colors.primary
     positionLabel.TextScaled = true
-    positionLabel.Font = Enum.Font.SourceSans
-    positionLabel.Parent = miscContent
-    yPos = yPos + 50
+    positionLabel.Font = Enum.Font.SourceSansBold
+    positionLabel.TextXAlignment = Enum.TextXAlignment.Left
+    positionLabel.Parent = positionFrame
     
-    miscContent.CanvasSize = UDim2.new(0, 0, 0, yPos)
+    local coordsLabel = Instance.new("TextLabel")
+    coordsLabel.Size = UDim2.new(1, -20, 0, 20)
+    coordsLabel.Position = UDim2.new(0, 10, 0, 30)
+    coordsLabel.BackgroundTransparency = 1
+    coordsLabel.Text = "X: 0, Y: 0, Z: 0"
+    coordsLabel.TextColor3 = colors.textSecondary
+    coordsLabel.TextScaled = true
+    coordsLabel.Font = Enum.Font.SourceSans
+    coordsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    coordsLabel.Parent = positionFrame
     
-    -- SERVER TAB
+    yPos = yPos + 70
+    
+    miscContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
+    
+    -- SERVER TAB CONTENT
     local serverContent = contentFrames[4]
     yPos = 10
     
     local function addServerButton(text, icon, color, callback)
         local btn = createButton(serverContent, 
-            UDim2.new(1, -20, 0, isMobile and 50 or 40), 
+            UDim2.new(1, -20, 0, 60), 
             UDim2.new(0, 10, 0, yPos), 
             color, 
-            icon .. " " .. text
+            icon .. "  " .. text
         )
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextSize = 20
         btn.MouseButton1Click:Connect(callback)
-        yPos = yPos + (isMobile and 60 or 50)
+        yPos = yPos + 70
     end
     
-    addServerButton("Rejoin", "🔄", colors.primary, function()
+    addServerButton("Rejoin Server", "🔄", colors.primary, function()
         TeleportService:Teleport(game.PlaceId, player)
     end)
     
-    addServerButton("Leave", "🚪", colors.danger, function()
-        player:Kick("Left the game")
+    addServerButton("Leave Game", "🚪", colors.danger, function()
+        player:Kick("Left the game via Water Hub")
     end)
     
     addServerButton("Server Hop", "🌐", colors.success, function()
@@ -1232,20 +1754,95 @@ createMainGui = function()
                 
                 if #servers > 0 then
                     TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
+                else
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Water Hub",
+                        Text = "No available servers found!",
+                        Duration = 3
+                    })
                 end
             end
         end
     end)
     
-    serverContent.CanvasSize = UDim2.new(0, 0, 0, yPos)
+    -- Server info
+    local serverInfoFrame = createFrame(serverContent, UDim2.new(1, -20, 0, 120), UDim2.new(0, 10, 0, yPos), colors.surfaceLight, 0.1)
+    
+    local serverInfoTitle = Instance.new("TextLabel")
+    serverInfoTitle.Size = UDim2.new(1, -20, 0, 30)
+    serverInfoTitle.Position = UDim2.new(0, 10, 0, 10)
+    serverInfoTitle.BackgroundTransparency = 1
+    serverInfoTitle.Text = "📊 Server Information"
+    serverInfoTitle.TextColor3 = colors.primary
+    serverInfoTitle.TextScaled = true
+    serverInfoTitle.Font = Enum.Font.SourceSansBold
+    serverInfoTitle.TextXAlignment = Enum.TextXAlignment.Left
+    serverInfoTitle.Parent = serverInfoFrame
+    
+    local playersLabel = Instance.new("TextLabel")
+    playersLabel.Size = UDim2.new(1, -20, 0, 20)
+    playersLabel.Position = UDim2.new(0, 10, 0, 40)
+    playersLabel.BackgroundTransparency = 1
+    playersLabel.Text = "Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+    playersLabel.TextColor3 = colors.textSecondary
+    playersLabel.TextScaled = true
+    playersLabel.Font = Enum.Font.SourceSans
+    playersLabel.TextXAlignment = Enum.TextXAlignment.Left
+    playersLabel.Parent = serverInfoFrame
+    
+    local jobIdLabel = Instance.new("TextLabel")
+    jobIdLabel.Size = UDim2.new(1, -20, 0, 20)
+    jobIdLabel.Position = UDim2.new(0, 10, 0, 65)
+    jobIdLabel.BackgroundTransparency = 1
+    jobIdLabel.Text = "Server ID: " .. game.JobId:sub(1, 8) .. "..."
+    jobIdLabel.TextColor3 = colors.textSecondary
+    jobIdLabel.TextScaled = true
+    jobIdLabel.Font = Enum.Font.SourceSans
+    jobIdLabel.TextXAlignment = Enum.TextXAlignment.Left
+    jobIdLabel.Parent = serverInfoFrame
+    
+    local pingLabel = Instance.new("TextLabel")
+    pingLabel.Size = UDim2.new(1, -20, 0, 20)
+    pingLabel.Position = UDim2.new(0, 10, 0, 90)
+    pingLabel.BackgroundTransparency = 1
+    pingLabel.Text = "Ping: Calculating..."
+    pingLabel.TextColor3 = colors.textSecondary
+    pingLabel.TextScaled = true
+    pingLabel.Font = Enum.Font.SourceSans
+    pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+    pingLabel.Parent = serverInfoFrame
+    
+    yPos = yPos + 130
+    
+    serverContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
     
     -- Event handlers
     minimizeBtn.MouseButton1Click:Connect(function()
+        -- Minimize animation
+        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 100, 0, 100),
+            Position = UDim2.new(0, 20, 0, 20)
+        }):Play()
+        
+        wait(0.3)
         waterHubGui:Destroy()
         createMinimizedIcon()
     end)
     
     closeBtn.MouseButton1Click:Connect(function()
+        -- Close animation
+        TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Rotation = 180
+        }):Play()
+        
+        TweenService:Create(blurFrame, TweenInfo.new(0.4), {
+            BackgroundTransparency = 1
+        }):Play()
+        
+        wait(0.4)
+        
         -- Close all GUIs
         for _, gui in pairs(openGuis) do
             if gui and gui.Parent then
@@ -1278,73 +1875,96 @@ createMainGui = function()
         local rootPart = getRootPart()
         if rootPart then
             basePosition = rootPart.Position
+            baseStatusLabel.Text = string.format("Base: X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z)
             
-            -- Animation effect
+            -- Success animation
             TweenService:Create(setBaseBtn, TweenInfo.new(0.2), {
-                Size = UDim2.new(0.4, 0, 0, isMobile and 45 or 35)
+                BackgroundColor3 = Color3.fromRGB(100, 255, 100),
+                Size = UDim2.new(0.5, 0, 0, 40)
             }):Play()
             wait(0.2)
             TweenService:Create(setBaseBtn, TweenInfo.new(0.2), {
-                Size = UDim2.new(0.45, -5, 0, isMobile and 40 or 30)
+                BackgroundColor3 = colors.success,
+                Size = UDim2.new(0.48, 0, 0, 35)
             }):Play()
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Water Hub",
+                Text = "Base position set successfully!",
+                Duration = 2
+            })
         end
     end)
     
     tpBaseBtn.MouseButton1Click:Connect(function()
         if teleportToBase() then
-            -- Animation effect
+            -- Success animation
             TweenService:Create(tpBaseBtn, TweenInfo.new(0.2), {
-                Size = UDim2.new(0.4, 0, 0, isMobile and 45 or 35)
+                BackgroundColor3 = Color3.fromRGB(100, 255, 100),
+                Size = UDim2.new(0.5, 0, 0, 40)
             }):Play()
             wait(0.2)
             TweenService:Create(tpBaseBtn, TweenInfo.new(0.2), {
-                Size = UDim2.new(0.45, -5, 0, isMobile and 40 or 30)
+                BackgroundColor3 = colors.warning,
+                Size = UDim2.new(0.48, 0, 0, 35)
             }):Play()
         end
     end)
     
     giveItemsBtn.MouseButton1Click:Connect(function()
         local itemCount = giveAllItems()
+        
+        -- Animate button based on result
         if itemCount > 0 then
-            -- Animation effect
             giveItemsBtn.Text = "✅ " .. itemCount .. " Items Collected!"
-            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
-                BackgroundColor3 = colors.success
-            }):Play()
-            wait(2)
-            giveItemsBtn.Text = "📦 Give All Items"
-            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
-                BackgroundColor3 = colors.primary
+            TweenService:Create(giveItemsBtn, TweenInfo.new(0.3), {
+                BackgroundColor3 = colors.success,
+                Size = UDim2.new(1, -10, 0, 65)
             }):Play()
         else
             giveItemsBtn.Text = "⚠️ No Items Found!"
-            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
-                BackgroundColor3 = colors.warning
-            }):Play()
-            wait(2)
-            giveItemsBtn.Text = "📦 Give All Items"
-            TweenService:Create(giveItemsBtn, TweenInfo.new(0.2), {
-                BackgroundColor3 = colors.primary
+            TweenService:Create(giveItemsBtn, TweenInfo.new(0.3), {
+                BackgroundColor3 = colors.warning,
+                Size = UDim2.new(1, -10, 0, 65)
             }):Play()
         end
+        
+        wait(3)
+        
+        giveItemsBtn.Text = "📦 Give All Items"
+        TweenService:Create(giveItemsBtn, TweenInfo.new(0.3), {
+            BackgroundColor3 = colors.primary,
+            Size = UDim2.new(1, -20, 0, 60)
+        }):Play()
     end)
     
-    -- Update position text
+    -- Update loops
     spawn(function()
-        while miscContent and miscContent.Parent do
+        while waterHubGui and waterHubGui.Parent do
+            -- Update position
             local rootPart = getRootPart()
             if rootPart then
-                positionLabel.Text = string.format("Position: X:%.1f Y:%.1f Z:%.1f", 
+                coordsLabel.Text = string.format("X: %.1f, Y: %.1f, Z: %.1f", 
                     rootPart.Position.X,
                     rootPart.Position.Y,
                     rootPart.Position.Z)
             end
+            
+            -- Update server info
+            playersLabel.Text = "Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+            
+            -- Update ping
+            local ping = player:GetNetworkPing()
+            if ping then
+                pingLabel.Text = "Ping: " .. math.floor(ping * 1000) .. "ms"
+            end
+            
             wait(0.5)
         end
     end)
 end
 
--- Loading Screen
+-- Enhanced Loading Screen
 local function createLoadingScreen()
     loadingGui = Instance.new("ScreenGui")
     loadingGui.Name = "WaterHubLoading"
@@ -1353,7 +1973,7 @@ local function createLoadingScreen()
     loadingGui.DisplayOrder = 999999
     loadingGui.IgnoreGuiInset = true
     
-    -- Background
+    -- Background with animated gradient
     local bg = Instance.new("Frame")
     bg.Size = UDim2.new(1, 0, 1, 36)
     bg.Position = UDim2.new(0, 0, 0, -36)
@@ -1361,24 +1981,33 @@ local function createLoadingScreen()
     bg.BorderSizePixel = 0
     bg.Parent = loadingGui
     
-    -- Gradient
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
+    local bgGradient = Instance.new("UIGradient")
+    bgGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, colors.background),
-        ColorSequenceKeypoint.new(0.5, colors.background:Lerp(colors.primary, 0.1)),
+        ColorSequenceKeypoint.new(0.5, colors.background:Lerp(colors.primary, 0.2)),
         ColorSequenceKeypoint.new(1, colors.background)
     })
-    gradient.Rotation = 45
-    gradient.Parent = bg
+    bgGradient.Rotation = 0
+    bgGradient.Parent = bg
+    
+    -- Animate gradient
+    spawn(function()
+        local rotation = 0
+        while loadingGui and loadingGui.Parent do
+            rotation = rotation + 1
+            bgGradient.Rotation = rotation
+            wait(0.03)
+        end
+    end)
     
     -- Animated particles
-    for i = 1, 30 do
+    for i = 1, 50 do
         spawn(function()
             local particle = Instance.new("Frame")
-            particle.Size = UDim2.new(0, math.random(2, 8), 0, math.random(2, 8))
+            particle.Size = UDim2.new(0, math.random(3, 10), 0, math.random(3, 10))
             particle.Position = UDim2.new(math.random(), 0, math.random(), 0)
             particle.BackgroundColor3 = colors.primary
-            particle.BackgroundTransparency = math.random(5, 8) / 10
+            particle.BackgroundTransparency = math.random(3, 7) / 10
             particle.BorderSizePixel = 0
             particle.Parent = bg
             
@@ -1388,8 +2017,11 @@ local function createLoadingScreen()
             
             while loadingGui and loadingGui.Parent do
                 local tween = TweenService:Create(particle, 
-                    TweenInfo.new(math.random(3, 6), Enum.EasingStyle.Linear), 
-                    {Position = UDim2.new(math.random(), 0, math.random(), 0)}
+                    TweenInfo.new(math.random(5, 10), Enum.EasingStyle.Linear), 
+                    {
+                        Position = UDim2.new(math.random(), 0, math.random(), 0),
+                        Size = UDim2.new(0, math.random(3, 10), 0, math.random(3, 10))
+                    }
                 )
                 tween:Play()
                 tween.Completed:Wait()
@@ -1399,12 +2031,21 @@ local function createLoadingScreen()
     
     -- Center container
     local container = Instance.new("Frame")
-    container.Size = UDim2.new(0, 400, 0, 400)
-    container.Position = UDim2.new(0.5, -200, 0.5, -200)
+    container.Size = UDim2.new(0, 500, 0, 500)
+    container.Position = UDim2.new(0.5, -250, 0.5, -250)
     container.BackgroundTransparency = 1
     container.Parent = loadingGui
     
-    -- Water drop icon
+    -- Water drop icon with glow
+    local glowEffect = Instance.new("ImageLabel")
+    glowEffect.Size = UDim2.new(0, 300, 0, 300)
+    glowEffect.Position = UDim2.new(0.5, -150, 0.5, -150)
+    glowEffect.BackgroundTransparency = 1
+    glowEffect.Image = "rbxassetid://5028857084"
+    glowEffect.ImageColor3 = colors.primary
+    glowEffect.ImageTransparency = 0.5
+    glowEffect.Parent = container
+    
     local waterDrop = Instance.new("ImageLabel")
     waterDrop.Size = UDim2.new(0, 200, 0, 200)
     waterDrop.Position = UDim2.new(0.5, -100, 0.5, -100)
@@ -1413,42 +2054,85 @@ local function createLoadingScreen()
     waterDrop.ImageColor3 = colors.primary
     waterDrop.Parent = container
     
-    -- Spinning animation
-    local spinConnection = RunService.Heartbeat:Connect(function()
-        waterDrop.Rotation = waterDrop.Rotation + 2
+    -- Spinning and pulsing animation
+    spawn(function()
+        local rotation = 0
+        local pulse = 0
+        while loadingGui and loadingGui.Parent do
+            rotation = rotation + 2
+            pulse = pulse + 0.05
+            
+            waterDrop.Rotation = rotation
+            glowEffect.Rotation = -rotation / 2
+            
+            local scale = 1 + math.sin(pulse) * 0.1
+            waterDrop.Size = UDim2.new(0, 200 * scale, 0, 200 * scale)
+            waterDrop.Position = UDim2.new(0.5, -100 * scale, 0.5, -100 * scale)
+            
+            glowEffect.Size = UDim2.new(0, 300 * scale, 0, 300 * scale)
+            glowEffect.Position = UDim2.new(0.5, -150 * scale, 0.5, -150 * scale)
+            glowEffect.ImageTransparency = 0.3 + math.sin(pulse * 2) * 0.2
+            
+            RunService.Heartbeat:Wait()
+        end
     end)
     
-    -- Title
+    -- Title with animation
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 80)
+    title.Size = UDim2.new(1, 0, 0, 100)
     title.Position = UDim2.new(0, 0, 0.5, 120)
     title.BackgroundTransparency = 1
     title.Text = "WATER HUB"
     title.TextColor3 = colors.text
     title.TextScaled = true
     title.Font = Enum.Font.SourceSansBold
+    title.TextTransparency = 1
     title.Parent = container
     
-    -- Version
+    -- Animate title entrance
+    TweenService:Create(title, TweenInfo.new(1, Enum.EasingStyle.Back), {
+        TextTransparency = 0,
+        Position = UDim2.new(0, 0, 0.5, 140)
+    }):Play()
+    
+    -- Version text
     local version = Instance.new("TextLabel")
-    version.Size = UDim2.new(1, 0, 0, 30)
-    version.Position = UDim2.new(0, 0, 0.5, 200)
+    version.Size = UDim2.new(1, 0, 0, 40)
+    version.Position = UDim2.new(0, 0, 0.5, 220)
     version.BackgroundTransparency = 1
-    version.Text = "Ultimate Edition v3.2"
+    version.Text = "Ultimate Professional Edition v4.0"
     version.TextColor3 = colors.textSecondary
     version.TextScaled = true
     version.Font = Enum.Font.SourceSansItalic
+    version.TextTransparency = 1
     version.Parent = container
     
-    -- Loading bar background
-    local loadingBarBg = createFrame(container, 
-        UDim2.new(0, 300, 0, 10), 
-        UDim2.new(0.5, -150, 0.5, 250), 
+    TweenService:Create(version, TweenInfo.new(1, Enum.EasingStyle.Quad), {
+        TextTransparency = 0
+    }):Play()
+    
+    -- Loading bar container with glass effect
+    local loadingBarContainer = createFrame(container, 
+        UDim2.new(0, 400, 0, 20), 
+        UDim2.new(0.5, -200, 0.5, 280), 
         colors.surface, 
-        0
+        0.3
+    )
+    loadingBarContainer.BackgroundTransparency = 1
+    
+    TweenService:Create(loadingBarContainer, TweenInfo.new(0.5), {
+        BackgroundTransparency = 0.3
+    }):Play()
+    
+    -- Loading bar background
+    local loadingBarBg = createFrame(loadingBarContainer, 
+        UDim2.new(1, -4, 1, -4), 
+        UDim2.new(0, 2, 0, 2), 
+        colors.surfaceLight, 
+        0.5
     )
     
-    -- Loading bar
+    -- Loading bar fill
     local loadingBar = createFrame(loadingBarBg, 
         UDim2.new(0, 0, 1, 0), 
         UDim2.new(0, 0, 0, 0), 
@@ -1456,42 +2140,123 @@ local function createLoadingScreen()
         0
     )
     
-    -- Loading text
+    -- Loading bar glow
+    local loadingBarGlow = Instance.new("ImageLabel")
+    loadingBarGlow.Size = UDim2.new(1, 20, 1, 20)
+    loadingBarGlow.Position = UDim2.new(0, -10, 0, -10)
+    loadingBarGlow.BackgroundTransparency = 1
+    loadingBarGlow.Image = "rbxassetid://5028857084"
+    loadingBarGlow.ImageColor3 = colors.primary
+    loadingBarGlow.ImageTransparency = 0.5
+    loadingBarGlow.Parent = loadingBar
+    
+    -- Loading text with typewriter effect
     local loadingText = Instance.new("TextLabel")
-    loadingText.Size = UDim2.new(1, 0, 0, 30)
-    loadingText.Position = UDim2.new(0, 0, 0.5, 280)
+    loadingText.Size = UDim2.new(1, 0, 0, 40)
+    loadingText.Position = UDim2.new(0, 0, 0.5, 320)
     loadingText.BackgroundTransparency = 1
-    loadingText.Text = "Initializing..."
+    loadingText.Text = ""
     loadingText.TextColor3 = colors.textSecondary
     loadingText.TextScaled = true
     loadingText.Font = Enum.Font.SourceSans
     loadingText.Parent = container
     
-    -- Loading sequence
+    -- Loading tips
+    local tips = {
+        "Tip: Use God Mode for ultimate protection!",
+        "Tip: Float mode works great on mobile devices!",
+        "Tip: ESP helps you track other players easily!",
+        "Tip: Set a base to teleport back quickly!",
+        "Tip: All features bypass most anticheats!"
+    }
+    
+    local tipLabel = Instance.new("TextLabel")
+    tipLabel.Size = UDim2.new(1, -100, 0, 30)
+    tipLabel.Position = UDim2.new(0, 50, 0.5, 380)
+    tipLabel.BackgroundTransparency = 1
+    tipLabel.Text = tips[math.random(1, #tips)]
+    tipLabel.TextColor3 = colors.textSecondary
+    tipLabel.TextScaled = true
+    tipLabel.Font = Enum.Font.SourceSansItalic
+    tipLabel.TextTransparency = 0.5
+    tipLabel.Parent = container
+    
+    -- Loading sequence with realistic progress
     spawn(function()
         local steps = {
-            {text = "Loading Water Hub...", progress = 0.1},
-            {text = "Initializing modules...", progress = 0.25},
-            {text = "Setting up ESP...", progress = 0.4},
-            {text = "Configuring mobile controls...", progress = 0.55},
-            {text = "Activating God Mode...", progress = 0.7},
-            {text = "Preparing interface...", progress = 0.85},
-            {text = "Almost ready...", progress = 0.95},
-            {text = "Welcome!", progress = 1}
+            {text = "Initializing Water Hub systems...", progress = 0.05, time = 0.3},
+            {text = "Loading core modules...", progress = 0.15, time = 0.4},
+            {text = "Setting up anticheat bypass...", progress = 0.25, time = 0.5},
+            {text = "Configuring ESP systems...", progress = 0.35, time = 0.3},
+            {text = "Preparing mobile controls...", progress = 0.45, time = 0.3},
+            {text = "Activating God Mode protection...", progress = 0.55, time = 0.4},
+            {text = "Loading user interface...", progress = 0.70, time = 0.3},
+            {text = "Applying visual enhancements...", progress = 0.80, time = 0.3},
+            {text = "Finalizing setup...", progress = 0.90, time = 0.4},
+            {text = "Welcome to Water Hub!", progress = 1, time = 0.5}
         }
         
+        -- Typewriter effect function
+        local function typewrite(label, text, speed)
+            label.Text = ""
+            for i = 1, #text do
+                label.Text = text:sub(1, i)
+                wait(speed or 0.03)
+            end
+        end
+        
         for _, step in ipairs(steps) do
-            loadingText.Text = step.text
-            TweenService:Create(loadingBar, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+            -- Update loading text with typewriter effect
+            spawn(function()
+                typewrite(loadingText, step.text, 0.02)
+            end)
+            
+            -- Animate loading bar
+            TweenService:Create(loadingBar, TweenInfo.new(step.time, Enum.EasingStyle.Quad), {
                 Size = UDim2.new(step.progress, 0, 1, 0)
             }):Play()
-            wait(0.5)
+            
+            -- Update tip occasionally
+            if math.random() > 0.5 then
+                local newTip = tips[math.random(1, #tips)]
+                TweenService:Create(tipLabel, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+                wait(0.3)
+                tipLabel.Text = newTip
+                TweenService:Create(tipLabel, TweenInfo.new(0.3), {TextTransparency = 0.5}):Play()
+            end
+            
+            wait(step.time)
         end
         
         wait(0.5)
         
-        -- Fade out
+        -- Success flash effect
+        local successFlash = Instance.new("Frame")
+        successFlash.Size = UDim2.new(1, 0, 1, 36)
+        successFlash.Position = UDim2.new(0, 0, 0, -36)
+        successFlash.BackgroundColor3 = colors.primary
+        successFlash.BackgroundTransparency = 1
+        successFlash.BorderSizePixel = 0
+        successFlash.Parent = loadingGui
+        successFlash.ZIndex = 100
+        
+        TweenService:Create(successFlash, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {
+            BackgroundTransparency = 0.3
+        }):Play()
+        
+        wait(0.1)
+        
+        TweenService:Create(successFlash, TweenInfo.new(0.4, Enum.EasingStyle.Linear), {
+            BackgroundTransparency = 1
+        }):Play()
+        
+        -- Fade out animation
+        local fadeElements = {bg, container}
         for _, element in pairs(loadingGui:GetDescendants()) do
+            table.insert(fadeElements, element)
+        end
+        
+        for _, element in pairs(fadeElements) do
             if element:IsA("Frame") then
                 TweenService:Create(element, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
             elseif element:IsA("TextLabel") then
@@ -1503,50 +2268,142 @@ local function createLoadingScreen()
         
         wait(0.5)
         
-        if spinConnection then
-            spinConnection:Disconnect()
-        end
-        
         loadingGui:Destroy()
         
         -- Create main GUI
         createMainGui()
         
-        -- Enable God Mode
+        -- Enable God Mode and show notification
         wait(0.1)
         toggleGodMode(true)
+        
+        StarterGui:SetCore("SendNotification", {
+            Title = "Water Hub",
+            Text = "Successfully loaded! God Mode activated.",
+            Icon = "rbxassetid://6034684930",
+            Duration = 5
+        })
     end)
 end
 
--- Character respawn handler
+-- Character respawn handler with state restoration
 local function onCharacterAdded(character)
     wait(0.5)
     
+    -- Show notification
+    StarterGui:SetCore("SendNotification", {
+        Title = "Water Hub",
+        Text = "Restoring features after respawn...",
+        Duration = 2
+    })
+    
     -- Reapply active states
-    if states.godMode then toggleGodMode(true) end
-    if states.speedBoost then toggleSpeedBoost(true) end
-    if states.infiniteJump then toggleInfiniteJump(true) end
-    if states.float then toggleFloat(true) end
-    if states.noclip then toggleNoclip(true) end
-    if states.fly then toggleFly(true) end
+    local restoredFeatures = {}
+    
+    if states.godMode then 
+        toggleGodMode(true)
+        table.insert(restoredFeatures, "God Mode")
+    end
+    
+    if states.speedBoost then 
+        toggleSpeedBoost(true)
+        table.insert(restoredFeatures, "Speed Boost")
+    end
+    
+    if states.infiniteJump then 
+        toggleInfiniteJump(true)
+        table.insert(restoredFeatures, "Infinite Jump")
+    end
+    
+    if states.float then 
+        toggleFloat(true)
+        table.insert(restoredFeatures, "Float")
+    end
+    
+    if states.noclip then 
+        toggleNoclip(true)
+        table.insert(restoredFeatures, "Noclip")
+    end
+    
+    if states.fly then 
+        toggleFly(true)
+        table.insert(restoredFeatures, "Fly")
+    end
+    
+    if #restoredFeatures > 0 then
+        StarterGui:SetCore("SendNotification", {
+            Title = "Water Hub",
+            Text = "Restored: " .. table.concat(restoredFeatures, ", "),
+            Duration = 3
+        })
+    end
 end
 
--- Cleanup
+-- Enhanced cleanup function
+local function cleanup()
+    -- Disable all connections
+    for name, connection in pairs(connections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    connections = {}
+    
+    -- Remove ESP
+    for player, objects in pairs(espObjects) do
+        for _, obj in pairs(objects) do
+            if obj then obj:Destroy() end
+        end
+    end
+    espObjects = {}
+    
+    -- Remove physics objects
+    if floatBody then floatBody:Destroy() end
+    if flyBody then flyBody:Destroy() end
+    
+    -- Remove character connections
+    if characterAddedConnection then
+        characterAddedConnection:Disconnect()
+    end
+    
+    -- Remove GUIs
+    for _, gui in pairs(openGuis) do
+        if gui and gui.Parent then
+            gui:Destroy()
+        end
+    end
+    
+    if waterHubGui then waterHubGui:Destroy() end
+    if minimizedIcon then minimizedIcon:Destroy() end
+    if loadingGui then loadingGui:Destroy() end
+    if touchGui then touchGui:Destroy() end
+    if downButton then downButton:Destroy() end
+end
+
+-- Player removing handler
 Players.PlayerRemoving:Connect(function(leavingPlayer)
     if leavingPlayer == player then
-        for _, connection in pairs(connections) do
-            if connection then
-                connection:Disconnect()
-            end
-        end
-        if characterAddedConnection then
-            characterAddedConnection:Disconnect()
-        end
+        cleanup()
     end
 end)
 
--- Setup
+-- Setup character respawn handler
 characterAddedConnection = player.CharacterAdded:Connect(onCharacterAdded)
 
--- Initialize
-createLoadingScreen()
+-- Initialize Water Hub
+local success, err = pcall(function()
+    -- Setup bypass first
+    setupBypass()
+    
+    -- Show loading screen
+    createLoadingScreen()
+end)
+
+if not success then
+    warn("Water Hub initialization error:", err)
+    StarterGui:SetCore("SendNotification", {
+        Title = "Water Hub Error",
+        Text = "Failed to initialize. Please try again.",
+        Duration = 5
+    })
+end
