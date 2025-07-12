@@ -1536,48 +1536,241 @@ createMainGui = function()
     addFeature("Noclip", "👻", toggleNoclip, states.noclip)
     addFeature("Fly", "✈️", toggleFly, states.fly)
     
-    yPos = yPos + 10
+    -- New TP Base Switch
+    local tpBaseGui = nil
+    local function toggleTPBase(enabled)
+        if enabled then
+            if not tpBaseGui or not tpBaseGui.Parent then
+                -- Create TP Base GUI
+                tpBaseGui = Instance.new("ScreenGui")
+                tpBaseGui.Name = "TPBaseGui"
+                tpBaseGui.Parent = CoreGui
+                tpBaseGui.ResetOnSpawn = false
+                table.insert(openGuis, tpBaseGui)
+                
+                local tpBaseFrame = createFrame(tpBaseGui, 
+                    UDim2.new(0, 280, 0, 180), 
+                    UDim2.new(0.5, -140, 0.3, 0), 
+                    colors.surface, 
+                    0.1
+                )
+                tpBaseFrame.Active = true
+                makeDraggable(tpBaseFrame)
+                
+                -- Header
+                local header = createFrame(tpBaseFrame, 
+                    UDim2.new(1, 0, 0, 40), 
+                    UDim2.new(0, 0, 0, 0), 
+                    colors.primary, 
+                    0
+                )
+                
+                local title = Instance.new("TextLabel")
+                title.Size = UDim2.new(1, -50, 1, 0)
+                title.Position = UDim2.new(0, 10, 0, 0)
+                title.BackgroundTransparency = 1
+                title.Text = "📍 Base System"
+                title.TextColor3 = colors.text
+                title.TextScaled = true
+                title.Font = Enum.Font.SourceSansBold
+                title.Parent = header
+                
+                local closeBtn = createButton(header, 
+                    UDim2.new(0, 35, 0, 35), 
+                    UDim2.new(1, -40, 0.5, -17.5), 
+                    colors.danger, 
+                    "×"
+                )
+                closeBtn.TextSize = 24
+                
+                -- Set Base Button
+                local setBaseBtn = createButton(tpBaseFrame, 
+                    UDim2.new(0.9, 0, 0, 40), 
+                    UDim2.new(0.05, 0, 0, 55), 
+                    colors.success, 
+                    "📍 Set Base"
+                )
+                
+                -- Teleport Button
+                local tpBtn = createButton(tpBaseFrame, 
+                    UDim2.new(0.9, 0, 0, 40), 
+                    UDim2.new(0.05, 0, 0, 105), 
+                    colors.warning, 
+                    "🚀 Teleport to Base"
+                )
+                
+                -- Status Label
+                local statusLabel = Instance.new("TextLabel")
+                statusLabel.Size = UDim2.new(0.9, 0, 0, 20)
+                statusLabel.Position = UDim2.new(0.05, 0, 0, 155)
+                statusLabel.BackgroundTransparency = 1
+                statusLabel.Text = basePosition and string.format("Base: X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z) or "Base: Not Set"
+                statusLabel.TextColor3 = colors.textSecondary
+                statusLabel.TextScaled = true
+                statusLabel.Font = Enum.Font.SourceSansItalic
+                statusLabel.Parent = tpBaseFrame
+                
+                -- Events
+                closeBtn.MouseButton1Click:Connect(function()
+                    tpBaseGui:Destroy()
+                    tpBaseGui = nil
+                    -- Turn off the switch
+                    for i, container in ipairs(mainContent:GetChildren()) do
+                        local label = container:FindFirstChildOfClass("TextLabel")
+                        if label and label.Text:find("TP Base") then
+                            local switch = container:FindFirstChildOfClass("Frame")
+                            if switch then
+                                -- Force toggle off
+                                local switchButton = switch:FindFirstChildOfClass("Frame")
+                                if switchButton then
+                                    TweenService:Create(switchButton, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Position = UDim2.new(0, 2, 0, 2.5)}):Play()
+                                    TweenService:Create(switch, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}):Play()
+                                end
+                            end
+                            break
+                        end
+                    end
+                end)
+                
+                setBaseBtn.MouseButton1Click:Connect(function()
+                    local rootPart = getRootPart()
+                    if rootPart then
+                        basePosition = rootPart.Position
+                        statusLabel.Text = string.format("Base: X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z)
+                        
+                        TweenService:Create(setBaseBtn, TweenInfo.new(0.2), {
+                            BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+                        }):Play()
+                        wait(0.5)
+                        TweenService:Create(setBaseBtn, TweenInfo.new(0.2), {
+                            BackgroundColor3 = colors.success
+                        }):Play()
+                        
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Water Hub",
+                            Text = "Base position set!",
+                            Duration = 2
+                        })
+                    end
+                end)
+                
+                tpBtn.MouseButton1Click:Connect(function()
+                    if teleportToBase() then
+                        TweenService:Create(tpBtn, TweenInfo.new(0.2), {
+                            BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+                        }):Play()
+                        wait(0.5)
+                        TweenService:Create(tpBtn, TweenInfo.new(0.2), {
+                            BackgroundColor3 = colors.warning
+                        }):Play()
+                    end
+                end)
+            end
+        else
+            if tpBaseGui and tpBaseGui.Parent then
+                tpBaseGui:Destroy()
+                tpBaseGui = nil
+            end
+        end
+    end
     
-    -- Base system section
-    local baseSection = createFrame(mainContent, UDim2.new(1, -20, 0, 120), UDim2.new(0, 10, 0, yPos), colors.surfaceLight, 0.1)
+    addFeature("TP Base", "📍", toggleTPBase, false)
     
-    local baseSectionTitle = Instance.new("TextLabel")
-    baseSectionTitle.Size = UDim2.new(1, -20, 0, 30)
-    baseSectionTitle.Position = UDim2.new(0, 10, 0, 5)
-    baseSectionTitle.BackgroundTransparency = 1
-    baseSectionTitle.Text = "📍 Base System"
-    baseSectionTitle.TextColor3 = colors.primary
-    baseSectionTitle.TextScaled = true
-    baseSectionTitle.Font = Enum.Font.SourceSansBold
-    baseSectionTitle.TextXAlignment = Enum.TextXAlignment.Left
-    baseSectionTitle.Parent = baseSection
+    -- Steal Helper Switch
+    local stealHelperGui = nil
+    local stealHelperBtn = nil
+    local isAtTop = false
     
-    local setBaseBtn = createButton(baseSection, 
-        UDim2.new(0.48, 0, 0, 35), 
-        UDim2.new(0, 10, 0, 40), 
-        colors.success, 
-        "📍 Set Base"
-    )
+    local function updateStealButton()
+        if stealHelperBtn then
+            if isAtTop then
+                stealHelperBtn.Text = "⬇️ Down"
+                stealHelperBtn.BackgroundColor3 = colors.danger
+            else
+                stealHelperBtn.Text = "⬆️ Up"
+                stealHelperBtn.BackgroundColor3 = colors.success
+            end
+        end
+    end
     
-    local tpBaseBtn = createButton(baseSection, 
-        UDim2.new(0.48, 0, 0, 35), 
-        UDim2.new(0.52, -10, 0, 40), 
-        colors.warning, 
-        "🚀 Teleport to Base"
-    )
+    local function toggleStealHelper(enabled)
+        if enabled then
+            if not stealHelperGui or not stealHelperGui.Parent then
+                -- Create Steal Helper GUI
+                stealHelperGui = Instance.new("ScreenGui")
+                stealHelperGui.Name = "StealHelperGui"
+                stealHelperGui.Parent = CoreGui
+                stealHelperGui.ResetOnSpawn = false
+                table.insert(openGuis, stealHelperGui)
+                
+                stealHelperBtn = createButton(stealHelperGui, 
+                    UDim2.new(0, 120, 0, 60), 
+                    UDim2.new(0.9, -120, 0.7, -30), 
+                    colors.success, 
+                    "⬆️ Up"
+                )
+                stealHelperBtn.Active = true
+                stealHelperBtn.Font = Enum.Font.SourceSansBold
+                stealHelperBtn.TextSize = 24
+                makeDraggable(stealHelperBtn)
+                
+                -- Reset state
+                isAtTop = false
+                updateStealButton()
+                
+                stealHelperBtn.MouseButton1Click:Connect(function()
+                    local rootPart = getRootPart()
+                    if rootPart then
+                        if isAtTop then
+                            -- Go down by 50
+                            local downTween = TweenService:Create(rootPart, 
+                                TweenInfo.new(0.5, Enum.EasingStyle.Quad), 
+                                {CFrame = rootPart.CFrame - Vector3.new(0, 50, 0)}
+                            )
+                            downTween:Play()
+                            
+                            -- Animate button
+                            TweenService:Create(stealHelperBtn, TweenInfo.new(0.2), {
+                                Size = UDim2.new(0, 130, 0, 65)
+                            }):Play()
+                            wait(0.2)
+                            TweenService:Create(stealHelperBtn, TweenInfo.new(0.2), {
+                                Size = UDim2.new(0, 120, 0, 60)
+                            }):Play()
+                        else
+                            -- Go up to 165
+                            local upTween = TweenService:Create(rootPart, 
+                                TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
+                                {CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)}
+                            )
+                            upTween:Play()
+                            
+                            -- Animate button
+                            TweenService:Create(stealHelperBtn, TweenInfo.new(0.2), {
+                                Size = UDim2.new(0, 130, 0, 65)
+                            }):Play()
+                            wait(0.2)
+                            TweenService:Create(stealHelperBtn, TweenInfo.new(0.2), {
+                                Size = UDim2.new(0, 120, 0, 60)
+                            }):Play()
+                        end
+                        
+                        isAtTop = not isAtTop
+                        updateStealButton()
+                    end
+                end)
+            end
+        else
+            if stealHelperGui and stealHelperGui.Parent then
+                stealHelperGui:Destroy()
+                stealHelperGui = nil
+                stealHelperBtn = nil
+                isAtTop = false
+            end
+        end
+    end
     
-    local baseStatusLabel = Instance.new("TextLabel")
-    baseStatusLabel.Size = UDim2.new(1, -20, 0, 20)
-    baseStatusLabel.Position = UDim2.new(0, 10, 0, 85)
-    baseStatusLabel.BackgroundTransparency = 1
-    baseStatusLabel.Text = "Base: Not Set"
-    baseStatusLabel.TextColor3 = colors.textSecondary
-    baseStatusLabel.TextScaled = true
-    baseStatusLabel.Font = Enum.Font.SourceSansItalic
-    baseStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    baseStatusLabel.Parent = baseSection
-    
-    yPos = yPos + 130
+    addFeature("Steal Helper", "💰", toggleStealHelper, false)
     
     mainContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
     
