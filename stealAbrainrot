@@ -7,8 +7,8 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 local Window = Fluent:CreateWindow({
     Title = "💧 Water HUB",
     SubTitle = "Ultimate Edition v5.3",
-    TabWidth = 180,  -- Increased from 150 to 180 for wider tabs
-    Size = UDim2.fromOffset(480, 360),  -- Increased horizontal size from 355 to 480
+    TabWidth = 180,
+    Size = UDim2.fromOffset(480, 360),
     Acrylic = true,
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl
@@ -48,7 +48,7 @@ imageButton.Position = UDim2.new(0, 20, 0.5, -35)
 imageButton.AnchorPoint = Vector2.new(0, 0.5)
 imageButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 imageButton.BorderSizePixel = 0
-imageButton.Image = "rbxassetid://6034684930"  -- Water drop icon
+imageButton.Image = "rbxassetid://6034684930"
 imageButton.ScaleType = Enum.ScaleType.Fit
 imageButton.Parent = persistentGui
 
@@ -217,14 +217,11 @@ local function toggleAntiStun(enabled)
     end
     
     if enabled then
-        -- Damage detection to identify attackers
         connections.damageDetection = RunService.Heartbeat:Connect(function()
             local humanoid = getHumanoid()
             if humanoid then
-                -- Monitor for sudden health changes
                 local currentHealth = humanoid.Health
                 if currentHealth < humanoid.MaxHealth * 0.9 then
-                    -- Find closest player (likely attacker)
                     local rootPart = getRootPart()
                     if rootPart then
                         local closestPlayer = nil
@@ -248,13 +245,11 @@ local function toggleAntiStun(enabled)
             end
         end)
         
-        -- Main anti-stun protection
         connections.antiStun = RunService.Heartbeat:Connect(function()
             local humanoid = getHumanoid()
             local rootPart = getRootPart()
             
             if humanoid and rootPart then
-                -- Prevent stunning states
                 if humanoid:GetState() == Enum.HumanoidStateType.PlatformStanding or
                    humanoid:GetState() == Enum.HumanoidStateType.FallingDown or
                    humanoid:GetState() == Enum.HumanoidStateType.Ragdoll or
@@ -262,12 +257,10 @@ local function toggleAntiStun(enabled)
                     humanoid:ChangeState(Enum.HumanoidStateType.Running)
                 end
                 
-                -- Prevent forced flying or falling
                 if math.abs(rootPart.Velocity.Y) > 50 then
                     rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
                 end
                 
-                -- Remove unwanted body movers
                 for _, child in pairs(rootPart:GetChildren()) do
                     if child:IsA("BodyPosition") or child:IsA("BodyVelocity") or 
                        child:IsA("BodyAngularVelocity") or child:IsA("BodyThrust") then
@@ -275,12 +268,10 @@ local function toggleAntiStun(enabled)
                     end
                 end
                 
-                -- Reset platform stand and sit
                 humanoid.PlatformStand = false
                 humanoid.Sit = false
                 rootPart.Anchored = false
                 
-                -- Maintain health if being attacked
                 if lastAttacker and humanoid.Health < humanoid.MaxHealth * 0.8 then
                     humanoid.Health = humanoid.MaxHealth
                 end
@@ -291,7 +282,7 @@ local function toggleAntiStun(enabled)
     end
 end
 
--- Infinite Jump implementation (enhanced)
+-- Infinite Jump implementation
 local function toggleInfiniteJump(enabled)
     states.infiniteJump = enabled
     
@@ -313,7 +304,6 @@ local function toggleInfiniteJump(enabled)
             if humanoid and rootPart and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 
-                -- Add upward velocity for better jump
                 local bodyVelocity = Instance.new("BodyVelocity")
                 bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
                 bodyVelocity.Velocity = Vector3.new(0, 60, 0)
@@ -331,6 +321,276 @@ local function toggleInfiniteJump(enabled)
             end
         end)
     end
+end
+
+-- Enhanced Multi-Method Base Teleportation System
+local function advancedBaseTeleport(targetPosition)
+    local rootPart = getRootPart()
+    if not rootPart or not targetPosition then return false end
+    
+    local startTime = tick()
+    local attemptConnection
+    local success = false
+    local currentMethod = 1
+    local methodStartTime = startTime
+    local wasNoclip = states.noclip
+    
+    -- Enable noclip temporarily
+    if not wasNoclip then
+        states.noclip = true
+        if connections.noclip then
+            connections.noclip:Disconnect()
+        end
+        connections.noclip = RunService.Stepped:Connect(function()
+            local character = getCharacter()
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- Teleportation methods array
+    local methods = {
+        -- Method 1: Direct CFrame teleportation
+        function(target, elapsed)
+            if elapsed < 1 then
+                rootPart.CFrame = CFrame.new(target)
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+                return (rootPart.Position - target).Magnitude < 5
+            end
+            return false
+        end,
+        
+        -- Method 2: High altitude bypass
+        function(target, elapsed)
+            if elapsed < 3 then
+                local highTarget = Vector3.new(target.X, target.Y + 200, target.Z)
+                rootPart.CFrame = CFrame.new(highTarget)
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+                wait(0.5)
+                rootPart.CFrame = CFrame.new(target)
+                return (rootPart.Position - target).Magnitude < 5
+            end
+            return false
+        end,
+        
+        -- Method 3: Smooth flying movement
+        function(target, elapsed)
+            if elapsed < 4 then
+                local currentPos = rootPart.Position
+                local direction = (target - currentPos).Unit
+                local distance = (target - currentPos).Magnitude
+                
+                if distance > 2 then
+                    local speed = math.min(100, distance * 2)
+                    local newPos = currentPos + direction * speed * (1/60)
+                    rootPart.CFrame = CFrame.new(newPos)
+                    rootPart.Velocity = Vector3.new(0, 0, 0)
+                    return false
+                else
+                    return true
+                end
+            end
+            return false
+        end,
+        
+        -- Method 4: BodyPosition method
+        function(target, elapsed)
+            if elapsed < 3 then
+                local bodyPos = rootPart:FindFirstChild("TeleportBodyPosition")
+                if not bodyPos then
+                    bodyPos = Instance.new("BodyPosition")
+                    bodyPos.Name = "TeleportBodyPosition"
+                    bodyPos.MaxForce = Vector3.new(4000, 4000, 4000)
+                    bodyPos.Parent = rootPart
+                end
+                bodyPos.Position = target
+                return (rootPart.Position - target).Magnitude < 3
+            else
+                local bodyPos = rootPart:FindFirstChild("TeleportBodyPosition")
+                if bodyPos then bodyPos:Destroy() end
+                return false
+            end
+        end,
+        
+        -- Method 5: Multi-step teleportation
+        function(target, elapsed)
+            if elapsed < 4 then
+                local steps = 10
+                local currentStep = math.floor(elapsed * steps / 4)
+                local startPos = Vector3.new(rootPart.Position.X, rootPart.Position.Y, rootPart.Position.Z)
+                
+                for i = 1, steps do
+                    local alpha = i / steps
+                    local stepPos = startPos:Lerp(target, alpha)
+                    rootPart.CFrame = CFrame.new(stepPos)
+                    rootPart.Velocity = Vector3.new(0, 0, 0)
+                    wait(0.1)
+                end
+                
+                return (rootPart.Position - target).Magnitude < 5
+            end
+            return false
+        end,
+        
+        -- Method 6: Velocity-based teleportation
+        function(target, elapsed)
+            if elapsed < 3 then
+                local bodyVel = rootPart:FindFirstChild("TeleportBodyVelocity")
+                if not bodyVel then
+                    bodyVel = Instance.new("BodyVelocity")
+                    bodyVel.Name = "TeleportBodyVelocity"
+                    bodyVel.MaxForce = Vector3.new(4000, 4000, 4000)
+                    bodyVel.Parent = rootPart
+                end
+                
+                local direction = (target - rootPart.Position).Unit
+                local distance = (target - rootPart.Position).Magnitude
+                
+                if distance > 2 then
+                    bodyVel.Velocity = direction * math.min(200, distance * 10)
+                    return false
+                else
+                    bodyVel:Destroy()
+                    return true
+                end
+            else
+                local bodyVel = rootPart:FindFirstChild("TeleportBodyVelocity")
+                if bodyVel then bodyVel:Destroy() end
+                return false
+            end
+        end
+    }
+    
+    attemptConnection = RunService.Heartbeat:Connect(function()
+        local currentTime = tick()
+        local totalElapsed = currentTime - startTime
+        local methodElapsed = currentTime - methodStartTime
+        
+        -- Check if we're close enough to target
+        local distance = (rootPart.Position - targetPosition).Magnitude
+        if distance < 3 then
+            success = true
+            if attemptConnection then
+                attemptConnection:Disconnect()
+            end
+            
+            -- Clean up any body movers
+            for _, child in pairs(rootPart:GetChildren()) do
+                if child.Name:find("Teleport") then
+                    child:Destroy()
+                end
+            end
+            
+            -- Restore noclip state
+            if not wasNoclip then
+                states.noclip = false
+                if connections.noclip then
+                    connections.noclip:Disconnect()
+                    connections.noclip = nil
+                end
+            end
+            
+            Fluent:Notify({
+                Title = "Base TP",
+                Content = "Successfully teleported to base using method " .. currentMethod .. "!",
+                Duration = 3
+            })
+            return
+        end
+        
+        -- Try current method
+        if currentMethod <= #methods then
+            local methodSuccess = methods[currentMethod](targetPosition, methodElapsed)
+            
+            if methodSuccess then
+                success = true
+                if attemptConnection then
+                    attemptConnection:Disconnect()
+                end
+                
+                -- Clean up
+                for _, child in pairs(rootPart:GetChildren()) do
+                    if child.Name:find("Teleport") then
+                        child:Destroy()
+                    end
+                end
+                
+                if not wasNoclip then
+                    states.noclip = false
+                    if connections.noclip then
+                        connections.noclip:Disconnect()
+                        connections.noclip = nil
+                    end
+                end
+                
+                Fluent:Notify({
+                    Title = "Base TP",
+                    Content = "Successfully teleported using method " .. currentMethod .. "!",
+                    Duration = 3
+                })
+                return
+            end
+            
+            -- Switch to next method after timeout
+            if methodElapsed > 3 then
+                currentMethod = currentMethod + 1
+                methodStartTime = currentTime
+                
+                -- Clean up previous method
+                for _, child in pairs(rootPart:GetChildren()) do
+                    if child.Name:find("Teleport") then
+                        child:Destroy()
+                    end
+                end
+                
+                if currentMethod <= #methods then
+                    Fluent:Notify({
+                        Title = "Base TP",
+                        Content = "Trying method " .. currentMethod .. "...",
+                        Duration = 1
+                    })
+                end
+            end
+        end
+        
+        -- Ultimate timeout after 20 seconds
+        if totalElapsed > 20 then
+            if attemptConnection then
+                attemptConnection:Disconnect()
+            end
+            
+            -- Emergency high altitude escape
+            rootPart.CFrame = CFrame.new(rootPart.Position.X, 1000, rootPart.Position.Z)
+            
+            -- Clean up
+            for _, child in pairs(rootPart:GetChildren()) do
+                if child.Name:find("Teleport") then
+                    child:Destroy()
+                end
+            end
+            
+            if not wasNoclip then
+                states.noclip = false
+                if connections.noclip then
+                    connections.noclip:Disconnect()
+                    connections.noclip = nil
+                end
+            end
+            
+            Fluent:Notify({
+                Title = "Base TP",
+                Content = "All methods failed - Emergency exit activated!",
+                Duration = 4
+            })
+        end
+    end)
+    
+    return true
 end
 
 -- Create tabs
@@ -412,7 +672,6 @@ Tabs.Main:AddToggle("InfiniteJump", {
     end
 })
 
--- God Mode
 Tabs.Main:AddToggle("GodMode", {
     Title = "🛡️ God Mode",
     Description = "Complete invincibility",
@@ -449,7 +708,6 @@ Tabs.Main:AddToggle("GodMode", {
     end
 })
 
--- Noclip
 Tabs.Main:AddToggle("Noclip", {
     Title = "👻 Noclip",
     Description = "Walk through walls",
@@ -585,7 +843,7 @@ Tabs.Visual:AddToggle("ESPBox", {
     end
 })
 
--- MISC TAB (Enhanced with Fast Steal and Steal Helper)
+-- MISC TAB
 Tabs.Misc:AddSection("🚀 Stealing Tools")
 
 Tabs.Misc:AddToggle("FastSteal", {
@@ -611,7 +869,7 @@ Tabs.Misc:AddButton({
         stealHelperGui.ResetOnSpawn = false
         
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(180, 120)  -- Compact size
+        frame.Size = UDim2.fromOffset(180, 120)
         frame.Position = UDim2.new(0, 20, 0.3, 0)
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         frame.BackgroundTransparency = 0.1
@@ -678,7 +936,6 @@ Tabs.Misc:AddButton({
             stealHelperGui:Destroy()
         end)
         
-        -- Compact buttons
         local upBtn = Instance.new("TextButton")
         upBtn.Size = UDim2.new(1, -10, 0, 35)
         upBtn.Position = UDim2.new(0, 5, 0, 30)
@@ -756,14 +1013,14 @@ Tabs.Misc:AddButton({
     end
 })
 
--- Base System
+-- Enhanced Base System
 Tabs.Misc:AddSection("📍 Base System")
 
 local baseSystemGui = nil
 
 Tabs.Misc:AddButton({
     Title = "📍 Open Base System",
-    Description = "Compact base teleportation system",
+    Description = "Advanced multi-method base teleportation",
     Callback = function()
         if baseSystemGui then
             baseSystemGui:Destroy()
@@ -775,7 +1032,7 @@ Tabs.Misc:AddButton({
         baseSystemGui.ResetOnSpawn = false
         
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(140, 100)  -- Very compact
+        frame.Size = UDim2.fromOffset(140, 100)
         frame.Position = UDim2.new(0, 200, 0.4, 0)
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         frame.BackgroundTransparency = 0.1
@@ -842,7 +1099,6 @@ Tabs.Misc:AddButton({
             baseSystemGui:Destroy()
         end)
         
-        -- Set button
         local setBtn = Instance.new("TextButton")
         setBtn.Size = UDim2.new(1, -8, 0, 30)
         setBtn.Position = UDim2.new(0, 4, 0, 26)
@@ -858,7 +1114,6 @@ Tabs.Misc:AddButton({
         setCorner.CornerRadius = UDim.new(0, 6)
         setCorner.Parent = setBtn
         
-        -- TP button
         local tpBtn = Instance.new("TextButton")
         tpBtn.Size = UDim2.new(1, -8, 0, 30)
         tpBtn.Position = UDim2.new(0, 4, 0, 62)
@@ -888,123 +1143,12 @@ Tabs.Misc:AddButton({
         
         tpBtn.MouseButton1Click:Connect(function()
             if basePosition then
-                local rootPart = getRootPart()
-                if rootPart then
-                    -- Advanced flying teleport system
-                    local startTime = tick()
-                    local flyConnection
-                    local targetReached = false
-                    local bypassFailed = false
-                    
-                    -- Enable noclip for teleport
-                    local wasNoclip = states.noclip
-                    if not wasNoclip then
-                        states.noclip = true
-                        if connections.noclip then
-                            connections.noclip:Disconnect()
-                        end
-                        connections.noclip = RunService.Stepped:Connect(function()
-                            local character = getCharacter()
-                            if character then
-                                for _, part in pairs(character:GetDescendants()) do
-                                    if part:IsA("BasePart") then
-                                        part.CanCollide = false
-                                    end
-                                end
-                            end
-                        end)
-                    end
-                    
-                    -- Create flying movement to base
-                    local startPos = rootPart.Position
-                    local targetPos = basePosition
-                    local flyHeight = math.max(startPos.Y, targetPos.Y) + 50 -- Fly higher for bypass
-                    
-                    -- Phase 1: Go up
-                    local upTarget = Vector3.new(startPos.X, flyHeight, startPos.Z)
-                    
-                    flyConnection = RunService.Heartbeat:Connect(function()
-                        local currentTime = tick()
-                        local elapsed = currentTime - startTime
-                        
-                        -- Safety timeout after 5 seconds
-                        if elapsed > 5 then
-                            bypassFailed = true
-                            if flyConnection then
-                                flyConnection:Disconnect()
-                            end
-                            
-                            -- Emergency escape - go very high
-                            rootPart.CFrame = CFrame.new(rootPart.Position.X, 500, rootPart.Position.Z)
-                            
-                            Fluent:Notify({
-                                Title = "Base TP",
-                                Content = "Bypass failed - Emergency exit!",
-                                Duration = 3
-                            })
-                            
-                            -- Restore noclip state
-                            if not wasNoclip then
-                                states.noclip = false
-                                if connections.noclip then
-                                    connections.noclip:Disconnect()
-                                    connections.noclip = nil
-                                end
-                            end
-                            return
-                        end
-                        
-                        local currentPos = rootPart.Position
-                        local distanceToTarget
-                        local targetPosition
-                        
-                        -- Phase logic
-                        if not targetReached then
-                            -- Phase 1: Go to flying height above start
-                            if currentPos.Y < flyHeight - 5 then
-                                targetPosition = upTarget
-                            -- Phase 2: Move horizontally to above base
-                            elseif (Vector2.new(currentPos.X, currentPos.Z) - Vector2.new(targetPos.X, targetPos.Z)).Magnitude > 5 then
-                                targetPosition = Vector3.new(targetPos.X, flyHeight, targetPos.Z)
-                            -- Phase 3: Descend to base
-                            else
-                                targetPosition = targetPos
-                                if (currentPos - targetPos).Magnitude < 3 then
-                                    targetReached = true
-                                end
-                            end
-                            
-                            -- Smooth movement
-                            local direction = (targetPosition - currentPos).Unit
-                            local speed = 80
-                            local newPosition = currentPos + direction * speed * (1/60)
-                            
-                            rootPart.CFrame = CFrame.new(newPosition)
-                            rootPart.Velocity = Vector3.new(0, 0, 0)
-                            
-                        else
-                            -- Successfully reached base
-                            if flyConnection then
-                                flyConnection:Disconnect()
-                            end
-                            
-                            Fluent:Notify({
-                                Title = "Base TP",
-                                Content = "Successfully teleported to base!",
-                                Duration = 2
-                            })
-                            
-                            -- Restore noclip state
-                            if not wasNoclip then
-                                states.noclip = false
-                                if connections.noclip then
-                                    connections.noclip:Disconnect()
-                                    connections.noclip = nil
-                                end
-                            end
-                        end
-                    end)
-                end
+                Fluent:Notify({
+                    Title = "Base TP",
+                    Content = "Starting advanced teleportation...",
+                    Duration = 2
+                })
+                advancedBaseTeleport(basePosition)
             else
                 Fluent:Notify({
                     Title = "Base TP",
@@ -1076,7 +1220,6 @@ Tabs.Money:AddButton({
         local rootPart = getRootPart()
         if not rootPart then return end
         
-        -- Search workspace for items
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if obj:IsA("Tool") and not obj.Parent:IsA("Model") then
                 pcall(function()
@@ -1100,7 +1243,6 @@ Tabs.Money:AddButton({
             end
         end
         
-        -- Search ReplicatedStorage
         for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
             if obj:IsA("Tool") then
                 pcall(function()
@@ -1175,7 +1317,6 @@ Tabs.Server:AddButton({
     end
 })
 
--- Server Info
 local playerCountLabel = Tabs.Server:AddParagraph({
     Title = "👥 Players",
     Content = #Players:GetPlayers() .. "/" .. Players.MaxPlayers
@@ -1191,7 +1332,7 @@ local pingLabel = Tabs.Server:AddParagraph({
     Content = "Calculating..."
 })
 
--- Update money label
+-- Update functions
 local function updateMoneyLabel()
     local leaderstats = player:FindFirstChild("leaderstats")
     if leaderstats then
@@ -1204,7 +1345,6 @@ local function updateMoneyLabel()
     end
 end
 
--- Auto collect money function
 local function autoCollectMoneyFunc()
     if not states.autoCollectMoney then return end
     
@@ -1226,7 +1366,6 @@ local function autoCollectMoneyFunc()
     end
 end
 
--- Fast steal function
 local function fastStealFunc()
     if not states.fastSteal then return end
     
@@ -1239,7 +1378,6 @@ local function fastStealFunc()
     end
 end
 
--- ESP functions
 local function updateESP()
     if states.espPlayers then
         for _, targetPlayer in pairs(Players:GetPlayers()) do
@@ -1268,7 +1406,7 @@ local function updateESP()
     end
 end
 
--- Handle new players joining
+-- Event handlers
 Players.PlayerAdded:Connect(function(newPlayer)
     newPlayer.CharacterAdded:Connect(function(character)
         wait(1)
@@ -1285,7 +1423,6 @@ Players.PlayerAdded:Connect(function(newPlayer)
     end)
 end)
 
--- Handle player leaving
 Players.PlayerRemoving:Connect(function(leavingPlayer)
     if leavingPlayer.Character then
         local highlight = leavingPlayer.Character:FindFirstChild("Highlight")
@@ -1296,11 +1433,9 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
     end
 end)
 
--- Character respawn handler
 player.CharacterAdded:Connect(function(character)
     wait(1)
     
-    -- Restore active states
     local restoredFeatures = {}
     
     if states.speedBoost then
@@ -1351,7 +1486,6 @@ RunService.Heartbeat:Connect(function()
     fastStealFunc()
     updateESP()
     
-    -- Update server info every 2 seconds
     if tick() % 2 < 0.016 then
         playerCountLabel:SetDesc("👥 " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers)
         
@@ -1369,16 +1503,13 @@ SaveManager:IgnoreThemeSettings()
 InterfaceManager:SetFolder("FluentMobile")
 SaveManager:SetFolder("FluentMobile/config")
 
--- Select first tab
 Window:SelectTab(1)
 
--- Loading notification
 Fluent:Notify({
     Title = "💧 Water HUB Loaded",
-    Content = "All features loaded successfully! Enhanced with attacker detection.",
+    Content = "Enhanced multi-method base teleportation system activated!",
     Duration = 5,
     Image = "rbxassetid://6034684930"
 })
 
--- Load auto config
 SaveManager:LoadAutoloadConfig()
