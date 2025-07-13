@@ -27,7 +27,7 @@ local minimizedGui = Instance.new("ScreenGui")
 minimizedGui.Name = "FluentMinimized"
 minimizedGui.Parent = playerGui
 minimizedGui.ResetOnSpawn = false
-minimizedGui.Enabled = false
+minimizedGui.Enabled = true
 
 local imageButton = Instance.new("ImageButton")
 imageButton.Name = "RestoreButton"
