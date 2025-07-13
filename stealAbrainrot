@@ -11,7 +11,7 @@ local Window = Fluent:CreateWindow({
     Size = UDim2.fromOffset(580, 460),
     Acrylic = true,
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl -- Tasto per minimizzare/ripristinare
+    MinimizeKey = Enum.KeyCode.z -- Tasto per minimizzare/ripristinare
 })
 
 -- Crea l'immagine persistente (sempre visibile)
