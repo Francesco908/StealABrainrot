@@ -11,10 +11,10 @@ local Window = Fluent:CreateWindow({
     Size = UDim2.fromOffset(580, 460),
     Acrylic = true,
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.z -- Tasto per minimizzare/ripristinare
+    MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Crea l'immagine persistente (sempre visibile)
+-- Crea l'immagine persistente a destra
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -24,40 +24,41 @@ persistentGui.Name = "FluentPersistentButton"
 persistentGui.Parent = playerGui
 persistentGui.ResetOnSpawn = false
 persistentGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-persistentGui.Enabled = true
 
--- Immagine "fighissima" (personalizza con il tuo asset ID)
+-- Immagine "fighissima" (sostituisci con il tuo asset ID preferito)
 local imageButton = Instance.new("ImageButton")
-imageButton.Name = "PersistentControl"
-imageButton.Size = UDim2.fromOffset(70, 70)
-imageButton.Position = UDim2.new(0, 20, 0.5, -35) -- Centro sinistra
-imageButton.AnchorPoint = Vector2.new(0, 0.5)
-imageButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+imageButton.Name = "ZButton"
+imageButton.Size = UDim2.fromOffset(80, 80)
+imageButton.Position = UDim2.new(1, -100, 0.5, -40) -- Destra al centro
+imageButton.AnchorPoint = Vector2.new(1, 0.5)
+imageButton.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
 imageButton.BorderSizePixel = 0
-imageButton.Image = "rbxassetid://7072717836" -- Icona razzo (sostituisci con il tuo ID)
+imageButton.Image = "rbxassetid://11149159963" -- Icona Z (sostituisci con il tuo ID)
 imageButton.ScaleType = Enum.ScaleType.Fit
 imageButton.Parent = persistentGui
 
--- Effetto trasparenza
-imageButton.BackgroundTransparency = 0.5
-imageButton.ImageTransparency = 0.2
+-- Effetti visivi
+imageButton.BackgroundTransparency = 0.3
+imageButton.ImageTransparency = 0.1
 
 -- Arrotonda gli angoli
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0.3, 0)
+corner.CornerRadius = UDim.new(0.4, 0)
 corner.Parent = imageButton
 
 -- Effetto hover
 local TweenService = game:GetService("TweenService")
 local hoverTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
-    BackgroundTransparency = 0.2,
+    BackgroundTransparency = 0.1,
     ImageTransparency = 0,
-    Size = UDim2.fromOffset(75, 75)
+    Size = UDim2.fromOffset(85, 85),
+    Rotation = 5
 })
 local normalTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
-    BackgroundTransparency = 0.5,
-    ImageTransparency = 0.2,
-    Size = UDim2.fromOffset(70, 70)
+    BackgroundTransparency = 0.3,
+    ImageTransparency = 0.1,
+    Size = UDim2.fromOffset(80, 80),
+    Rotation = 0
 })
 
 imageButton.MouseEnter:Connect(function()
@@ -67,17 +68,33 @@ imageButton.MouseLeave:Connect(function()
     normalTween:Play()
 end)
 
--- Funzione per simulare il click di LeftControl
-local function simulateLeftControl()
+-- Funzione per simulare il tasto Z
+local function simulateZKey()
     local virtualInput = game:GetService("VirtualInputManager")
-    virtualInput:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
+    
+    -- Simula pressione del tasto Z
+    virtualInput:SendKeyEvent(true, Enum.KeyCode.Z, false, game)
     task.wait(0.1)
-    virtualInput:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
+    virtualInput:SendKeyEvent(false, Enum.KeyCode.Z, false, game)
+    
+    -- Effetto visivo al click
+    local clickTween = TweenService:Create(imageButton, TweenInfo.new(0.15), {
+        Size = UDim2.fromOffset(75, 75),
+        BackgroundColor3 = Color3.fromRGB(60, 45, 80)
+    })
+    local releaseTween = TweenService:Create(imageButton, TweenInfo.new(0.15), {
+        Size = UDim2.fromOffset(85, 85),
+        BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    })
+    
+    clickTween:Play()
+    task.wait(0.15)
+    releaseTween:Play()
 end
 
--- Click handler
-imageButton.MouseButton1Click:Connect(simulateLeftControl)
-imageButton.TouchTap:Connect(simulateLeftControl)
+-- Click handler per desktop e mobile
+imageButton.MouseButton1Click:Connect(simulateZKey)
+imageButton.TouchTap:Connect(simulateZKey)
 
 -- Crea le tab
 local Tabs = {
@@ -111,6 +128,19 @@ Tabs.Settings:AddButton({
     end
 })
 
+-- Aggiungi un'etichetta "Z" sotto l'immagine
+local zLabel = Instance.new("TextLabel")
+zLabel.Name = "ZLabel"
+zLabel.Text = "Z"
+zLabel.Font = Enum.Font.GothamBold
+zLabel.TextSize = 20
+zLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+zLabel.BackgroundTransparency = 1
+zLabel.Size = UDim2.new(0, 30, 0, 30)
+zLabel.Position = UDim2.new(1, -85, 0.5, 45)
+zLabel.AnchorPoint = Vector2.new(1, 0.5)
+zLabel.Parent = persistentGui
+
 -- Configura i manager
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
@@ -123,12 +153,12 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 -- Seleziona la prima tab
 Window:SelectTab(1)
 
--- Notifica di caricamento
+-- Notifica di caricamento con icona Z
 Fluent:Notify({
     Title = "Caricato",
-    Content = "Script caricato con successo!",
+    Content = "Premi il pulsante Z a destra!",
     Duration = 5,
-    Image = "rbxassetid://7072717836" -- Stessa icona dell'immagine persistente
+    Image = "rbxassetid://7072718162" -- Stessa icona del pulsante
 })
 
 -- Carica configurazione automatica
