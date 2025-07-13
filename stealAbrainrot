@@ -1,5 +1,5 @@
--- Simple Exploit GUI - Minimal Version
--- No animations, simple design, full functionality
+-- Optimized Simple GUI - Performance Version
+-- Reduced lag and improved performance
 
 -- Services
 local Players = game:GetService("Players")
@@ -11,21 +11,26 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 local StarterGui = game:GetService("StarterGui")
+local Debris = game:GetService("Debris")
 
--- Bypass Setup
+-- Performance Variables
+local FRAME_SKIP = 3 -- Process every 3rd frame
+local ESP_UPDATE_RATE = 10 -- Update ESP every 10 frames
+local frameCount = 0
+
+-- Bypass Setup (Optimized)
 local mt = getrawmetatable(game)
 local old = mt.__namecall
 local protect = newcclosure or protect_function
 
 -- Variables
 local player = Players.LocalPlayer
-local mouse = player:GetMouse()
 local camera = workspace.CurrentCamera
 
 -- GUI Variables
 local mainGui = nil
 local minimizedGui = nil
-local connections = {}
+local masterConnection = nil -- Single connection for all features
 local states = {
     godMode = false,
     infiniteJump = false,
@@ -41,6 +46,7 @@ local states = {
 local flyPart = nil
 local basePosition = nil
 local espObjects = {}
+local lastJumpTime = 0
 
 -- Simple Colors
 local bgColor = Color3.new(0.1, 0.1, 0.1)
@@ -49,7 +55,7 @@ local btnColor = Color3.new(0.3, 0.3, 0.3)
 local activeColor = Color3.new(0, 0.7, 0)
 local textColor = Color3.new(1, 1, 1)
 
--- Bypass
+-- Optimized Bypass
 local function setupBypass()
     pcall(function()
         setreadonly(mt, false)
@@ -57,14 +63,14 @@ local function setupBypass()
         mt.__namecall = protect(function(self, ...)
             local method = getnamecallmethod()
             
-            if method == "Kick" or method == "kick" then
-                return nil
+            if method == "Kick" then
+                return
             end
             
-            if (method == "FireServer" or method == "InvokeServer") and self:IsA("RemoteEvent") or self:IsA("RemoteFunction") then
+            if (method == "FireServer" or method == "InvokeServer") then
                 local name = tostring(self):lower()
-                if name:find("anti") or name:find("cheat") or name:find("ban") or name:find("kick") then
-                    return nil
+                if name:find("anti") or name:find("cheat") or name:find("ban") then
+                    return
                 end
             end
             
@@ -74,27 +80,46 @@ local function setupBypass()
         setreadonly(mt, true)
     end)
     
-    -- Anti-idle
-    player.Idled:Connect(function()
-        VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-        wait(1)
-        VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    -- Anti-idle (optimized)
+    local idleConnection
+    idleConnection = player.Idled:Connect(function()
+        VirtualUser:Button2Down(Vector2.new(0, 0), camera.CFrame)
+        task.wait(0.1)
+        VirtualUser:Button2Up(Vector2.new(0, 0), camera.CFrame)
     end)
 end
 
--- Utility Functions
+-- Cached Character Functions
+local characterCache = {}
+local cacheTime = 0
+
 local function getCharacter()
-    return player.Character or player.CharacterAdded:Wait()
+    local currentTime = tick()
+    if currentTime - cacheTime > 0.1 then -- Cache for 0.1 seconds
+        characterCache.character = player.Character
+        cacheTime = currentTime
+    end
+    return characterCache.character
 end
 
 local function getHumanoid()
     local char = getCharacter()
-    return char and char:FindFirstChildOfClass("Humanoid")
+    if char then
+        if not characterCache.humanoid or characterCache.humanoid.Parent ~= char then
+            characterCache.humanoid = char:FindFirstChildOfClass("Humanoid")
+        end
+        return characterCache.humanoid
+    end
 end
 
 local function getRootPart()
     local char = getCharacter()
-    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
+    if char then
+        if not characterCache.rootPart or characterCache.rootPart.Parent ~= char then
+            characterCache.rootPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
+        end
+        return characterCache.rootPart
+    end
 end
 
 -- Simple UI Creation
@@ -186,146 +211,55 @@ local function makeDraggable(frame)
     end)
 end
 
--- Feature Functions
-local function toggleGodMode(enabled)
-    states.godMode = enabled
-    
-    if connections.godMode then
-        connections.godMode:Disconnect()
-        connections.godMode = nil
+-- Master Update Function (Optimized)
+local function createMasterConnection()
+    if masterConnection then
+        masterConnection:Disconnect()
     end
     
-    if enabled then
-        connections.godMode = RunService.Heartbeat:Connect(function()
-            local humanoid = getHumanoid()
-            if humanoid then
+    masterConnection = RunService.Heartbeat:Connect(function()
+        frameCount = frameCount + 1
+        
+        -- Skip frames for performance
+        if frameCount % FRAME_SKIP ~= 0 then
+            return
+        end
+        
+        local character = getCharacter()
+        if not character then return end
+        
+        local humanoid = getHumanoid()
+        local rootPart = getRootPart()
+        
+        -- God Mode (optimized)
+        if states.godMode and humanoid and frameCount % 6 == 0 then -- Every 6 frames
+            if humanoid.Health < humanoid.MaxHealth then
                 humanoid.Health = humanoid.MaxHealth
-                
-                pcall(function()
-                    humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-                end)
-                
-                local char = getCharacter()
-                if char and not char:FindFirstChild("ForceField") then
-                    local ff = Instance.new("ForceField")
-                    ff.Visible = false
-                    ff.Parent = char
-                end
             end
-        end)
-    end
-end
-
-local function toggleInfiniteJump(enabled)
-    states.infiniteJump = enabled
-    
-    if connections.infiniteJump then
-        connections.infiniteJump:Disconnect()
-        connections.infiniteJump = nil
-    end
-    
-    if enabled then
-        connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
-            local humanoid = getHumanoid()
-            local rootPart = getRootPart()
-            
-            if humanoid and rootPart then
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                
-                local bodyVelocity = Instance.new("BodyVelocity")
-                bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
-                bodyVelocity.Velocity = Vector3.new(0, 50, 0)
-                bodyVelocity.Parent = rootPart
-                
-                game:GetService("Debris"):AddItem(bodyVelocity, 0.1)
-            end
-        end)
-    end
-end
-
-local function toggleSpeedBoost(enabled)
-    states.speedBoost = enabled
-    
-    if connections.speedBoost then
-        connections.speedBoost:Disconnect()
-        connections.speedBoost = nil
-    end
-    
-    if enabled then
-        connections.speedBoost = RunService.Heartbeat:Connect(function()
-            local humanoid = getHumanoid()
-            if humanoid then
+        end
+        
+        -- Speed Boost (optimized)
+        if states.speedBoost and humanoid then
+            if humanoid.WalkSpeed ~= 25 then
                 humanoid.WalkSpeed = 25
             end
-        end)
-    else
-        local humanoid = getHumanoid()
-        if humanoid then
-            humanoid.WalkSpeed = 16
         end
-    end
-end
-
-local function toggleNoclip(enabled)
-    states.noclip = enabled
-    
-    if connections.noclip then
-        connections.noclip:Disconnect()
-        connections.noclip = nil
-    end
-    
-    if enabled then
-        connections.noclip = RunService.Stepped:Connect(function()
-            local character = getCharacter()
-            if character then
-                for _, part in pairs(character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end)
-    else
-        local character = getCharacter()
-        if character then
-            for _, part in pairs(character:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = true
-                end
-            end
-        end
-    end
-end
-
-local function toggleFly(enabled)
-    states.fly = enabled
-    
-    if connections.fly then
-        connections.fly:Disconnect()
-        connections.fly = nil
-    end
-    
-    if flyPart then
-        flyPart:Destroy()
-        flyPart = nil
-    end
-    
-    if enabled then
-        flyPart = Instance.new("Part")
-        flyPart.Size = Vector3.new(5, 0.2, 5)
-        flyPart.Transparency = 1
-        flyPart.CanCollide = true
-        flyPart.Anchored = true
-        flyPart.Parent = workspace
         
-        connections.fly = RunService.Heartbeat:Connect(function()
-            local rootPart = getRootPart()
-            if not rootPart or not flyPart then return end
-            
+        -- Noclip (optimized)
+        if states.noclip and frameCount % 2 == 0 then -- Every 2 frames
+            for _, part in ipairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+        
+        -- Fly (optimized)
+        if states.fly and rootPart and flyPart then
             flyPart.CFrame = CFrame.new(rootPart.Position - Vector3.new(0, 3.5, 0))
             
-            local cam = workspace.CurrentCamera
             local moveVector = Vector3.new(0, 0, 0)
+            local cam = camera
             
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then
                 moveVector = moveVector + cam.CFrame.LookVector
@@ -346,10 +280,180 @@ local function toggleFly(enabled)
                 moveVector = moveVector - Vector3.new(0, 1, 0)
             end
             
-            rootPart.Velocity = moveVector * 50
-            rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(0, math.rad(rootPart.Orientation.Y), 0)
+            if moveVector.Magnitude > 0 then
+                rootPart.Velocity = moveVector.Unit * 50
+            end
+        end
+        
+        -- ESP Update (heavily optimized)
+        if (states.espBox or states.espNames) and frameCount % ESP_UPDATE_RATE == 0 then
+            updateESP()
+        end
+    end)
+end
+
+-- Optimized ESP Update
+local function updateESP()
+    local myChar = getCharacter()
+    if not myChar then return end
+    
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        if targetPlayer ~= player and targetPlayer.Character then
+            local character = targetPlayer.Character
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            
+            if rootPart then
+                if not espObjects[targetPlayer] then
+                    espObjects[targetPlayer] = {}
+                end
+                
+                -- ESP Box
+                if states.espBox and not espObjects[targetPlayer].box then
+                    local box = Instance.new("BoxHandleAdornment")
+                    box.Size = character:GetExtentsSize()
+                    box.Color3 = Color3.new(1, 0, 0)
+                    box.Transparency = 0.5
+                    box.AlwaysOnTop = true
+                    box.Adornee = rootPart
+                    box.Parent = rootPart
+                    espObjects[targetPlayer].box = box
+                end
+                
+                -- ESP Names
+                if states.espNames and not espObjects[targetPlayer].name then
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Adornee = rootPart
+                    billboard.Size = UDim2.new(0, 100, 0, 50)
+                    billboard.StudsOffset = Vector3.new(0, 3, 0)
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = rootPart
+                    
+                    local nameLabel = createLabel(billboard, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), targetPlayer.Name)
+                    nameLabel.BackgroundTransparency = 0.5
+                    nameLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+                    
+                    espObjects[targetPlayer].name = billboard
+                end
+                
+                -- Remove ESP if disabled
+                if not states.espBox and espObjects[targetPlayer].box then
+                    espObjects[targetPlayer].box:Destroy()
+                    espObjects[targetPlayer].box = nil
+                end
+                
+                if not states.espNames and espObjects[targetPlayer].name then
+                    espObjects[targetPlayer].name:Destroy()
+                    espObjects[targetPlayer].name = nil
+                end
+            end
+        end
+    end
+    
+    -- Clean up disconnected players
+    for targetPlayer, objects in pairs(espObjects) do
+        if not targetPlayer.Parent then
+            for _, obj in pairs(objects) do
+                if obj then obj:Destroy() end
+            end
+            espObjects[targetPlayer] = nil
+        end
+    end
+end
+
+-- Optimized Infinite Jump
+local jumpConnection = nil
+local function toggleInfiniteJump(enabled)
+    states.infiniteJump = enabled
+    
+    if jumpConnection then
+        jumpConnection:Disconnect()
+        jumpConnection = nil
+    end
+    
+    if enabled then
+        jumpConnection = UserInputService.JumpRequest:Connect(function()
+            local currentTime = tick()
+            if currentTime - lastJumpTime < 0.1 then return end -- Throttle jumps
+            lastJumpTime = currentTime
+            
+            local humanoid = getHumanoid()
+            local rootPart = getRootPart()
+            
+            if humanoid and rootPart then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                
+                task.spawn(function()
+                    local bodyVelocity = Instance.new("BodyVelocity")
+                    bodyVelocity.MaxForce = Vector3.new(0, 4000, 0)
+                    bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+                    bodyVelocity.Parent = rootPart
+                    Debris:AddItem(bodyVelocity, 0.1)
+                end)
+            end
         end)
+    end
+end
+
+-- Feature Toggle Functions
+local function toggleGodMode(enabled)
+    states.godMode = enabled
+    if not masterConnection then
+        createMasterConnection()
+    end
+end
+
+local function toggleSpeedBoost(enabled)
+    states.speedBoost = enabled
+    if enabled then
+        if not masterConnection then
+            createMasterConnection()
+        end
     else
+        local humanoid = getHumanoid()
+        if humanoid then
+            humanoid.WalkSpeed = 16
+        end
+    end
+end
+
+local function toggleNoclip(enabled)
+    states.noclip = enabled
+    if enabled then
+        if not masterConnection then
+            createMasterConnection()
+        end
+    else
+        local character = getCharacter()
+        if character then
+            for _, part in ipairs(character:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+local function toggleFly(enabled)
+    states.fly = enabled
+    
+    if enabled then
+        flyPart = Instance.new("Part")
+        flyPart.Size = Vector3.new(5, 0.2, 5)
+        flyPart.Transparency = 1
+        flyPart.CanCollide = true
+        flyPart.Anchored = true
+        flyPart.Parent = workspace
+        
+        if not masterConnection then
+            createMasterConnection()
+        end
+    else
+        if flyPart then
+            flyPart:Destroy()
+            flyPart = nil
+        end
+        
         local rootPart = getRootPart()
         if rootPart then
             rootPart.Velocity = Vector3.new(0, 0, 0)
@@ -360,72 +464,23 @@ end
 local function toggleESP(espType, enabled)
     states[espType] = enabled
     
-    -- Clear existing ESP
-    for player, objects in pairs(espObjects) do
-        for _, obj in pairs(objects) do
-            if obj then obj:Destroy() end
+    if not enabled then
+        -- Clean up ESP objects for this type
+        for targetPlayer, objects in pairs(espObjects) do
+            if espType == "espBox" and objects.box then
+                objects.box:Destroy()
+                objects.box = nil
+            elseif espType == "espNames" and objects.name then
+                objects.name:Destroy()
+                objects.name = nil
+            end
         end
-    end
-    espObjects = {}
-    
-    if connections.esp then
-        connections.esp:Disconnect()
-        connections.esp = nil
     end
     
     if states.espBox or states.espNames then
-        connections.esp = RunService.Heartbeat:Connect(function()
-            for _, targetPlayer in pairs(Players:GetPlayers()) do
-                if targetPlayer ~= player and targetPlayer.Character then
-                    local character = targetPlayer.Character
-                    local rootPart = character:FindFirstChild("HumanoidRootPart")
-                    
-                    if rootPart then
-                        if not espObjects[targetPlayer] then
-                            espObjects[targetPlayer] = {}
-                        end
-                        
-                        -- ESP Box
-                        if states.espBox and not espObjects[targetPlayer].box then
-                            local box = Instance.new("BoxHandleAdornment")
-                            box.Size = character:GetExtentsSize()
-                            box.Color3 = Color3.new(1, 0, 0)
-                            box.Transparency = 0.5
-                            box.AlwaysOnTop = true
-                            box.Adornee = rootPart
-                            box.Parent = rootPart
-                            espObjects[targetPlayer].box = box
-                        end
-                        
-                        -- ESP Names
-                        if states.espNames and not espObjects[targetPlayer].name then
-                            local billboard = Instance.new("BillboardGui")
-                            billboard.Adornee = rootPart
-                            billboard.Size = UDim2.new(0, 100, 0, 50)
-                            billboard.StudsOffset = Vector3.new(0, 3, 0)
-                            billboard.AlwaysOnTop = true
-                            billboard.Parent = rootPart
-                            
-                            local nameLabel = createLabel(billboard, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), targetPlayer.Name)
-                            nameLabel.BackgroundTransparency = 0.5
-                            nameLabel.BackgroundColor3 = Color3.new(0, 0, 0)
-                            
-                            espObjects[targetPlayer].name = billboard
-                        end
-                    end
-                end
-            end
-            
-            -- Clean up disconnected players
-            for targetPlayer, objects in pairs(espObjects) do
-                if not targetPlayer.Parent then
-                    for _, obj in pairs(objects) do
-                        if obj then obj:Destroy() end
-                    end
-                    espObjects[targetPlayer] = nil
-                end
-            end
-        end)
+        if not masterConnection then
+            createMasterConnection()
+        end
     end
 end
 
@@ -473,12 +528,11 @@ local function createTPBaseGui()
         if basePosition then
             local rootPart = getRootPart()
             if rootPart then
-                -- Teleport up
+                -- Simple teleport
                 rootPart.CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)
-                wait(2)
-                -- Move to base
+                task.wait(2)
                 rootPart.CFrame = CFrame.new(basePosition.X, 165, basePosition.Z)
-                wait(2)
+                task.wait(2)
                 
                 -- Create down button
                 local downGui = Instance.new("ScreenGui")
@@ -583,6 +637,60 @@ local function createMinimized()
     end)
 end
 
+-- Cleanup Function
+local function cleanup()
+    -- Disable all features
+    for name, state in pairs(states) do
+        if state then
+            states[name] = false
+        end
+    end
+    
+    -- Stop master connection
+    if masterConnection then
+        masterConnection:Disconnect()
+        masterConnection = nil
+    end
+    
+    -- Stop jump connection
+    if jumpConnection then
+        jumpConnection:Disconnect()
+        jumpConnection = nil
+    end
+    
+    -- Clean ESP
+    for player, objects in pairs(espObjects) do
+        for _, obj in pairs(objects) do
+            if obj then obj:Destroy() end
+        end
+    end
+    espObjects = {}
+    
+    -- Clean fly part
+    if flyPart then
+        flyPart:Destroy()
+        flyPart = nil
+    end
+    
+    -- Reset character properties
+    local humanoid = getHumanoid()
+    if humanoid then
+        humanoid.WalkSpeed = 16
+    end
+    
+    local character = getCharacter()
+    if character then
+        for _, part in ipairs(character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = true
+            end
+        end
+    end
+    
+    -- Clear cache
+    characterCache = {}
+end
+
 -- Create Main GUI
 function createMainGui()
     if mainGui then mainGui:Destroy() end
@@ -677,27 +785,10 @@ function createMainGui()
     end)
     
     closeBtn.MouseButton1Click:Connect(function()
-        -- Disable all features
-        for name, _ in pairs(states) do
-            if states[name] then
-                if name == "godMode" then toggleGodMode(false)
-                elseif name == "infiniteJump" then toggleInfiniteJump(false)
-                elseif name == "speedBoost" then toggleSpeedBoost(false)
-                elseif name == "noclip" then toggleNoclip(false)
-                elseif name == "fly" then toggleFly(false)
-                elseif name == "tpBase" then toggleTPBase(false)
-                elseif name == "stealHelper" then toggleStealHelper(false)
-                elseif name:find("esp") then toggleESP(name, false)
-                end
-            end
-        end
+        cleanup()
         
-        -- Clean up
-        for _, connection in pairs(connections) do
-            if connection then connection:Disconnect() end
-        end
-        
-        mainGui:Destroy()
+        -- Destroy all GUIs
+        if mainGui then mainGui:Destroy() end
         if minimizedGui then minimizedGui:Destroy() end
         if tpBaseGui then tpBaseGui:Destroy() end
         if stealHelperGui then stealHelperGui:Destroy() end
@@ -708,47 +799,61 @@ function createMainGui()
     end)
     
     serverHopBtn.MouseButton1Click:Connect(function()
-        local servers = {}
-        local req = syn and syn.request or http_request or request
-        
-        if req then
-            local success, result = pcall(function()
-                return req({
-                    Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100",
-                    Method = "GET"
-                })
-            end)
+        task.spawn(function()
+            local servers = {}
+            local req = syn and syn.request or http_request or request
             
-            if success and result.Success then
-                local data = HttpService:JSONDecode(result.Body)
-                for _, server in pairs(data.data) do
-                    if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                        table.insert(servers, server.id)
+            if req then
+                local success, result = pcall(function()
+                    return req({
+                        Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100",
+                        Method = "GET"
+                    })
+                end)
+                
+                if success and result.Success then
+                    local data = HttpService:JSONDecode(result.Body)
+                    for _, server in pairs(data.data) do
+                        if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                            table.insert(servers, server.id)
+                        end
+                    end
+                    
+                    if #servers > 0 then
+                        TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
                     end
                 end
-                
-                if #servers > 0 then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
-                end
             end
-        end
+        end)
     end)
 end
 
--- Character respawn handler
-local function onCharacterAdded(character)
-    wait(0.5)
+-- Character respawn handler (optimized)
+local characterConnection = nil
+characterConnection = player.CharacterAdded:Connect(function(character)
+    task.wait(0.5)
+    
+    -- Clear cache
+    characterCache = {}
     
     -- Reapply active states
-    if states.godMode then toggleGodMode(true) end
-    if states.speedBoost then toggleSpeedBoost(true) end
-    if states.infiniteJump then toggleInfiniteJump(true) end
-    if states.noclip then toggleNoclip(true) end
-    if states.fly then toggleFly(true) end
-end
+    local activeStates = {}
+    for name, state in pairs(states) do
+        if state then
+            table.insert(activeStates, name)
+        end
+    end
+    
+    if #activeStates > 0 then
+        if states.godMode then toggleGodMode(true) end
+        if states.speedBoost then toggleSpeedBoost(true) end
+        if states.infiniteJump then toggleInfiniteJump(true) end
+        if states.noclip then toggleNoclip(true) end
+        if states.fly then toggleFly(true) end
+    end
+end)
 
 -- Initialize
-player.CharacterAdded:Connect(onCharacterAdded)
 setupBypass()
 createMainGui()
 
