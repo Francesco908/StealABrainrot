@@ -6,7 +6,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Create main window optimized for mobile
 local Window = Fluent:CreateWindow({
     Title = "Water HUB",
-    SubTitle = "Premium Script",
+    SubTitle = "",
     TabWidth = 160,
     Size = UDim2.fromOffset(550, 260),
     Acrylic = true,
