@@ -150,6 +150,7 @@ local espPlayersEnabled = false
 local espBoxEnabled = false
 local autoCollectMoney = false
 local fastStealEnabled = false
+local infiniteJumpEnabled = false
 
 -- Helper variables
 local stealHelperGui = nil
@@ -157,6 +158,9 @@ local originalWalkSpeed = 16
 local originalJumpPower = 50
 local espBoxes = {}
 local antiTrapConnection = nil
+local antiStunConnection = nil
+local infiniteJumpConnection = nil
+local lastAttacker = nil
 
 -- Create tabs
 local Tabs = {
@@ -215,7 +219,7 @@ Tabs.Main:AddToggle("AntiTrap", {
                             end
                         end
                     end
-                end)
+                })
             else
                 -- Disable anti-trap functionality
                 if antiTrapConnection then
@@ -227,17 +231,64 @@ Tabs.Main:AddToggle("AntiTrap", {
     end
 })
 
--- Anti stun (god mode)
+-- Enhanced Anti Stun (god mode)
 Tabs.Main:AddToggle("AntiStun", {
     Title = "Anti Stun (God Mode)",
     Default = false,
     Callback = function(value)
         antiStunEnabled = value
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            if value then
-                player.Character.Humanoid.PlatformStand = true
-            else
-                player.Character.Humanoid.PlatformStand = false
+        
+        -- Disconnect previous connection if exists
+        if antiStunConnection then
+            antiStunConnection:Disconnect()
+            antiStunConnection = nil
+        end
+        
+        if value then
+            antiStunConnection = player.Character.Humanoid:GetPropertyChangedSignal("PlatformStand"):Connect(function()
+                if antiStunEnabled then
+                    player.Character.Humanoid.PlatformStand = false
+                end
+            end)
+            
+            -- Detect who hit you
+            player.Character.Humanoid.Touched:Connect(function(part)
+                if part:IsA("BasePart") and part.Parent and part.Parent:FindFirstChild("Humanoid") then
+                    local attacker = part.Parent
+                    if attacker ~= player.Character then
+                        lastAttacker = attacker
+                    end
+                end
+            end)
+            
+            -- Anti-stun protection
+            RunService.Heartbeat:Connect(function()
+                if antiStunEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    -- Prevent flying/falling
+                    player.Character.HumanoidRootPart.Velocity = Vector3.new(
+                        player.Character.HumanoidRootPart.Velocity.X,
+                        0,
+                        player.Character.HumanoidRootPart.Velocity.Z
+                    )
+                    
+                    -- Reset any stun effects
+                    player.Character.Humanoid.PlatformStand = false
+                    player.Character.Humanoid.Sit = false
+                    
+                    -- Remove forces from last attacker
+                    if lastAttacker and lastAttacker.Parent then
+                        for _, v in pairs(lastAttacker:GetChildren()) do
+                            if v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") then
+                                v:Destroy()
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            if antiStunConnection then
+                antiStunConnection:Disconnect()
+                antiStunConnection = nil
             end
         end
     end
@@ -259,8 +310,115 @@ Tabs.Money:AddToggle("AutoCollectMoney", {
     end
 })
 
--- Fast steal (moved from misc)
-Tabs.Money:AddToggle("FastSteal", {
+-- VISUAL TAB
+-- ESP Players
+Tabs.Visual:AddToggle("ESPPlayers", {
+    Title = "ESP Player Highlights",
+    Default = false,
+    Callback = function(value)
+        espPlayersEnabled = value
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Players.LocalPlayer and player.Character then
+                local highlight = player.Character:FindFirstChild("Highlight")
+                if value then
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Parent = player.Character
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    end
+                else
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+            end
+        end
+    end
+})
+
+-- ESP Box functions
+local function createESPBox(character)
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "ESPBox"
+    billboardGui.Adornee = humanoidRootPart
+    billboardGui.Size = UDim2.new(4, 0, 6, 0)
+    billboardGui.StudsOffset = Vector3.new(0, 0, 0)
+    billboardGui.Parent = character
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+    frame.Parent = billboardGui
+    
+    -- Create box outline
+    local function createLine(name, size, position)
+        local line = Instance.new("Frame")
+        line.Name = name
+        line.Size = size
+        line.Position = position
+        line.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        line.BorderSizePixel = 0
+        line.Parent = frame
+        return line
+    end
+    
+    -- Top line
+    createLine("Top", UDim2.new(1, 0, 0, 2), UDim2.new(0, 0, 0, 0))
+    -- Bottom line
+    createLine("Bottom", UDim2.new(1, 0, 0, 2), UDim2.new(0, 0, 1, -2))
+    -- Left line
+    createLine("Left", UDim2.new(0, 2, 1, 0), UDim2.new(0, 0, 0, 0))
+    -- Right line
+    createLine("Right", UDim2.new(0, 2, 1, 0), UDim2.new(1, -2, 0, 0))
+    
+    -- Player name
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Position = UDim2.new(0, 0, 0, -25)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = character.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextSize = 14
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.Parent = frame
+    
+    return billboardGui
+end
+
+local function removeESPBox(character)
+    local espBox = character:FindFirstChild("ESPBox")
+    if espBox then
+        espBox:Destroy()
+    end
+end
+
+-- ESP Box toggle
+Tabs.Visual:AddToggle("ESPBox", {
+    Title = "ESP Box",
+    Default = false,
+    Callback = function(value)
+        espBoxEnabled = value
+        for _, targetPlayer in pairs(Players:GetPlayers()) do
+            if targetPlayer ~= Players.LocalPlayer and targetPlayer.Character then
+                if value then
+                    createESPBox(targetPlayer.Character)
+                else
+                    removeESPBox(targetPlayer.Character)
+                end
+            end
+        end
+    end
+})
+
+-- MISC TAB
+-- Fast steal
+Tabs.Misc:AddToggle("FastSteal", {
     Title = "Fast Steal",
     Default = false,
     Callback = function(value)
@@ -268,8 +426,8 @@ Tabs.Money:AddToggle("FastSteal", {
     end
 })
 
--- Steal Helper (moved from main)
-Tabs.Money:AddButton({
+-- Steal Helper (wider GUI)
+Tabs.Misc:AddButton({
     Title = "Steal Helper",
     Description = "Open steal helper GUI",
     Callback = function()
@@ -277,15 +435,16 @@ Tabs.Money:AddButton({
             stealHelperGui:Destroy()
         end
         
-        -- Create steal helper GUI with beautiful gray transparent design
+        -- Create steal helper GUI with beautiful gray transparent design (wider)
         stealHelperGui = Instance.new("ScreenGui")
         stealHelperGui.Name = "StealHelper"
         stealHelperGui.Parent = playerGui
         stealHelperGui.ResetOnSpawn = false
         
+        -- Increased width to 350 pixels
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(280, 200)
-        frame.Position = UDim2.new(0.5, -140, 0.5, -100)
+        frame.Size = UDim2.fromOffset(350, 200)  -- Wider by 70 pixels
+        frame.Position = UDim2.new(0.5, -175, 0.5, -100)  -- Adjusted position
         frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         frame.BackgroundTransparency = 0.15
         frame.BorderSizePixel = 0
@@ -479,116 +638,26 @@ Tabs.Money:AddButton({
     end
 })
 
--- VISUAL TAB
--- ESP Players
-Tabs.Visual:AddToggle("ESPPlayers", {
-    Title = "ESP Player Highlights",
+-- Infinite Jump
+Tabs.Misc:AddToggle("InfiniteJump", {
+    Title = "Infinite Jump",
     Default = false,
     Callback = function(value)
-        espPlayersEnabled = value
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= Players.LocalPlayer and player.Character then
-                local highlight = player.Character:FindFirstChild("Highlight")
-                if value then
-                    if not highlight then
-                        highlight = Instance.new("Highlight")
-                        highlight.Parent = player.Character
-                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    end
-                else
-                    if highlight then
-                        highlight:Destroy()
-                    end
+        infiniteJumpEnabled = value
+        
+        if infiniteJumpConnection then
+            infiniteJumpConnection:Disconnect()
+            infiniteJumpConnection = nil
+        end
+        
+        if value then
+            infiniteJumpConnection = UserInputService.JumpRequest:Connect(function()
+                if player.Character and player.Character:FindFirstChild("Humanoid") then
+                    player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 end
-            end
+            end)
         end
     end
-})
-
--- ESP Box functions
-local function createESPBox(character)
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-    
-    local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Name = "ESPBox"
-    billboardGui.Adornee = humanoidRootPart
-    billboardGui.Size = UDim2.new(4, 0, 6, 0)
-    billboardGui.StudsOffset = Vector3.new(0, 0, 0)
-    billboardGui.Parent = character
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundTransparency = 1
-    frame.Parent = billboardGui
-    
-    -- Create box outline
-    local function createLine(name, size, position)
-        local line = Instance.new("Frame")
-        line.Name = name
-        line.Size = size
-        line.Position = position
-        line.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-        line.BorderSizePixel = 0
-        line.Parent = frame
-        return line
-    end
-    
-    -- Top line
-    createLine("Top", UDim2.new(1, 0, 0, 2), UDim2.new(0, 0, 0, 0))
-    -- Bottom line
-    createLine("Bottom", UDim2.new(1, 0, 0, 2), UDim2.new(0, 0, 1, -2))
-    -- Left line
-    createLine("Left", UDim2.new(0, 2, 1, 0), UDim2.new(0, 0, 0, 0))
-    -- Right line
-    createLine("Right", UDim2.new(0, 2, 1, 0), UDim2.new(1, -2, 0, 0))
-    
-    -- Player name
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0, 20)
-    nameLabel.Position = UDim2.new(0, 0, 0, -25)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = character.Name
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameLabel.TextSize = 14
-    nameLabel.Font = Enum.Font.SourceSansBold
-    nameLabel.TextStrokeTransparency = 0
-    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    nameLabel.Parent = frame
-    
-    return billboardGui
-end
-
-local function removeESPBox(character)
-    local espBox = character:FindFirstChild("ESPBox")
-    if espBox then
-        espBox:Destroy()
-    end
-end
-
--- ESP Box toggle
-Tabs.Visual:AddToggle("ESPBox", {
-    Title = "ESP Box",
-    Default = false,
-    Callback = function(value)
-        espBoxEnabled = value
-        for _, targetPlayer in pairs(Players:GetPlayers()) do
-            if targetPlayer ~= Players.LocalPlayer and targetPlayer.Character then
-                if value then
-                    createESPBox(targetPlayer.Character)
-                else
-                    removeESPBox(targetPlayer.Character)
-                end
-            end
-        end
-    end
-})
-
--- MISC TAB (now mostly empty since features moved to other tabs)
-Tabs.Misc:AddParagraph({
-    Title = "Misc Settings",
-    Content = "Additional settings and features will be added here."
 })
 
 -- Update money label
