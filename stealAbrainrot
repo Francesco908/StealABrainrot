@@ -67,18 +67,15 @@ imageButton.MouseLeave:Connect(function()
     normalTween:Play()
 end)
 
--- Variabile per controllare lo stato del menu
-local isMenuVisible = true
-
 -- Funzione per alternare la visibilità del menu
 local function toggleMenu()
     if Window then
-        if isMenuVisible then
-            Window:Minimize()
+        local windowFrame = Window.Root
+        if windowFrame and windowFrame.Visible then
+            windowFrame.Visible = false
         else
-            Window:Restore()
+            windowFrame.Visible = true
         end
-        isMenuVisible = not isMenuVisible
     end
 end
 
