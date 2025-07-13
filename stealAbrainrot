@@ -1,4 +1,4 @@
- -- Carica la libreria Fluent
+-- Carica la libreria Fluent
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -67,41 +67,42 @@ imageButton.MouseLeave:Connect(function()
     normalTween:Play()
 end)
 
--- Funzione per gestire il menu senza interferire con il gioco
-local function toggleFluentMenu()
-    local FluentGui = playerGui:FindFirstChild("Fluent")
-    
-    if FluentGui then
-        local isMinimized = not FluentGui.Enabled
-        
-        -- Attiva/disattiva direttamente la GUI di Fluent
-        FluentGui.Enabled = isMinimized
-        
-        -- Aggiorna lo stato minimizzato
-        Window.Minimized = isMinimized
-        
-        -- Animazione di feedback
-        local feedbackTween = TweenService:Create(imageButton, TweenInfo.new(0.2), {
-            BackgroundColor3 = isMinimized and Color3.fromRGB(60, 40, 40) or Color3.fromRGB(25, 25, 25)
-        })
-        feedbackTween:Play()
+-- Variabile per controllare lo stato del menu
+local isMenuVisible = true
+
+-- Funzione per alternare la visibilità del menu
+local function toggleMenu()
+    if Window then
+        if isMenuVisible then
+            Window:Minimize()
+        else
+            Window:Restore()
+        end
+        isMenuVisible = not isMenuVisible
     end
 end
 
--- Click handler
-imageButton.MouseButton1Click:Connect(toggleFluentMenu)
-imageButton.TouchTap:Connect(toggleFluentMenu)
+-- Sostituisce la simulazione di LeftControl con controllo diretto
+imageButton.MouseButton1Click:Connect(toggleMenu)
+imageButton.TouchTap:Connect(toggleMenu)
 
--- Disabilita l'interazione di LeftControl con il gioco
-local UIS = game:GetService("UserInputService")
+-- Blocca l'evento LeftControl dal gioco quando la GUI è attiva
+local UserInputService = game:GetService("UserInputService")
+local originalLeftControlConnection
 
-UIS.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.LeftControl and not gameProcessed then
-        -- Blocca l'input al gioco quando viene premuto LeftControl
-        toggleFluentMenu()
-        return Enum.ContextActionResult.Sink
+-- Intercetta LeftControl solo quando necessario
+local function onKeyDown(key, gameProcessed)
+    if key.KeyCode == Enum.KeyCode.LeftControl then
+        -- Previene che il gioco riceva l'input se la GUI è attiva
+        if persistentGui.Enabled then
+            toggleMenu()
+            return -- Blocca l'evento
+        end
     end
-end)
+end
+
+-- Connetti l'evento
+UserInputService.InputBegan:Connect(onKeyDown)
 
 -- Crea le tab
 local Tabs = {
