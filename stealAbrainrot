@@ -3,15 +3,15 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Crea la finestra principale
+-- Crea la finestra principale ottimizzata per mobile
 local Window = Fluent:CreateWindow({
-    Title = "Script Semplice",
-    SubTitle = "Test UI",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(300, 300),
+    Title = "Script Mobile",
+    SubTitle = "Compact UI",
+    TabWidth = 120,
+    Size = UDim2.fromOffset(320, 280),
     Acrylic = true,
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl -- Tasto per minimizzare/ripristinare
+    MinimizeKey = Enum.KeyCode.LeftControl
 })
 
 -- Crea l'immagine persistente (sempre visibile)
