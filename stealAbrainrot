@@ -7,7 +7,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 local Window = Fluent:CreateWindow({
     Title = "Water HUB",
     SubTitle = "",
-    TabWidth = 120,
+    TabWidth = 150,  -- Aumentato da 120 a 150 per rendere le schede più larghe
     Size = UDim2.fromOffset(355, 320),
     Acrylic = true,
     Theme = "Dark",
@@ -17,6 +17,8 @@ local Window = Fluent:CreateWindow({
 -- Create persistent image (always visible)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -49,7 +51,6 @@ corner.CornerRadius = UDim.new(0.3, 0)
 corner.Parent = imageButton
 
 -- Hover effect
-local TweenService = game:GetService("TweenService")
 local hoverTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
     BackgroundTransparency = 0.2,
     ImageTransparency = 0,
@@ -130,7 +131,6 @@ imageButton.MouseButton1Click:Connect(function()
 end)
 
 -- Intercept LeftControl
-local UserInputService = game:GetService("UserInputService")
 local function onKeyDown(key, gameProcessed)
     if key.KeyCode == Enum.KeyCode.LeftControl then
         if persistentGui.Enabled then
@@ -159,8 +159,6 @@ local originalJumpPower = 50
 local espBoxes = {}
 local antiTrapConnection = nil
 local antiStunConnection = nil
-local infiniteJumpConnection = nil
-local lastAttacker = nil
 
 -- Create tabs
 local Tabs = {
@@ -171,7 +169,6 @@ local Tabs = {
 }
 
 -- MAIN TAB
--- Speed Boost
 Tabs.Main:AddToggle("SpeedBoost", {
     Title = "Speed Boost 8x (50% Bypass)",
     Default = false,
@@ -189,7 +186,6 @@ Tabs.Main:AddToggle("SpeedBoost", {
     end
 })
 
--- Anti trap with movement freedom
 Tabs.Main:AddToggle("AntiTrap", {
     Title = "Anti Trap (Movement Freedom)",
     Default = false,
@@ -197,31 +193,23 @@ Tabs.Main:AddToggle("AntiTrap", {
         antiTrapEnabled = value
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             if value then
-                -- Enable anti-trap functionality
                 antiTrapConnection = RunService.Heartbeat:Connect(function()
                     if player.Character and player.Character:FindFirstChild("Humanoid") then
                         local humanoid = player.Character.Humanoid
-                        -- Reset any forced states that might trap the player
                         humanoid.PlatformStand = false
                         humanoid.Sit = false
-                        
-                        -- Prevent getting stuck in place
                         if player.Character:FindFirstChild("HumanoidRootPart") then
                             local rootPart = player.Character.HumanoidRootPart
-                            -- Ensure the player can always move
                             rootPart.Anchored = false
                         end
-                        
-                        -- Remove any potential trap effects
                         for _, v in pairs(player.Character:GetChildren()) do
                             if v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") then
                                 v:Destroy()
                             end
                         end
                     end
-                })
+                end)
             else
-                -- Disable anti-trap functionality
                 if antiTrapConnection then
                     antiTrapConnection:Disconnect()
                     antiTrapConnection = nil
@@ -231,57 +219,25 @@ Tabs.Main:AddToggle("AntiTrap", {
     end
 })
 
--- Enhanced Anti Stun (god mode)
 Tabs.Main:AddToggle("AntiStun", {
-    Title = "Anti Stun (God Mode)",
+    Title = "Anti Stun (Enhanced)",
     Default = false,
     Callback = function(value)
         antiStunEnabled = value
-        
-        -- Disconnect previous connection if exists
-        if antiStunConnection then
-            antiStunConnection:Disconnect()
-            antiStunConnection = nil
-        end
-        
         if value then
-            antiStunConnection = player.Character.Humanoid:GetPropertyChangedSignal("PlatformStand"):Connect(function()
-                if antiStunEnabled then
-                    player.Character.Humanoid.PlatformStand = false
-                end
-            end)
-            
-            -- Detect who hit you
-            player.Character.Humanoid.Touched:Connect(function(part)
-                if part:IsA("BasePart") and part.Parent and part.Parent:FindFirstChild("Humanoid") then
-                    local attacker = part.Parent
-                    if attacker ~= player.Character then
-                        lastAttacker = attacker
+            antiStunConnection = RunService.Heartbeat:Connect(function()
+                if player.Character and player.Character:FindFirstChild("Humanoid") then
+                    local humanoid = player.Character.Humanoid
+                    -- Previene stati di stordimento
+                    if humanoid:GetState() == Enum.HumanoidStateType.PlatformStanding or
+                       humanoid:GetState() == Enum.HumanoidStateType.FallingDown or
+                       humanoid:GetState() == Enum.HumanoidStateType.Ragdoll then
+                        humanoid:ChangeState(Enum.HumanoidStateType.Running)
                     end
-                end
-            end)
-            
-            -- Anti-stun protection
-            RunService.Heartbeat:Connect(function()
-                if antiStunEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    -- Prevent flying/falling
-                    player.Character.HumanoidRootPart.Velocity = Vector3.new(
-                        player.Character.HumanoidRootPart.Velocity.X,
-                        0,
-                        player.Character.HumanoidRootPart.Velocity.Z
-                    )
-                    
-                    -- Reset any stun effects
-                    player.Character.Humanoid.PlatformStand = false
-                    player.Character.Humanoid.Sit = false
-                    
-                    -- Remove forces from last attacker
-                    if lastAttacker and lastAttacker.Parent then
-                        for _, v in pairs(lastAttacker:GetChildren()) do
-                            if v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") then
-                                v:Destroy()
-                            end
-                        end
+                    -- Impedisce volo o caduta
+                    if player.Character:FindFirstChild("HumanoidRootPart") then
+                        local rootPart = player.Character.HumanoidRootPart
+                        rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
                     end
                 end
             end)
@@ -294,14 +250,20 @@ Tabs.Main:AddToggle("AntiStun", {
     end
 })
 
+Tabs.Main:AddToggle("InfiniteJump", {
+    Title = "Infinite Jump",
+    Default = false,
+    Callback = function(value)
+        infiniteJumpEnabled = value
+    end
+})
+
 -- MONEY TAB
--- Money label
 local moneyLabel = Tabs.Money:AddParagraph({
     Title = "Current Money",
     Content = "0"
 })
 
--- Auto collect money
 Tabs.Money:AddToggle("AutoCollectMoney", {
     Title = "Auto Collect Money",
     Default = false,
@@ -311,7 +273,6 @@ Tabs.Money:AddToggle("AutoCollectMoney", {
 })
 
 -- VISUAL TAB
--- ESP Players
 Tabs.Visual:AddToggle("ESPPlayers", {
     Title = "ESP Player Highlights",
     Default = false,
@@ -337,7 +298,6 @@ Tabs.Visual:AddToggle("ESPPlayers", {
     end
 })
 
--- ESP Box functions
 local function createESPBox(character)
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return end
@@ -354,7 +314,6 @@ local function createESPBox(character)
     frame.BackgroundTransparency = 1
     frame.Parent = billboardGui
     
-    -- Create box outline
     local function createLine(name, size, position)
         local line = Instance.new("Frame")
         line.Name = name
@@ -366,16 +325,11 @@ local function createESPBox(character)
         return line
     end
     
-    -- Top line
     createLine("Top", UDim2.new(1, 0, 0, 2), UDim2.new(0, 0, 0, 0))
-    -- Bottom line
     createLine("Bottom", UDim2.new(1, 0, 0, 2), UDim2.new(0, 0, 1, -2))
-    -- Left line
     createLine("Left", UDim2.new(0, 2, 1, 0), UDim2.new(0, 0, 0, 0))
-    -- Right line
     createLine("Right", UDim2.new(0, 2, 1, 0), UDim2.new(1, -2, 0, 0))
     
-    -- Player name
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 20)
     nameLabel.Position = UDim2.new(0, 0, 0, -25)
@@ -398,7 +352,6 @@ local function removeESPBox(character)
     end
 end
 
--- ESP Box toggle
 Tabs.Visual:AddToggle("ESPBox", {
     Title = "ESP Box",
     Default = false,
@@ -417,7 +370,6 @@ Tabs.Visual:AddToggle("ESPBox", {
 })
 
 -- MISC TAB
--- Fast steal
 Tabs.Misc:AddToggle("FastSteal", {
     Title = "Fast Steal",
     Default = false,
@@ -426,7 +378,6 @@ Tabs.Misc:AddToggle("FastSteal", {
     end
 })
 
--- Steal Helper (wider GUI)
 Tabs.Misc:AddButton({
     Title = "Steal Helper",
     Description = "Open steal helper GUI",
@@ -435,22 +386,19 @@ Tabs.Misc:AddButton({
             stealHelperGui:Destroy()
         end
         
-        -- Create steal helper GUI with beautiful gray transparent design (wider)
         stealHelperGui = Instance.new("ScreenGui")
         stealHelperGui.Name = "StealHelper"
         stealHelperGui.Parent = playerGui
         stealHelperGui.ResetOnSpawn = false
         
-        -- Increased width to 350 pixels
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(350, 200)  -- Wider by 70 pixels
-        frame.Position = UDim2.new(0.5, -175, 0.5, -100)  -- Adjusted position
+        frame.Size = UDim2.fromOffset(280, 200)
+        frame.Position = UDim2.new(0.5, -140, 0.5, -100)
         frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         frame.BackgroundTransparency = 0.15
         frame.BorderSizePixel = 0
         frame.Parent = stealHelperGui
         
-        -- Glass effect backdrop
         local backdrop = Instance.new("Frame")
         backdrop.Size = UDim2.new(1, 0, 1, 0)
         backdrop.Position = UDim2.new(0, 0, 0, 0)
@@ -459,24 +407,20 @@ Tabs.Misc:AddButton({
         backdrop.BorderSizePixel = 0
         backdrop.Parent = frame
         
-        -- Main frame corner
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 16)
         corner.Parent = frame
         
-        -- Backdrop corner
         local backdropCorner = Instance.new("UICorner")
         backdropCorner.CornerRadius = UDim.new(0, 16)
         backdropCorner.Parent = backdrop
         
-        -- Stroke for glass effect
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(255, 255, 255)
         stroke.Transparency = 0.8
         stroke.Thickness = 1
         stroke.Parent = frame
         
-        -- Title bar
         local titleBar = Instance.new("Frame")
         titleBar.Size = UDim2.new(1, 0, 0, 45)
         titleBar.Position = UDim2.new(0, 0, 0, 0)
@@ -489,7 +433,6 @@ Tabs.Misc:AddButton({
         titleCorner.CornerRadius = UDim.new(0, 16)
         titleCorner.Parent = titleBar
         
-        -- Fix title bar bottom corners
         local titleFix = Instance.new("Frame")
         titleFix.Size = UDim2.new(1, 0, 0, 16)
         titleFix.Position = UDim2.new(0, 0, 1, -16)
@@ -498,7 +441,6 @@ Tabs.Misc:AddButton({
         titleFix.BorderSizePixel = 0
         titleFix.Parent = titleBar
         
-        -- Title text
         local title = Instance.new("TextLabel")
         title.Size = UDim2.new(1, -50, 1, 0)
         title.Position = UDim2.new(0, 15, 0, 0)
@@ -510,7 +452,6 @@ Tabs.Misc:AddButton({
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = titleBar
         
-        -- Close button
         local closeBtn = Instance.new("TextButton")
         closeBtn.Size = UDim2.fromOffset(30, 30)
         closeBtn.Position = UDim2.new(1, -38, 0, 7.5)
@@ -526,7 +467,6 @@ Tabs.Misc:AddButton({
         closeCorner.CornerRadius = UDim.new(0, 8)
         closeCorner.Parent = closeBtn
         
-        -- Close button hover effect
         local closeHover = TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0})
         local closeNormal = TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.1})
         
@@ -537,7 +477,6 @@ Tabs.Misc:AddButton({
             stealHelperGui:Destroy()
         end)
         
-        -- Up button
         local upBtn = Instance.new("TextButton")
         upBtn.Size = UDim2.new(1, -30, 0, 60)
         upBtn.Position = UDim2.new(0, 15, 0, 60)
@@ -559,7 +498,6 @@ Tabs.Misc:AddButton({
         upStroke.Thickness = 2
         upStroke.Parent = upBtn
         
-        -- Down button
         local downBtn = Instance.new("TextButton")
         downBtn.Size = UDim2.new(1, -30, 0, 60)
         downBtn.Position = UDim2.new(0, 15, 0, 130)
@@ -581,7 +519,6 @@ Tabs.Misc:AddButton({
         downStroke.Thickness = 2
         downStroke.Parent = downBtn
         
-        -- Button hover effects
         local upHover = TweenService:Create(upBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.1})
         local upNormal = TweenService:Create(upBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.3})
         local downHover = TweenService:Create(downBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.1})
@@ -592,7 +529,6 @@ Tabs.Misc:AddButton({
         downBtn.MouseEnter:Connect(function() downHover:Play() end)
         downBtn.MouseLeave:Connect(function() downNormal:Play() end)
         
-        -- Button functions
         upBtn.MouseButton1Click:Connect(function()
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 165, 0)
@@ -601,11 +537,10 @@ Tabs.Misc:AddButton({
         
         downBtn.MouseButton1Click:Connect(function()
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame - Vector3.new(0, 70, 0)
+                player.Character.HumanoidRootPart.CFrame splice = player.Character.HumanoidRootPart.CFrame - Vector3.new(0, 70, 0)
             end
         end)
         
-        -- Make entire GUI draggable
         local dragStart = nil
         local startPos = nil
         local isDragging = false
@@ -638,27 +573,12 @@ Tabs.Misc:AddButton({
     end
 })
 
--- Infinite Jump
-Tabs.Misc:AddToggle("InfiniteJump", {
-    Title = "Infinite Jump",
-    Default = false,
-    Callback = function(value)
-        infiniteJumpEnabled = value
-        
-        if infiniteJumpConnection then
-            infiniteJumpConnection:Disconnect()
-            infiniteJumpConnection = nil
-        end
-        
-        if value then
-            infiniteJumpConnection = UserInputService.JumpRequest:Connect(function()
-                if player.Character and player.Character:FindFirstChild("Humanoid") then
-                    player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                end
-            end)
-        end
+-- Infinite Jump implementation
+UserInputService.JumpRequest:Connect(function()
+    if infiniteJumpEnabled and player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
-})
+end)
 
 -- Update money label
 local function updateMoneyLabel()
@@ -730,7 +650,7 @@ end
 -- Handle new players joining
 Players.PlayerAdded:Connect(function(newPlayer)
     newPlayer.CharacterAdded:Connect(function(character)
-        wait(1) -- Wait for character to fully load
+        wait(1)
         if espPlayersEnabled and newPlayer ~= Players.LocalPlayer then
             local highlight = Instance.new("Highlight")
             highlight.Parent = character
@@ -782,5 +702,3 @@ Fluent:Notify({
 
 -- Load auto config
 SaveManager:LoadAutoloadConfig()
-
--- Keep persistent image when menu is closed
