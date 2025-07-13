@@ -1,79 +1,184 @@
--- main.lua
--- Entry point for setting up a Fluent UI for Roblox
-
--- Load Fluent library
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Create the main window using correct API
-local Window = Fluent:Window({
-    Title = "Test UI",
-    SubTitle = "by SKIBIDI",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(400, 300),
+-- Configurazione avanzata finestra principale
+local Window = Fluent:CreateWindow({
+    Title = "My Fluent UI",
+    SubTitle = "Premium Script v1.0",
+    TabWidth = 120,
+    Size = UDim2.fromOffset(450, 350),
     Acrylic = true,
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl,
+    Mica = true,
+    FadeTime = 0.2
 })
 
--- Add tabs using Window:Tab
-local SettingsTab = Window:Tab("Settings")
-local MainTab     = Window:Tab("Main")
+-- Aggiunta tabs con icone
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+    Info = Window:AddTab({ Title = "Info", Icon = "info" })
+}
 
--- SETTINGS TAB
-local SettingsSection = SettingsTab:AddSection("Example Features")
-local exampleToggle = SettingsSection:AddToggle("ExampleToggle", {
-    Title = "Example Toggle",
-    Description = "Enable or disable the example feature",
-    Default = false,
-    Callback = function(state)
-        print("Example Toggle state:", state)
-    end,
-})
+-- Sezione Main con più funzionalità
+local MainSection = Tabs.Main:AddSection("Controls")
 
--- MAIN TAB
-local MainSection = MainTab:AddSection("Actions")
 MainSection:AddButton({
     Title = "Test Button",
-    Description = "Press to run test action",
+    Description = "Click to show notification",
     Callback = function()
-        print("Test Button pressed!")
-        exampleToggle:SetValue(not exampleToggle.Value)
-        Fluent:Notify({ Title = "Action", Content = "Test Button executed", Duration = 3 })
-    end,
+        Fluent:Notify({
+            Title = "Success",
+            Content = "Button worked correctly!",
+            SubContent = "Fluent UI Notification", 
+            Duration = 5,
+            Image = "rbxassetid://7072718362"
+        })
+    end
 })
 
--- Note: Fluent:Window auto-displays and handles minimize via MinimizeKey
-
--- RESTORE ICON (when window is minimized)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local localPlayer = Players.LocalPlayer
-local playerGui = localPlayer:WaitForChild("PlayerGui")
-
--- Create a ScreenGui to hold the restore icon
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FluentRestoreGui"
-screenGui.Parent = playerGui
-
-local restoreIcon = Instance.new("ImageButton")
-restoreIcon.Name = "RestoreIcon"
-restoreIcon.Size = UDim2.new(0, 50, 0, 50)
-restoreIcon.Position = UDim2.new(1, -60, 1, -60)
-restoreIcon.Image = "rbxassetid://123456789" -- replace with your image asset ID
-restoreIcon.BackgroundTransparency = 1
-restoreIcon.Visible = false
-restoreIcon.Parent = screenGui
-
--- Show/hide icon based on Window:IsVisible (standard API)
-RunService.RenderStepped:Connect(function()
-    if not Window:IsVisible() then
-        restoreIcon.Visible = true
-    else
-        restoreIcon.Visible = false
+MainSection:AddToggle("AutoFarmToggle", {
+    Title = "Enable Auto Farm",
+    Description = "Automatically collects resources",
+    Default = false,
+    Callback = function(Value)
+        Fluent:Notify({
+            Title = "Auto Farm",
+            Content = Value and "Enabled" or "Disabled",
+            Duration = 2
+        })
     end
+})
+
+-- Sezione Settings avanzata
+local SettingsSection = Tabs.Settings:AddSection("Configuration")
+
+SettingsSection:AddDropdown("ThemeSelect", {
+    Title = "UI Theme",
+    Description = "Change the interface theme",
+    Values = {"Dark", "Light", "Darker", "Lighter", "Rose"},
+    Default = "Dark",
+    Multi = false,
+    Callback = function(Value)
+        Fluent:ChangeTheme(Value)
+    end
+})
+
+SettingsSection:AddSlider("UIOpacity", {
+    Title = "UI Transparency",
+    Description = "Adjust window transparency",
+    Default = 50,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(Value)
+        Window:SetAcrylic(Value/100)
+    end
+})
+
+-- Sezione Info
+local InfoSection = Tabs.Info:AddSection("About")
+
+InfoSection:AddParagraph({
+    Title = "Script Information",
+    Content = "This is a premium Fluent UI script with advanced features and mobile support."
+})
+
+InfoSection:AddButton({
+    Title = "Copy Discord",
+    Description = "Click to copy our Discord invite",
+    Callback = function()
+        setclipboard("discord.gg/example")
+        Fluent:Notify({
+            Title = "Copied",
+            Content = "Discord invite copied to clipboard!",
+            Duration = 3
+        })
+    end
+})
+
+-- Sistema avanzato di restore con immagine personalizzata
+do
+    local restoreNotif
+    local firstMinimize = true
+    local notificationImage = "rbxassetid://7072718362" -- Sostituisci con il tuo AssetID
+
+    Window.Minimized:Connect(function()
+        if firstMinimize then
+            firstMinimize = false
+            return
+        end
+        
+        restoreNotif = Fluent:Notify({
+            Title = "UI Minimized",
+            Content = "Press LEFT CTRL or click here to restore",
+            Duration = 60 * 60 * 24, -- 24 ore
+            Image = notificationImage,
+            Actions = {
+                {
+                    Title = "Restore",
+                    Callback = function()
+                        Window:Restore()
+                    end
+                }
+            }
+        })
+        
+        -- Aggiornamento dinamico dell'immagine
+        local connection
+        connection = game:GetService("RunService").Heartbeat:Connect(function()
+            if restoreNotif and restoreNotif.Visible then
+                restoreNotif:SetImage(notificationImage)
+            else
+                connection:Disconnect()
+            end
+        end)
+    end)
+
+    Window.Restored:Connect(function()
+        if restoreNotif then
+            restoreNotif:Hide()
+            restoreNotif = nil
+        end
+    end)
+end
+
+-- Mobile detection e ottimizzazioni
+local UserInputService = game:GetService("UserInputService")
+local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+
+if isMobile then
+    Fluent:Notify({
+        Title = "Mobile Detected",
+        Content = "Tap notifications to restore the UI",
+        Duration = 8
+    })
+end
+
+-- Gestione avanzata salvataggio
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({"ThemeSelect"}) -- Escludi il tema dal salvataggio
+
+InterfaceManager:SetFolder("MyFluentScript")
+SaveManager:SetFolder("MyFluentScript/config")
+
+Window:SelectTab(1)
+
+-- Notifica di benvenuto personalizzata
+task.delay(1, function()
+    Fluent:Notify({
+        Title = "Welcome",
+        Content = "Script loaded successfully!",
+        Duration = 5,
+        Image = "rbxassetid://7072718362"
+    })
 end)
 
--- Click restores window (show the window)
-restoreIcon.MouseButton1Click:Connect(function()
-    Window:Display()
-end)
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+SaveManager:LoadAutoloadConfig()
