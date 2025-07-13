@@ -1,11 +1,11 @@
--- Carica la libreria Fluent
+-- Load Fluent library
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Crea la finestra principale ottimizzata per mobile
+-- Create main window optimized for mobile
 local Window = Fluent:CreateWindow({
-    Title = "Script Mobile",
+    Title = "Mobile Script",
     SubTitle = "Compact UI",
     TabWidth = 120,
     Size = UDim2.fromOffset(320, 280),
@@ -14,8 +14,9 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Crea l'immagine persistente (sempre visibile)
+-- Create persistent image (always visible)
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -26,28 +27,28 @@ persistentGui.ResetOnSpawn = false
 persistentGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 persistentGui.Enabled = true
 
--- Immagine "fighissima" (personalizza con il tuo asset ID)
+-- Main button
 local imageButton = Instance.new("ImageButton")
 imageButton.Name = "PersistentControl"
 imageButton.Size = UDim2.fromOffset(70, 70)
-imageButton.Position = UDim2.new(0, 20, 0.5, -35) -- Centro sinistra
+imageButton.Position = UDim2.new(0, 20, 0.5, -35)
 imageButton.AnchorPoint = Vector2.new(0, 0.5)
 imageButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 imageButton.BorderSizePixel = 0
-imageButton.Image = "rbxassetid://7072717836" -- Icona razzo (sostituisci con il tuo ID)
+imageButton.Image = "rbxassetid://7072717836"
 imageButton.ScaleType = Enum.ScaleType.Fit
 imageButton.Parent = persistentGui
 
--- Effetto trasparenza
+-- Transparency effect
 imageButton.BackgroundTransparency = 0.5
 imageButton.ImageTransparency = 0.2
 
--- Arrotonda gli angoli
+-- Rounded corners
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0.3, 0)
 corner.Parent = imageButton
 
--- Effetto hover
+-- Hover effect
 local TweenService = game:GetService("TweenService")
 local hoverTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
     BackgroundTransparency = 0.2,
@@ -67,12 +68,12 @@ imageButton.MouseLeave:Connect(function()
     normalTween:Play()
 end)
 
--- Variabili per rendere l'immagine trascinabile
+-- Dragging variables
 local dragging = false
 local dragStart = nil
 local startPos = nil
 
--- Funzioni per il trascinamento
+-- Drag functions
 local function onDragStart(input)
     dragging = true
     dragStart = input.Position
@@ -95,7 +96,7 @@ local function onDragMove(input)
     end
 end
 
--- Connetti gli eventi di trascinamento
+-- Connect drag events
 imageButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         onDragStart(input)
@@ -114,104 +115,372 @@ imageButton.InputChanged:Connect(function(input)
     end
 end)
 
--- Funzione per alternare la visibilità del menu
+-- Toggle menu function
 local function toggleMenu()
     if Window and Window.Root then
         Window.Root.Visible = not Window.Root.Visible
     end
 end
 
--- Distingui tra click e trascinamento
-local clickStartTime = 0
-local function isClick(input)
-    local currentTime = tick()
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        if currentTime - clickStartTime < 0.3 and not dragging then
-            return true
-        end
-    end
-    return false
-end
-
--- Click handler semplificato
+-- Click handler
 imageButton.MouseButton1Click:Connect(function()
     if not dragging then
         toggleMenu()
     end
 end)
 
--- Blocca l'evento LeftControl dal gioco quando la GUI è attiva
+-- Intercept LeftControl
 local UserInputService = game:GetService("UserInputService")
-local originalLeftControlConnection
-
--- Intercetta LeftControl solo quando necessario
 local function onKeyDown(key, gameProcessed)
     if key.KeyCode == Enum.KeyCode.LeftControl then
-        -- Previene che il gioco riceva l'input se la GUI è attiva
         if persistentGui.Enabled then
             toggleMenu()
-            return -- Blocca l'evento
+            return
         end
     end
 end
 
--- Connetti l'evento
 UserInputService.InputBegan:Connect(onKeyDown)
 
--- Crea le tab
+-- Variables for features
+local speedBoostEnabled = false
+local autoCollectMoney = false
+local fastStealEnabled = false
+local antiTrapEnabled = false
+local antiStunEnabled = false
+local espPlayersEnabled = false
+local espBoxEnabled = false
+
+-- Helper variables
+local stealHelperGui = nil
+local originalWalkSpeed = 16
+local originalJumpPower = 50
+
+-- Create tabs
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+    Visual = Window:AddTab({ Title = "Visual", Icon = "eye" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "settings" })
 }
 
--- TAB MAIN
+-- MAIN TAB
+-- Speed Boost
+Tabs.Main:AddToggle("SpeedBoost", {
+    Title = "Speed Boost 8x (50% Bypass)",
+    Default = false,
+    Callback = function(value)
+        speedBoostEnabled = value
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            if value then
+                player.Character.Humanoid.WalkSpeed = originalWalkSpeed * 8
+                player.Character.Humanoid.JumpPower = originalJumpPower * 4
+            else
+                player.Character.Humanoid.WalkSpeed = originalWalkSpeed
+                player.Character.Humanoid.JumpPower = originalJumpPower
+            end
+        end
+    end
+})
+
+-- Steal Helper
 Tabs.Main:AddButton({
-    Title = "Pulsante Test",
-    Description = "Clicca per testare",
+    Title = "Steal Helper",
+    Description = "Open steal helper GUI",
     Callback = function()
-        Fluent:Notify({
-            Title = "Test",
-            Content = "Pulsante premuto!",
-            Duration = 3
-        })
+        if stealHelperGui then
+            stealHelperGui:Destroy()
+        end
+        
+        -- Create steal helper GUI
+        stealHelperGui = Instance.new("ScreenGui")
+        stealHelperGui.Name = "StealHelper"
+        stealHelperGui.Parent = playerGui
+        stealHelperGui.ResetOnSpawn = false
+        
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.fromOffset(200, 150)
+        frame.Position = UDim2.new(0.5, -100, 0.5, -75)
+        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        frame.Parent = stealHelperGui
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 10)
+        corner.Parent = frame
+        
+        -- Title
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 30)
+        title.Position = UDim2.new(0, 0, 0, 0)
+        title.BackgroundTransparency = 1
+        title.Text = "Steal Helper"
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.TextSize = 18
+        title.Font = Enum.Font.SourceSansBold
+        title.Parent = frame
+        
+        -- Close button
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.fromOffset(20, 20)
+        closeBtn.Position = UDim2.new(1, -25, 0, 5)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        closeBtn.Text = "X"
+        closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeBtn.TextSize = 14
+        closeBtn.Font = Enum.Font.SourceSansBold
+        closeBtn.Parent = frame
+        
+        local closeCorner = Instance.new("UICorner")
+        closeCorner.CornerRadius = UDim.new(0, 5)
+        closeCorner.Parent = closeBtn
+        
+        closeBtn.MouseButton1Click:Connect(function()
+            stealHelperGui:Destroy()
+        end)
+        
+        -- Up button
+        local upBtn = Instance.new("TextButton")
+        upBtn.Size = UDim2.new(1, -20, 0, 40)
+        upBtn.Position = UDim2.new(0, 10, 0, 40)
+        upBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        upBtn.Text = "UP (165)"
+        upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        upBtn.TextSize = 16
+        upBtn.Font = Enum.Font.SourceSansBold
+        upBtn.Parent = frame
+        
+        local upCorner = Instance.new("UICorner")
+        upCorner.CornerRadius = UDim.new(0, 5)
+        upCorner.Parent = upBtn
+        
+        -- Down button
+        local downBtn = Instance.new("TextButton")
+        downBtn.Size = UDim2.new(1, -20, 0, 40)
+        downBtn.Position = UDim2.new(0, 10, 0, 90)
+        downBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        downBtn.Text = "DOWN (70)"
+        downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        downBtn.TextSize = 16
+        downBtn.Font = Enum.Font.SourceSansBold
+        downBtn.Parent = frame
+        
+        local downCorner = Instance.new("UICorner")
+        downCorner.CornerRadius = UDim.new(0, 5)
+        downCorner.Parent = downBtn
+        
+        -- Button functions
+        upBtn.MouseButton1Click:Connect(function()
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 165, 0)
+            end
+        end)
+        
+        downBtn.MouseButton1Click:Connect(function()
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame - Vector3.new(0, 70, 0)
+            end
+        end)
+        
+        -- Make GUI draggable
+        local dragStart = nil
+        local startPos = nil
+        
+        title.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragStart = input.Position
+                startPos = frame.Position
+            end
+        end)
+        
+        title.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement and dragStart then
+                local delta = input.Position - dragStart
+                frame.Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+        
+        title.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragStart = nil
+            end
+        end)
     end
 })
 
--- TAB SETTINGS
-Tabs.Settings:AddButton({
-    Title = "Pulsante Settings",
-    Description = "Pulsante nelle impostazioni",
-    Callback = function()
-        Fluent:Notify({
-            Title = "Settings",
-            Content = "Pulsante settings premuto!",
-            Duration = 3
-        })
+-- Money label
+local moneyLabel = Tabs.Main:AddParagraph({
+    Title = "Money",
+    Content = "0"
+})
+
+-- Auto collect money
+Tabs.Main:AddToggle("AutoCollectMoney", {
+    Title = "Auto Collect Money",
+    Default = false,
+    Callback = function(value)
+        autoCollectMoney = value
     end
 })
 
--- Configura i manager
+-- Fast steal
+Tabs.Main:AddToggle("FastSteal", {
+    Title = "Fast Steal",
+    Default = false,
+    Callback = function(value)
+        fastStealEnabled = value
+    end
+})
+
+-- VISUAL TAB
+-- ESP Players
+Tabs.Visual:AddToggle("ESPPlayers", {
+    Title = "ESP Player Highlights",
+    Default = false,
+    Callback = function(value)
+        espPlayersEnabled = value
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Players.LocalPlayer and player.Character then
+                local highlight = player.Character:FindFirstChild("Highlight")
+                if value then
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Parent = player.Character
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    end
+                else
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+            end
+        end
+    end
+})
+
+-- ESP Box
+Tabs.Visual:AddToggle("ESPBox", {
+    Title = "ESP Box",
+    Default = false,
+    Callback = function(value)
+        espBoxEnabled = value
+    end
+})
+
+-- MISC TAB
+-- Anti trap
+Tabs.Misc:AddToggle("AntiTrap", {
+    Title = "Anti Trap",
+    Default = false,
+    Callback = function(value)
+        antiTrapEnabled = value
+    end
+})
+
+-- Anti stun (god mode)
+Tabs.Misc:AddToggle("AntiStun", {
+    Title = "Anti Stun (God Mode)",
+    Default = false,
+    Callback = function(value)
+        antiStunEnabled = value
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            if value then
+                player.Character.Humanoid.PlatformStand = true
+            else
+                player.Character.Humanoid.PlatformStand = false
+            end
+        end
+    end
+})
+
+-- Update money label
+local function updateMoneyLabel()
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if leaderstats then
+        local money = leaderstats:FindFirstChild("Money") or leaderstats:FindFirstChild("Cash") or leaderstats:FindFirstChild("Coins")
+        if money then
+            moneyLabel:SetDesc(tostring(money.Value))
+        end
+    end
+end
+
+-- Auto collect money function
+local function autoCollectMoneyFunc()
+    if not autoCollectMoney then return end
+    
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v.Name:lower():find("money") or v.Name:lower():find("cash") or v.Name:lower():find("coin") then
+            if v:IsA("Part") and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local distance = (v.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                if distance <= 50 then
+                    firetouchinterest(player.Character.HumanoidRootPart, v, 0)
+                    firetouchinterest(player.Character.HumanoidRootPart, v, 1)
+                end
+            end
+        end
+    end
+end
+
+-- Fast steal function
+local function fastStealFunc()
+    if not fastStealEnabled then return end
+    
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") then
+            v.HoldDuration = 0
+            v.Duration = 0
+        end
+    end
+end
+
+-- ESP functions
+local function updateESP()
+    if espPlayersEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Players.LocalPlayer and player.Character then
+                local highlight = player.Character:FindFirstChild("Highlight")
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Parent = player.Character
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                end
+            end
+        end
+    end
+end
+
+-- Main loop
+RunService.Heartbeat:Connect(function()
+    updateMoneyLabel()
+    autoCollectMoneyFunc()
+    fastStealFunc()
+    updateESP()
+end)
+
+-- Configure managers
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
-InterfaceManager:SetFolder("FluentTest")
-SaveManager:SetFolder("FluentTest/config")
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
+InterfaceManager:SetFolder("FluentMobile")
+SaveManager:SetFolder("FluentMobile/config")
 
--- Seleziona la prima tab
+-- Select first tab
 Window:SelectTab(1)
 
--- Notifica di caricamento
+-- Loading notification
 Fluent:Notify({
-    Title = "Caricato",
-    Content = "Script caricato con successo!",
+    Title = "Loaded",
+    Content = "Mobile script loaded successfully!",
     Duration = 5,
-    Image = "rbxassetid://7072717836" -- Stessa icona dell'immagine persistente
+    Image = "rbxassetid://7072717836"
 })
 
--- Carica configurazione automatica
+-- Load auto config
 SaveManager:LoadAutoloadConfig()
 
--- Mantieni l'immagine anche quando il menu viene chiuso
--- (Rimuovi la connessione Unloaded per mantenere persistentGui)
+-- Keep persistent image when menu is closed
