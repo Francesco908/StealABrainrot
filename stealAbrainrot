@@ -97,13 +97,13 @@ end
 
 -- Connetti gli eventi di trascinamento
 imageButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         onDragStart(input)
     end
 end)
 
 imageButton.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         onDragEnd(input)
     end
 end)
@@ -133,20 +133,10 @@ local function isClick(input)
     return false
 end
 
--- Modifica il click handler per distinguere da trascinamento
-imageButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        clickStartTime = tick()
-        onDragStart(input)
-    end
-end)
-
-imageButton.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        if isClick(input) then
-            toggleMenu()
-        end
-        onDragEnd(input)
+-- Click handler semplificato
+imageButton.MouseButton1Click:Connect(function()
+    if not dragging then
+        toggleMenu()
     end
 end)
 
