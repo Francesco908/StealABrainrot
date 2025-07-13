@@ -1415,9 +1415,13 @@ Tabs.Misc:AddButton({
         
         -- Event handlers
         setBtn.MouseButton1Click:Connect(function()
+            local character = getCharacter()
             local rootPart = getRootPart()
-            if rootPart then
+            
+            if character and rootPart then
                 basePosition = rootPart.Position
+                print("Base position set to:", basePosition) -- Debug output
+                
                 statusLabel.Text = "✅ Base Position Set - Ready to TP"
                 statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
                 
@@ -1427,26 +1431,39 @@ Tabs.Misc:AddButton({
                 setBtn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
                 setBtn.Text = "✅ BASE SET!"
                 
-                spawn(function()
-                    wait(1.5)
-                    setBtn.BackgroundColor3 = originalColor
-                    setBtn.Text = originalText
-                end)
-                
-                -- Update TP button text
+                -- Update TP button text immediately
                 tpBtn.Text = "TP TO BASE"
+                
+                -- Reset button appearance after delay
+                task.spawn(function()
+                    task.wait(1.5)
+                    if setBtn and setBtn.Parent then
+                        setBtn.BackgroundColor3 = originalColor
+                        setBtn.Text = originalText
+                    end
+                end)
                 
                 Fluent:Notify({
                     Title = "Base System",
-                    Content = "Base position successfully configured at your current location!",
-                    Duration = 3
+                    Content = string.format("Base set at position: X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z),
+                    Duration = 4
                 })
             else
                 Fluent:Notify({
                     Title = "Base System",
-                    Content = "Error: Unable to detect player position. Please try again.",
-                    Duration = 3
+                    Content = "Error: Cannot detect player. Please ensure character is loaded and try again.",
+                    Duration = 4
                 })
+                
+                -- Visual error feedback
+                local originalColor = setBtn.BackgroundColor3
+                setBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+                task.spawn(function()
+                    task.wait(1)
+                    if setBtn and setBtn.Parent then
+                        setBtn.BackgroundColor3 = originalColor
+                    end
+                end)
             end
         end)
         
@@ -1456,20 +1473,24 @@ Tabs.Misc:AddButton({
             if not basePosition then
                 Fluent:Notify({
                     Title = "Base TP",
-                    Content = "Base position must be configured before teleportation!",
-                    Duration = 3
+                    Content = "Base position must be configured before teleportation! Please click SET BASE POSITION first.",
+                    Duration = 4
                 })
                 
                 -- Highlight set button to guide user
                 local originalColor = setBtn.BackgroundColor3
                 setBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-                spawn(function()
-                    wait(1)
-                    setBtn.BackgroundColor3 = originalColor
+                task.spawn(function()
+                    task.wait(1.5)
+                    if setBtn and setBtn.Parent then
+                        setBtn.BackgroundColor3 = originalColor
+                    end
                 end)
                 
                 return
             end
+            
+            print("Teleporting to base position:", basePosition) -- Debug output
             
             if selectedMethod == 0 then
                 Fluent:Notify({
