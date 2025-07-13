@@ -599,7 +599,7 @@ Tabs.Misc:AddToggle("FastSteal", {
 
 Tabs.Misc:AddButton({
     Title = "💰 Steal Helper",
-    Description = "Advanced stealing assistance tool",
+    Description = "Compact stealing assistance tool",
     Callback = function()
         if stealHelperGui then
             stealHelperGui:Destroy()
@@ -611,136 +611,108 @@ Tabs.Misc:AddButton({
         stealHelperGui.ResetOnSpawn = false
         
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(350, 250)  -- Increased size
-        frame.Position = UDim2.new(0.5, -175, 0.5, -125)
-        frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        frame.BackgroundTransparency = 0.15
+        frame.Size = UDim2.fromOffset(180, 120)  -- Compact size
+        frame.Position = UDim2.new(0, 20, 0.3, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        frame.BackgroundTransparency = 0.1
         frame.BorderSizePixel = 0
         frame.Parent = stealHelperGui
         
-        local backdrop = Instance.new("Frame")
-        backdrop.Size = UDim2.new(1, 0, 1, 0)
-        backdrop.Position = UDim2.new(0, 0, 0, 0)
-        backdrop.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        backdrop.BackgroundTransparency = 0.95
-        backdrop.BorderSizePixel = 0
-        backdrop.Parent = frame
-        
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 16)
+        corner.CornerRadius = UDim.new(0, 10)
         corner.Parent = frame
-        
-        local backdropCorner = Instance.new("UICorner")
-        backdropCorner.CornerRadius = UDim.new(0, 16)
-        backdropCorner.Parent = backdrop
         
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(0, 170, 255)
-        stroke.Transparency = 0.6
-        stroke.Thickness = 2
+        stroke.Transparency = 0.5
+        stroke.Thickness = 1
         stroke.Parent = frame
         
         local titleBar = Instance.new("Frame")
-        titleBar.Size = UDim2.new(1, 0, 0, 50)
+        titleBar.Size = UDim2.new(1, 0, 0, 25)
         titleBar.Position = UDim2.new(0, 0, 0, 0)
         titleBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-        titleBar.BackgroundTransparency = 0.2
+        titleBar.BackgroundTransparency = 0.3
         titleBar.BorderSizePixel = 0
         titleBar.Parent = frame
         
         local titleCorner = Instance.new("UICorner")
-        titleCorner.CornerRadius = UDim.new(0, 16)
+        titleCorner.CornerRadius = UDim.new(0, 10)
         titleCorner.Parent = titleBar
         
         local titleFix = Instance.new("Frame")
-        titleFix.Size = UDim2.new(1, 0, 0, 16)
-        titleFix.Position = UDim2.new(0, 0, 1, -16)
+        titleFix.Size = UDim2.new(1, 0, 0, 10)
+        titleFix.Position = UDim2.new(0, 0, 1, -10)
         titleFix.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-        titleFix.BackgroundTransparency = 0.2
+        titleFix.BackgroundTransparency = 0.3
         titleFix.BorderSizePixel = 0
         titleFix.Parent = titleBar
         
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, -50, 1, 0)
-        title.Position = UDim2.new(0, 15, 0, 0)
+        title.Size = UDim2.new(1, -25, 1, 0)
+        title.Position = UDim2.new(0, 5, 0, 0)
         title.BackgroundTransparency = 1
-        title.Text = "💧 Water HUB - Steal Helper"
+        title.Text = "💰 Steal Helper"
         title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        title.TextSize = 18
+        title.TextSize = 12
         title.Font = Enum.Font.SourceSansBold
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = titleBar
         
         local closeBtn = Instance.new("TextButton")
-        closeBtn.Size = UDim2.fromOffset(35, 35)
-        closeBtn.Position = UDim2.new(1, -42, 0, 7.5)
+        closeBtn.Size = UDim2.fromOffset(20, 20)
+        closeBtn.Position = UDim2.new(1, -23, 0, 2.5)
         closeBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
-        closeBtn.BackgroundTransparency = 0.1
-        closeBtn.Text = "✕"
+        closeBtn.BackgroundTransparency = 0.2
+        closeBtn.Text = "×"
         closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        closeBtn.TextSize = 16
+        closeBtn.TextSize = 12
         closeBtn.Font = Enum.Font.SourceSansBold
         closeBtn.Parent = titleBar
         
         local closeCorner = Instance.new("UICorner")
-        closeCorner.CornerRadius = UDim.new(0, 8)
+        closeCorner.CornerRadius = UDim.new(0, 5)
         closeCorner.Parent = closeBtn
         
         closeBtn.MouseButton1Click:Connect(function()
             stealHelperGui:Destroy()
         end)
         
-        -- Enhanced buttons with better layout
+        -- Compact buttons
         local upBtn = Instance.new("TextButton")
-        upBtn.Size = UDim2.new(1, -30, 0, 70)
-        upBtn.Position = UDim2.new(0, 15, 0, 70)
+        upBtn.Size = UDim2.new(1, -10, 0, 35)
+        upBtn.Position = UDim2.new(0, 5, 0, 30)
         upBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
         upBtn.BackgroundTransparency = 0.2
-        upBtn.Text = "⬆️ UP (Teleport to Y: 165)"
+        upBtn.Text = "⬆️ UP"
         upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        upBtn.TextSize = 16
+        upBtn.TextSize = 12
         upBtn.Font = Enum.Font.SourceSansBold
         upBtn.Parent = frame
         
         local upCorner = Instance.new("UICorner")
-        upCorner.CornerRadius = UDim.new(0, 12)
+        upCorner.CornerRadius = UDim.new(0, 8)
         upCorner.Parent = upBtn
         
         local downBtn = Instance.new("TextButton")
-        downBtn.Size = UDim2.new(1, -30, 0, 70)
-        downBtn.Position = UDim2.new(0, 15, 0, 155)
+        downBtn.Size = UDim2.new(1, -10, 0, 35)
+        downBtn.Position = UDim2.new(0, 5, 0, 75)
         downBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
         downBtn.BackgroundTransparency = 0.2
-        downBtn.Text = "⬇️ DOWN (Teleport Down 70)"
+        downBtn.Text = "⬇️ DOWN"
         downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        downBtn.TextSize = 16
+        downBtn.TextSize = 12
         downBtn.Font = Enum.Font.SourceSansBold
         downBtn.Parent = frame
         
         local downCorner = Instance.new("UICorner")
-        downCorner.CornerRadius = UDim.new(0, 12)
+        downCorner.CornerRadius = UDim.new(0, 8)
         downCorner.Parent = downBtn
-        
-        -- Button animations
-        local upHover = TweenService:Create(upBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0})
-        local upNormal = TweenService:Create(upBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2})
-        local downHover = TweenService:Create(downBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0})
-        local downNormal = TweenService:Create(downBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2})
-        
-        upBtn.MouseEnter:Connect(function() upHover:Play() end)
-        upBtn.MouseLeave:Connect(function() upNormal:Play() end)
-        downBtn.MouseEnter:Connect(function() downHover:Play() end)
-        downBtn.MouseLeave:Connect(function() downNormal:Play() end)
         
         upBtn.MouseButton1Click:Connect(function()
             local rootPart = getRootPart()
             if rootPart then
                 rootPart.CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)
-                Fluent:Notify({
-                    Title = "Steal Helper",
-                    Content = "Teleported to Y: 165",
-                    Duration = 2
-                })
             end
         end)
         
@@ -748,20 +720,15 @@ Tabs.Misc:AddButton({
             local rootPart = getRootPart()
             if rootPart then
                 rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 70, 0)
-                Fluent:Notify({
-                    Title = "Steal Helper",
-                    Content = "Teleported down 70 units",
-                    Duration = 2
-                })
             end
         end)
         
-        -- Make draggable
+        -- Make entire frame draggable
         local dragStart = nil
         local startPos = nil
         local isDragging = false
         
-        titleBar.InputBegan:Connect(function(input)
+        frame.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 isDragging = true
                 dragStart = input.Position
@@ -769,7 +736,7 @@ Tabs.Misc:AddButton({
             end
         end)
         
-        titleBar.InputChanged:Connect(function(input)
+        frame.InputChanged:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
                 local delta = input.Position - dragStart
                 frame.Position = UDim2.new(
@@ -781,7 +748,7 @@ Tabs.Misc:AddButton({
             end
         end)
         
-        titleBar.InputEnded:Connect(function(input)
+        frame.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 isDragging = false
             end
@@ -792,43 +759,291 @@ Tabs.Misc:AddButton({
 -- Base System
 Tabs.Misc:AddSection("📍 Base System")
 
-Tabs.Misc:AddButton({
-    Title = "📍 Set Base Position",
-    Description = "Set current position as base",
-    Callback = function()
-        local rootPart = getRootPart()
-        if rootPart then
-            basePosition = rootPart.Position
-            Fluent:Notify({
-                Title = "Base System",
-                Content = "Base position set successfully!",
-                Duration = 3
-            })
-        end
-    end
-})
+local baseSystemGui = nil
 
 Tabs.Misc:AddButton({
-    Title = "🚀 Teleport to Base",
-    Description = "Teleport to saved base position",
+    Title = "📍 Open Base System",
+    Description = "Compact base teleportation system",
     Callback = function()
-        if basePosition then
+        if baseSystemGui then
+            baseSystemGui:Destroy()
+        end
+        
+        baseSystemGui = Instance.new("ScreenGui")
+        baseSystemGui.Name = "BaseSystem"
+        baseSystemGui.Parent = playerGui
+        baseSystemGui.ResetOnSpawn = false
+        
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.fromOffset(140, 100)  -- Very compact
+        frame.Position = UDim2.new(0, 200, 0.4, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        frame.BackgroundTransparency = 0.1
+        frame.BorderSizePixel = 0
+        frame.Parent = baseSystemGui
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = frame
+        
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(0, 170, 255)
+        stroke.Transparency = 0.5
+        stroke.Thickness = 1
+        stroke.Parent = frame
+        
+        local titleBar = Instance.new("Frame")
+        titleBar.Size = UDim2.new(1, 0, 0, 22)
+        titleBar.Position = UDim2.new(0, 0, 0, 0)
+        titleBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        titleBar.BackgroundTransparency = 0.3
+        titleBar.BorderSizePixel = 0
+        titleBar.Parent = frame
+        
+        local titleCorner = Instance.new("UICorner")
+        titleCorner.CornerRadius = UDim.new(0, 8)
+        titleCorner.Parent = titleBar
+        
+        local titleFix = Instance.new("Frame")
+        titleFix.Size = UDim2.new(1, 0, 0, 8)
+        titleFix.Position = UDim2.new(0, 0, 1, -8)
+        titleFix.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        titleFix.BackgroundTransparency = 0.3
+        titleFix.BorderSizePixel = 0
+        titleFix.Parent = titleBar
+        
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -20, 1, 0)
+        title.Position = UDim2.new(0, 3, 0, 0)
+        title.BackgroundTransparency = 1
+        title.Text = "📍 Base"
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.TextSize = 11
+        title.Font = Enum.Font.SourceSansBold
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = titleBar
+        
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.fromOffset(18, 18)
+        closeBtn.Position = UDim2.new(1, -20, 0, 2)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+        closeBtn.BackgroundTransparency = 0.2
+        closeBtn.Text = "×"
+        closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeBtn.TextSize = 11
+        closeBtn.Font = Enum.Font.SourceSansBold
+        closeBtn.Parent = titleBar
+        
+        local closeCorner = Instance.new("UICorner")
+        closeCorner.CornerRadius = UDim.new(0, 4)
+        closeCorner.Parent = closeBtn
+        
+        closeBtn.MouseButton1Click:Connect(function()
+            baseSystemGui:Destroy()
+        end)
+        
+        -- Set button
+        local setBtn = Instance.new("TextButton")
+        setBtn.Size = UDim2.new(1, -8, 0, 30)
+        setBtn.Position = UDim2.new(0, 4, 0, 26)
+        setBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        setBtn.BackgroundTransparency = 0.2
+        setBtn.Text = "SET"
+        setBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        setBtn.TextSize = 11
+        setBtn.Font = Enum.Font.SourceSansBold
+        setBtn.Parent = frame
+        
+        local setCorner = Instance.new("UICorner")
+        setCorner.CornerRadius = UDim.new(0, 6)
+        setCorner.Parent = setBtn
+        
+        -- TP button
+        local tpBtn = Instance.new("TextButton")
+        tpBtn.Size = UDim2.new(1, -8, 0, 30)
+        tpBtn.Position = UDim2.new(0, 4, 0, 62)
+        tpBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+        tpBtn.BackgroundTransparency = 0.2
+        tpBtn.Text = "TP"
+        tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tpBtn.TextSize = 11
+        tpBtn.Font = Enum.Font.SourceSansBold
+        tpBtn.Parent = frame
+        
+        local tpCorner = Instance.new("UICorner")
+        tpCorner.CornerRadius = UDim.new(0, 6)
+        tpCorner.Parent = tpBtn
+        
+        setBtn.MouseButton1Click:Connect(function()
             local rootPart = getRootPart()
             if rootPart then
-                rootPart.CFrame = CFrame.new(basePosition)
+                basePosition = rootPart.Position
                 Fluent:Notify({
                     Title = "Base System",
-                    Content = "Teleported to base!",
+                    Content = "Base position set!",
                     Duration = 2
                 })
             end
-        else
-            Fluent:Notify({
-                Title = "Base System",
-                Content = "No base position set!",
-                Duration = 3
-            })
-        end
+        end)
+        
+        tpBtn.MouseButton1Click:Connect(function()
+            if basePosition then
+                local rootPart = getRootPart()
+                if rootPart then
+                    -- Advanced flying teleport system
+                    local startTime = tick()
+                    local flyConnection
+                    local targetReached = false
+                    local bypassFailed = false
+                    
+                    -- Enable noclip for teleport
+                    local wasNoclip = states.noclip
+                    if not wasNoclip then
+                        states.noclip = true
+                        if connections.noclip then
+                            connections.noclip:Disconnect()
+                        end
+                        connections.noclip = RunService.Stepped:Connect(function()
+                            local character = getCharacter()
+                            if character then
+                                for _, part in pairs(character:GetDescendants()) do
+                                    if part:IsA("BasePart") then
+                                        part.CanCollide = false
+                                    end
+                                end
+                            end
+                        end)
+                    end
+                    
+                    -- Create flying movement to base
+                    local startPos = rootPart.Position
+                    local targetPos = basePosition
+                    local flyHeight = math.max(startPos.Y, targetPos.Y) + 50 -- Fly higher for bypass
+                    
+                    -- Phase 1: Go up
+                    local upTarget = Vector3.new(startPos.X, flyHeight, startPos.Z)
+                    
+                    flyConnection = RunService.Heartbeat:Connect(function()
+                        local currentTime = tick()
+                        local elapsed = currentTime - startTime
+                        
+                        -- Safety timeout after 5 seconds
+                        if elapsed > 5 then
+                            bypassFailed = true
+                            if flyConnection then
+                                flyConnection:Disconnect()
+                            end
+                            
+                            -- Emergency escape - go very high
+                            rootPart.CFrame = CFrame.new(rootPart.Position.X, 500, rootPart.Position.Z)
+                            
+                            Fluent:Notify({
+                                Title = "Base TP",
+                                Content = "Bypass failed - Emergency exit!",
+                                Duration = 3
+                            })
+                            
+                            -- Restore noclip state
+                            if not wasNoclip then
+                                states.noclip = false
+                                if connections.noclip then
+                                    connections.noclip:Disconnect()
+                                    connections.noclip = nil
+                                end
+                            end
+                            return
+                        end
+                        
+                        local currentPos = rootPart.Position
+                        local distanceToTarget
+                        local targetPosition
+                        
+                        -- Phase logic
+                        if not targetReached then
+                            -- Phase 1: Go to flying height above start
+                            if currentPos.Y < flyHeight - 5 then
+                                targetPosition = upTarget
+                            -- Phase 2: Move horizontally to above base
+                            elseif (Vector2.new(currentPos.X, currentPos.Z) - Vector2.new(targetPos.X, targetPos.Z)).Magnitude > 5 then
+                                targetPosition = Vector3.new(targetPos.X, flyHeight, targetPos.Z)
+                            -- Phase 3: Descend to base
+                            else
+                                targetPosition = targetPos
+                                if (currentPos - targetPos).Magnitude < 3 then
+                                    targetReached = true
+                                end
+                            end
+                            
+                            -- Smooth movement
+                            local direction = (targetPosition - currentPos).Unit
+                            local speed = 80
+                            local newPosition = currentPos + direction * speed * (1/60)
+                            
+                            rootPart.CFrame = CFrame.new(newPosition)
+                            rootPart.Velocity = Vector3.new(0, 0, 0)
+                            
+                        else
+                            -- Successfully reached base
+                            if flyConnection then
+                                flyConnection:Disconnect()
+                            end
+                            
+                            Fluent:Notify({
+                                Title = "Base TP",
+                                Content = "Successfully teleported to base!",
+                                Duration = 2
+                            })
+                            
+                            -- Restore noclip state
+                            if not wasNoclip then
+                                states.noclip = false
+                                if connections.noclip then
+                                    connections.noclip:Disconnect()
+                                    connections.noclip = nil
+                                end
+                            end
+                        end
+                    end)
+                end
+            else
+                Fluent:Notify({
+                    Title = "Base TP",
+                    Content = "No base position set!",
+                    Duration = 2
+                })
+            end
+        end)
+        
+        -- Make entire frame draggable
+        local dragStart = nil
+        local startPos = nil
+        local isDragging = false
+        
+        frame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                isDragging = true
+                dragStart = input.Position
+                startPos = frame.Position
+            end
+        end)
+        
+        frame.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
+                local delta = input.Position - dragStart
+                frame.Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+        
+        frame.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                isDragging = false
+            end
+        end)
     end
 })
 
