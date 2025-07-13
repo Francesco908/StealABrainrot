@@ -1018,6 +1018,8 @@ Tabs.Misc:AddButton({
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         frame.BackgroundTransparency = 0.1
         frame.BorderSizePixel = 0
+        frame.Active = true
+        frame.Draggable = true
         frame.Parent = stealHelperGui
         
         local corner = Instance.new("UICorner")
@@ -1121,37 +1123,6 @@ Tabs.Misc:AddButton({
             local rootPart = getRootPart()
             if rootPart then
                 rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 70, 0)
-            end
-        end)
-        
-        -- Make entire frame draggable
-        local dragStart = nil
-        local startPos = nil
-        local isDragging = false
-        
-        frame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isDragging = true
-                dragStart = input.Position
-                startPos = frame.Position
-            end
-        end)
-        
-        frame.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
-                local delta = input.Position - dragStart
-                frame.Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-        
-        frame.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isDragging = false
             end
         end)
     end
@@ -1447,23 +1418,34 @@ Tabs.Misc:AddButton({
             local rootPart = getRootPart()
             if rootPart then
                 basePosition = rootPart.Position
-                statusLabel.Text = "✅ Base Position Set"
+                statusLabel.Text = "✅ Base Position Set - Ready to TP"
                 statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
                 
                 -- Visual feedback on button
                 local originalColor = setBtn.BackgroundColor3
+                local originalText = setBtn.Text
                 setBtn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
                 setBtn.Text = "✅ BASE SET!"
                 
-                wait(1)
+                spawn(function()
+                    wait(1.5)
+                    setBtn.BackgroundColor3 = originalColor
+                    setBtn.Text = originalText
+                end)
                 
-                setBtn.BackgroundColor3 = originalColor
-                setBtn.Text = "SET BASE POSITION"
+                -- Update TP button text
+                tpBtn.Text = "TP TO BASE"
                 
                 Fluent:Notify({
                     Title = "Base System",
-                    Content = "Base position successfully configured!",
-                    Duration = 2
+                    Content = "Base position successfully configured at your current location!",
+                    Duration = 3
+                })
+            else
+                Fluent:Notify({
+                    Title = "Base System",
+                    Content = "Error: Unable to detect player position. Please try again.",
+                    Duration = 3
                 })
             end
         end)
@@ -1474,15 +1456,17 @@ Tabs.Misc:AddButton({
             if not basePosition then
                 Fluent:Notify({
                     Title = "Base TP",
-                    Content = "Please set base position first!",
+                    Content = "Base position must be configured before teleportation!",
                     Duration = 3
                 })
                 
-                -- Highlight set button
+                -- Highlight set button to guide user
                 local originalColor = setBtn.BackgroundColor3
                 setBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-                wait(0.5)
-                setBtn.BackgroundColor3 = originalColor
+                spawn(function()
+                    wait(1)
+                    setBtn.BackgroundColor3 = originalColor
+                end)
                 
                 return
             end
@@ -1518,9 +1502,16 @@ Tabs.Misc:AddButton({
             end
         end)
         
-        -- Update status on frame creation
-        statusLabel.Text = basePosition and "✅ Base Position Set" or "❌ Base Position Not Set"
-        statusLabel.TextColor3 = basePosition and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+        -- Update status on frame creation to reflect persistent base
+        if basePosition then
+            statusLabel.Text = "✅ Base Position Set - Ready to TP"
+            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            tpBtn.Text = "TP TO BASE"
+        else
+            statusLabel.Text = "❌ Base Position Not Set"
+            statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+            tpBtn.Text = "TELEPORT TO BASE"
+        end
     end
 })
 
