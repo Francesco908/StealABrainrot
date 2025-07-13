@@ -4,8 +4,8 @@
 -- Load Fluent library
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
--- Create the main window
-local Window = Fluent:CreateWindow({
+-- Create the main window using correct API
+local Window = Fluent:Window({
     Title = "Test UI",
     SubTitle = "by SKIBIDI",
     TabWidth = 160,
@@ -15,14 +15,12 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl,
 })
 
--- Add tabs
-local Tabs = {
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
-    Main     = Window:AddTab({ Title = "Main",     Icon = "play"     }),
-}
+-- Add tabs using Window:Tab
+local SettingsTab = Window:Tab("Settings")
+local MainTab     = Window:Tab("Main")
 
 -- SETTINGS TAB
-local SettingsSection = Tabs.Settings:AddSection("Example Features")
+local SettingsSection = SettingsTab:AddSection("Example Features")
 local exampleToggle = SettingsSection:AddToggle("ExampleToggle", {
     Title = "Example Toggle",
     Description = "Enable or disable the example feature",
@@ -33,7 +31,7 @@ local exampleToggle = SettingsSection:AddToggle("ExampleToggle", {
 })
 
 -- MAIN TAB
-local MainSection = Tabs.Main:AddSection("Actions")
+local MainSection = MainTab:AddSection("Actions")
 MainSection:AddButton({
     Title = "Test Button",
     Description = "Press to run test action",
@@ -44,10 +42,7 @@ MainSection:AddButton({
     end,
 })
 
---[[
-Note: Fluent:CreateWindow automatically displays and handles minimize via MinimizeKey.
-The window will minimize when LeftControl is pressed.
-]]
+-- Note: Fluent:Window auto-displays and handles minimize via MinimizeKey
 
 -- RESTORE ICON (when window is minimized)
 local Players = game:GetService("Players")
@@ -69,17 +64,16 @@ restoreIcon.BackgroundTransparency = 1
 restoreIcon.Visible = false
 restoreIcon.Parent = screenGui
 
--- Show/hide icon based on window minimized state
+-- Show/hide icon based on Window:IsVisible (standard API)
 RunService.RenderStepped:Connect(function()
-    -- Using Fluent internal state
-    if Window.Minimized then
+    if not Window:IsVisible() then
         restoreIcon.Visible = true
     else
         restoreIcon.Visible = false
     end
 end)
 
--- Click restores window
+-- Click restores window (show the window)
 restoreIcon.MouseButton1Click:Connect(function()
-    Window:Toggle() -- toggles minimized state
+    Window:Display()
 end)
