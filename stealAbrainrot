@@ -22,9 +22,7 @@ local Tabs = {
 }
 
 -- SETTINGS TAB
--- Section for example toggle
 local SettingsSection = Tabs.Settings:AddSection("Example Features")
-
 local exampleToggle = SettingsSection:AddToggle("ExampleToggle", {
     Title = "Example Toggle",
     Description = "Enable or disable the example feature",
@@ -35,34 +33,32 @@ local exampleToggle = SettingsSection:AddToggle("ExampleToggle", {
 })
 
 -- MAIN TAB
--- Section for actions
 local MainSection = Tabs.Main:AddSection("Actions")
-
 MainSection:AddButton({
     Title = "Test Button",
     Description = "Press to run test action",
     Callback = function()
         print("Test Button pressed!")
-        -- toggle example setting programmatically
         exampleToggle:SetValue(not exampleToggle.Value)
-        print("Toggle is now", exampleToggle.Value)
-        -- show a notification
-        Fluent:Notify({
-            Title = "Action",
-            Content = "Test Button executed",
-            Duration = 3,
-        })
+        Fluent:Notify({ Title = "Action", Content = "Test Button executed", Duration = 3 })
     end,
 })
 
--- Display the window
-Window:Display()
+--[[
+Note: Fluent:CreateWindow automatically displays and handles minimize via MinimizeKey.
+The window will minimize when LeftControl is pressed.
+]]
 
 -- RESTORE ICON (when window is minimized)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+-- Create a ScreenGui to hold the restore icon
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FluentRestoreGui"
+screenGui.Parent = playerGui
 
 local restoreIcon = Instance.new("ImageButton")
 restoreIcon.Name = "RestoreIcon"
@@ -71,14 +67,19 @@ restoreIcon.Position = UDim2.new(1, -60, 1, -60)
 restoreIcon.Image = "rbxassetid://123456789" -- replace with your image asset ID
 restoreIcon.BackgroundTransparency = 1
 restoreIcon.Visible = false
-restoreIcon.Parent = playerGui
+restoreIcon.Parent = screenGui
 
--- Show/hide icon based on window visibility
+-- Show/hide icon based on window minimized state
 RunService.RenderStepped:Connect(function()
-    restoreIcon.Visible = not Window:IsVisible()
+    -- Using Fluent internal state
+    if Window.Minimized then
+        restoreIcon.Visible = true
+    else
+        restoreIcon.Visible = false
+    end
 end)
 
 -- Click restores window
 restoreIcon.MouseButton1Click:Connect(function()
-    Window:Display()
+    Window:Toggle() -- toggles minimized state
 end)
