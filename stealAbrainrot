@@ -5,8 +5,8 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 
 -- Create main window optimized for mobile
 local Window = Fluent:CreateWindow({
-    Title = "Mobile Script",
-    SubTitle = "Compact UI",
+    Title = "Water HUB",
+    SubTitle = "Premium Script",
     TabWidth = 120,
     Size = UDim2.fromOffset(320, 350),
     Acrylic = true,
@@ -191,81 +191,160 @@ Tabs.Main:AddButton({
             stealHelperGui:Destroy()
         end
         
-        -- Create steal helper GUI
+        -- Create steal helper GUI with sick design
         stealHelperGui = Instance.new("ScreenGui")
         stealHelperGui.Name = "StealHelper"
         stealHelperGui.Parent = playerGui
         stealHelperGui.ResetOnSpawn = false
         
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(200, 150)
-        frame.Position = UDim2.new(0.5, -100, 0.5, -75)
-        frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        frame.Size = UDim2.fromOffset(240, 180)
+        frame.Position = UDim2.new(0.5, -120, 0.5, -90)
+        frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+        frame.BorderSizePixel = 0
         frame.Parent = stealHelperGui
         
+        -- Add gradient background
+        local gradient = Instance.new("UIGradient")
+        gradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 35)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+        }
+        gradient.Rotation = 45
+        gradient.Parent = frame
+        
+        -- Add glow effect
+        local glow = Instance.new("ImageLabel")
+        glow.Name = "Glow"
+        glow.Size = UDim2.fromOffset(260, 200)
+        glow.Position = UDim2.new(0.5, -130, 0.5, -100)
+        glow.AnchorPoint = Vector2.new(0.5, 0.5)
+        glow.BackgroundTransparency = 1
+        glow.Image = "rbxassetid://5554237731"
+        glow.ImageColor3 = Color3.fromRGB(0, 150, 255)
+        glow.ImageTransparency = 0.7
+        glow.Parent = frame
+        
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 10)
+        corner.CornerRadius = UDim.new(0, 15)
         corner.Parent = frame
         
-        -- Title
-        local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, 0, 0, 30)
-        title.Position = UDim2.new(0, 0, 0, 0)
-        title.BackgroundTransparency = 1
-        title.Text = "Steal Helper"
-        title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        title.TextSize = 18
-        title.Font = Enum.Font.SourceSansBold
-        title.Parent = frame
+        -- Title bar with Water HUB branding
+        local titleBar = Instance.new("Frame")
+        titleBar.Size = UDim2.new(1, 0, 0, 40)
+        titleBar.Position = UDim2.new(0, 0, 0, 0)
+        titleBar.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+        titleBar.BorderSizePixel = 0
+        titleBar.Parent = frame
         
-        -- Close button
+        local titleCorner = Instance.new("UICorner")
+        titleCorner.CornerRadius = UDim.new(0, 15)
+        titleCorner.Parent = titleBar
+        
+        -- Fix title bar corners
+        local titleFix = Instance.new("Frame")
+        titleFix.Size = UDim2.new(1, 0, 0, 15)
+        titleFix.Position = UDim2.new(0, 0, 1, -15)
+        titleFix.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+        titleFix.BorderSizePixel = 0
+        titleFix.Parent = titleBar
+        
+        -- Title text
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -50, 1, 0)
+        title.Position = UDim2.new(0, 10, 0, 0)
+        title.BackgroundTransparency = 1
+        title.Text = "💧 Water HUB - Steal Helper"
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.TextSize = 16
+        title.Font = Enum.Font.SourceSansBold
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = titleBar
+        
+        -- Close button with sick design
         local closeBtn = Instance.new("TextButton")
-        closeBtn.Size = UDim2.fromOffset(20, 20)
-        closeBtn.Position = UDim2.new(1, -25, 0, 5)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        closeBtn.Text = "X"
+        closeBtn.Size = UDim2.fromOffset(30, 30)
+        closeBtn.Position = UDim2.new(1, -35, 0, 5)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        closeBtn.Text = "✕"
         closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        closeBtn.TextSize = 14
+        closeBtn.TextSize = 16
         closeBtn.Font = Enum.Font.SourceSansBold
-        closeBtn.Parent = frame
+        closeBtn.Parent = titleBar
         
         local closeCorner = Instance.new("UICorner")
-        closeCorner.CornerRadius = UDim.new(0, 5)
+        closeCorner.CornerRadius = UDim.new(0, 8)
         closeCorner.Parent = closeBtn
+        
+        -- Close button hover effect
+        local closeHover = TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 0, 0)})
+        local closeNormal = TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 50, 50)})
+        
+        closeBtn.MouseEnter:Connect(function() closeHover:Play() end)
+        closeBtn.MouseLeave:Connect(function() closeNormal:Play() end)
         
         closeBtn.MouseButton1Click:Connect(function()
             stealHelperGui:Destroy()
         end)
         
-        -- Up button
+        -- Up button with premium design
         local upBtn = Instance.new("TextButton")
-        upBtn.Size = UDim2.new(1, -20, 0, 40)
-        upBtn.Position = UDim2.new(0, 10, 0, 40)
-        upBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-        upBtn.Text = "UP (165)"
+        upBtn.Size = UDim2.new(1, -20, 0, 50)
+        upBtn.Position = UDim2.new(0, 10, 0, 55)
+        upBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+        upBtn.Text = "⬆️ UP (165)"
         upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        upBtn.TextSize = 16
+        upBtn.TextSize = 18
         upBtn.Font = Enum.Font.SourceSansBold
         upBtn.Parent = frame
         
         local upCorner = Instance.new("UICorner")
-        upCorner.CornerRadius = UDim.new(0, 5)
+        upCorner.CornerRadius = UDim.new(0, 12)
         upCorner.Parent = upBtn
         
-        -- Down button
+        -- Up button gradient
+        local upGradient = Instance.new("UIGradient")
+        upGradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 120)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 80))
+        }
+        upGradient.Rotation = 45
+        upGradient.Parent = upBtn
+        
+        -- Down button with premium design
         local downBtn = Instance.new("TextButton")
-        downBtn.Size = UDim2.new(1, -20, 0, 40)
-        downBtn.Position = UDim2.new(0, 10, 0, 90)
-        downBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-        downBtn.Text = "DOWN (70)"
+        downBtn.Size = UDim2.new(1, -20, 0, 50)
+        downBtn.Position = UDim2.new(0, 10, 0, 115)
+        downBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 100)
+        downBtn.Text = "⬇️ DOWN (70)"
         downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        downBtn.TextSize = 16
+        downBtn.TextSize = 18
         downBtn.Font = Enum.Font.SourceSansBold
         downBtn.Parent = frame
         
         local downCorner = Instance.new("UICorner")
-        downCorner.CornerRadius = UDim.new(0, 5)
+        downCorner.CornerRadius = UDim.new(0, 12)
         downCorner.Parent = downBtn
+        
+        -- Down button gradient
+        local downGradient = Instance.new("UIGradient")
+        downGradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 120)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 0, 80))
+        }
+        downGradient.Rotation = 45
+        downGradient.Parent = downBtn
+        
+        -- Button hover effects
+        local upHover = TweenService:Create(upBtn, TweenInfo.new(0.2), {Size = UDim2.new(1, -15, 0, 55)})
+        local upNormal = TweenService:Create(upBtn, TweenInfo.new(0.2), {Size = UDim2.new(1, -20, 0, 50)})
+        local downHover = TweenService:Create(downBtn, TweenInfo.new(0.2), {Size = UDim2.new(1, -15, 0, 55)})
+        local downNormal = TweenService:Create(downBtn, TweenInfo.new(0.2), {Size = UDim2.new(1, -20, 0, 50)})
+        
+        upBtn.MouseEnter:Connect(function() upHover:Play() end)
+        upBtn.MouseLeave:Connect(function() upNormal:Play() end)
+        downBtn.MouseEnter:Connect(function() downHover:Play() end)
+        downBtn.MouseLeave:Connect(function() downNormal:Play() end)
         
         -- Button functions
         upBtn.MouseButton1Click:Connect(function()
@@ -280,19 +359,21 @@ Tabs.Main:AddButton({
             end
         end)
         
-        -- Make GUI draggable
+        -- Make entire GUI draggable
         local dragStart = nil
         local startPos = nil
+        local isDragging = false
         
-        title.InputBegan:Connect(function(input)
+        titleBar.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                isDragging = true
                 dragStart = input.Position
                 startPos = frame.Position
             end
         end)
         
-        title.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement and dragStart then
+        titleBar.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
                 local delta = input.Position - dragStart
                 frame.Position = UDim2.new(
                     startPos.X.Scale,
@@ -303,9 +384,9 @@ Tabs.Main:AddButton({
             end
         end)
         
-        title.InputEnded:Connect(function(input)
+        titleBar.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragStart = nil
+                isDragging = false
             end
         end)
     end
