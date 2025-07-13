@@ -67,21 +67,88 @@ imageButton.MouseLeave:Connect(function()
     normalTween:Play()
 end)
 
--- Funzione per alternare la visibilità del menu
-local function toggleMenu()
-    if Window then
-        local windowFrame = Window.Root
-        if windowFrame and windowFrame.Visible then
-            windowFrame.Visible = false
-        else
-            windowFrame.Visible = true
-        end
+-- Variabili per rendere l'immagine trascinabile
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+-- Funzioni per il trascinamento
+local function onDragStart(input)
+    dragging = true
+    dragStart = input.Position
+    startPos = imageButton.Position
+end
+
+local function onDragEnd(input)
+    dragging = false
+end
+
+local function onDragMove(input)
+    if dragging then
+        local delta = input.Position - dragStart
+        imageButton.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
     end
 end
 
--- Sostituisce la simulazione di LeftControl con controllo diretto
-imageButton.MouseButton1Click:Connect(toggleMenu)
-imageButton.TouchTap:Connect(toggleMenu)
+-- Connetti gli eventi di trascinamento
+imageButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        onDragStart(input)
+    end
+end)
+
+imageButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        onDragEnd(input)
+    end
+end)
+
+imageButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        onDragMove(input)
+    end
+end)
+
+-- Funzione per alternare la visibilità del menu
+local function toggleMenu()
+    if Window and Window.Root then
+        Window.Root.Visible = not Window.Root.Visible
+    end
+end
+
+-- Distingui tra click e trascinamento
+local clickStartTime = 0
+local function isClick(input)
+    local currentTime = tick()
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if currentTime - clickStartTime < 0.3 and not dragging then
+            return true
+        end
+    end
+    return false
+end
+
+-- Modifica il click handler per distinguere da trascinamento
+imageButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        clickStartTime = tick()
+        onDragStart(input)
+    end
+end)
+
+imageButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if isClick(input) then
+            toggleMenu()
+        end
+        onDragEnd(input)
+    end
+end)
 
 -- Blocca l'evento LeftControl dal gioco quando la GUI è attiva
 local UserInputService = game:GetService("UserInputService")
@@ -156,7 +223,5 @@ Fluent:Notify({
 -- Carica configurazione automatica
 SaveManager:LoadAutoloadConfig()
 
--- Distruggi la GUI quando lo script viene chiuso
-Fluent.Unloaded:Connect(function()
-    persistentGui:Destroy()
-end)
+-- Mantieni l'immagine anche quando il menu viene chiuso
+-- (Rimuovi la connessione Unloaded per mantenere persistentGui)
