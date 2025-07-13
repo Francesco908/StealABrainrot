@@ -1176,11 +1176,13 @@ Tabs.Misc:AddButton({
         baseSystemGui.ResetOnSpawn = false
         
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(180, 150)  -- Increased height for dropdown
+        frame.Size = UDim2.fromOffset(200, 180)
         frame.Position = UDim2.new(0, 200, 0.4, 0)
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         frame.BackgroundTransparency = 0.1
         frame.BorderSizePixel = 0
+        frame.Active = true
+        frame.Draggable = true
         frame.Parent = baseSystemGui
         
         local corner = Instance.new("UICorner")
@@ -1194,7 +1196,7 @@ Tabs.Misc:AddButton({
         stroke.Parent = frame
         
         local titleBar = Instance.new("Frame")
-        titleBar.Size = UDim2.new(1, 0, 0, 22)
+        titleBar.Size = UDim2.new(1, 0, 0, 25)
         titleBar.Position = UDim2.new(0, 0, 0, 0)
         titleBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
         titleBar.BackgroundTransparency = 0.3
@@ -1214,24 +1216,24 @@ Tabs.Misc:AddButton({
         titleFix.Parent = titleBar
         
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, -20, 1, 0)
-        title.Position = UDim2.new(0, 3, 0, 0)
+        title.Size = UDim2.new(1, -25, 1, 0)
+        title.Position = UDim2.new(0, 5, 0, 0)
         title.BackgroundTransparency = 1
         title.Text = "📍 Base System"
         title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        title.TextSize = 10
+        title.TextSize = 11
         title.Font = Enum.Font.SourceSansBold
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = titleBar
         
         local closeBtn = Instance.new("TextButton")
-        closeBtn.Size = UDim2.fromOffset(18, 18)
-        closeBtn.Position = UDim2.new(1, -20, 0, 2)
+        closeBtn.Size = UDim2.fromOffset(20, 20)
+        closeBtn.Position = UDim2.new(1, -22, 0, 2.5)
         closeBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
         closeBtn.BackgroundTransparency = 0.2
         closeBtn.Text = "×"
         closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        closeBtn.TextSize = 11
+        closeBtn.TextSize = 12
         closeBtn.Font = Enum.Font.SourceSansBold
         closeBtn.Parent = titleBar
         
@@ -1243,10 +1245,50 @@ Tabs.Misc:AddButton({
             baseSystemGui:Destroy()
         end)
         
+        -- Base status section
+        local statusSection = Instance.new("Frame")
+        statusSection.Size = UDim2.new(1, -10, 0, 25)
+        statusSection.Position = UDim2.new(0, 5, 0, 30)
+        statusSection.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        statusSection.BackgroundTransparency = 0.3
+        statusSection.BorderSizePixel = 0
+        statusSection.Parent = frame
+        
+        local statusCorner = Instance.new("UICorner")
+        statusCorner.CornerRadius = UDim.new(0, 6)
+        statusCorner.Parent = statusSection
+        
+        local statusLabel = Instance.new("TextLabel")
+        statusLabel.Size = UDim2.new(1, -10, 1, 0)
+        statusLabel.Position = UDim2.new(0, 5, 0, 0)
+        statusLabel.BackgroundTransparency = 1
+        statusLabel.Text = basePosition and "✅ Base Position Set" or "❌ Base Position Not Set"
+        statusLabel.TextColor3 = basePosition and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+        statusLabel.TextSize = 10
+        statusLabel.Font = Enum.Font.SourceSans
+        statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+        statusLabel.Parent = statusSection
+        
+        -- Set Base button (always visible)
+        local setBtn = Instance.new("TextButton")
+        setBtn.Size = UDim2.new(1, -10, 0, 30)
+        setBtn.Position = UDim2.new(0, 5, 0, 60)
+        setBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        setBtn.BackgroundTransparency = 0.2
+        setBtn.Text = "SET BASE POSITION"
+        setBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        setBtn.TextSize = 10
+        setBtn.Font = Enum.Font.SourceSansBold
+        setBtn.Parent = frame
+        
+        local setCorner = Instance.new("UICorner")
+        setCorner.CornerRadius = UDim.new(0, 6)
+        setCorner.Parent = setBtn
+        
         -- Method selection dropdown
         local dropdownFrame = Instance.new("Frame")
-        dropdownFrame.Size = UDim2.new(1, -8, 0, 25)
-        dropdownFrame.Position = UDim2.new(0, 4, 0, 28)
+        dropdownFrame.Size = UDim2.new(1, -10, 0, 25)
+        dropdownFrame.Position = UDim2.new(0, 5, 0, 95)
         dropdownFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         dropdownFrame.BackgroundTransparency = 0.2
         dropdownFrame.BorderSizePixel = 0
@@ -1280,7 +1322,7 @@ Tabs.Misc:AddButton({
         -- Dropdown options
         local dropdownOptions = {
             {text = "Auto (All Methods)", value = 0},
-            {text = "Try TP 1 (Direct)", value = 1},
+            {text = "Try TP 1 (Direct CFrame)", value = 1},
             {text = "Try TP 2 (High Altitude)", value = 2},
             {text = "Try TP 3 (Smooth Flying)", value = 3},
             {text = "Try TP 4 (BodyPosition)", value = 4},
@@ -1299,6 +1341,7 @@ Tabs.Misc:AddButton({
             end
             dropdownOpen = false
             dropdownArrow.Text = "▼"
+            frame.Draggable = true
         end
         
         local function openDropdown()
@@ -1309,6 +1352,7 @@ Tabs.Misc:AddButton({
             
             dropdownOpen = true
             dropdownArrow.Text = "▲"
+            frame.Draggable = false
             
             optionsFrame = Instance.new("Frame")
             optionsFrame.Size = UDim2.new(1, 0, 0, #dropdownOptions * 22)
@@ -1370,29 +1414,13 @@ Tabs.Misc:AddButton({
         dropdownButton.MouseButton1Click:Connect(openDropdown)
         dropdownFrame.MouseButton1Click:Connect(openDropdown)
         
-        -- Set button
-        local setBtn = Instance.new("TextButton")
-        setBtn.Size = UDim2.new(1, -8, 0, 30)
-        setBtn.Position = UDim2.new(0, 4, 0, 60)
-        setBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
-        setBtn.BackgroundTransparency = 0.2
-        setBtn.Text = "SET BASE"
-        setBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        setBtn.TextSize = 10
-        setBtn.Font = Enum.Font.SourceSansBold
-        setBtn.Parent = frame
-        
-        local setCorner = Instance.new("UICorner")
-        setCorner.CornerRadius = UDim.new(0, 6)
-        setCorner.Parent = setBtn
-        
-        -- TP button
+        -- Teleport button (always visible)
         local tpBtn = Instance.new("TextButton")
-        tpBtn.Size = UDim2.new(1, -8, 0, 30)
-        tpBtn.Position = UDim2.new(0, 4, 0, 96)
+        tpBtn.Size = UDim2.new(1, -10, 0, 30)
+        tpBtn.Position = UDim2.new(0, 5, 0, 125)
         tpBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
         tpBtn.BackgroundTransparency = 0.2
-        tpBtn.Text = "TELEPORT"
+        tpBtn.Text = "TELEPORT TO BASE"
         tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         tpBtn.TextSize = 10
         tpBtn.Font = Enum.Font.SourceSansBold
@@ -1402,89 +1430,77 @@ Tabs.Misc:AddButton({
         tpCorner.CornerRadius = UDim.new(0, 6)
         tpCorner.Parent = tpBtn
         
-        -- Status label
-        local statusLabel = Instance.new("TextLabel")
-        statusLabel.Size = UDim2.new(1, -8, 0, 20)
-        statusLabel.Position = UDim2.new(0, 4, 0, 130)
-        statusLabel.BackgroundTransparency = 1
-        statusLabel.Text = basePosition and "Base: Set" or "Base: Not Set"
-        statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        statusLabel.TextSize = 8
-        statusLabel.Font = Enum.Font.SourceSans
-        statusLabel.TextXAlignment = Enum.TextXAlignment.Center
-        statusLabel.Parent = frame
+        -- Info label
+        local infoLabel = Instance.new("TextLabel")
+        infoLabel.Size = UDim2.new(1, -10, 0, 20)
+        infoLabel.Position = UDim2.new(0, 5, 0, 160)
+        infoLabel.BackgroundTransparency = 1
+        infoLabel.Text = "First SET BASE, then select method & TP"
+        infoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        infoLabel.TextSize = 8
+        infoLabel.Font = Enum.Font.SourceSansItalic
+        infoLabel.TextXAlignment = Enum.TextXAlignment.Center
+        infoLabel.Parent = frame
         
+        -- Event handlers
         setBtn.MouseButton1Click:Connect(function()
             local rootPart = getRootPart()
             if rootPart then
                 basePosition = rootPart.Position
-                statusLabel.Text = "Base: Set"
+                statusLabel.Text = "✅ Base Position Set"
+                statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                
+                -- Visual feedback on button
+                local originalColor = setBtn.BackgroundColor3
+                setBtn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+                setBtn.Text = "✅ BASE SET!"
+                
+                wait(1)
+                
+                setBtn.BackgroundColor3 = originalColor
+                setBtn.Text = "SET BASE POSITION"
+                
                 Fluent:Notify({
                     Title = "Base System",
-                    Content = "Base position set!",
+                    Content = "Base position successfully configured!",
                     Duration = 2
                 })
             end
         end)
         
         tpBtn.MouseButton1Click:Connect(function()
-            closeDropdown() -- Close dropdown if open
+            closeDropdown()
             
-            if basePosition then
-                if selectedMethod == 0 then
-                    Fluent:Notify({
-                        Title = "Base TP",
-                        Content = "Starting auto teleportation (all methods)...",
-                        Duration = 2
-                    })
-                    advancedBaseTeleport(basePosition)
-                else
-                    Fluent:Notify({
-                        Title = "Base TP",
-                        Content = "Using method " .. selectedMethod .. "...",
-                        Duration = 2
-                    })
-                    singleMethodTeleport(basePosition, selectedMethod)
-                end
+            if not basePosition then
+                Fluent:Notify({
+                    Title = "Base TP",
+                    Content = "Please set base position first!",
+                    Duration = 3
+                })
+                
+                -- Highlight set button
+                local originalColor = setBtn.BackgroundColor3
+                setBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+                wait(0.5)
+                setBtn.BackgroundColor3 = originalColor
+                
+                return
+            end
+            
+            if selectedMethod == 0 then
+                Fluent:Notify({
+                    Title = "Base TP",
+                    Content = "Initiating automatic multi-method teleportation sequence...",
+                    Duration = 2
+                })
+                advancedBaseTeleport(basePosition)
             else
                 Fluent:Notify({
                     Title = "Base TP",
-                    Content = "No base position set!",
+                    Content = "Executing teleportation method " .. selectedMethod .. "...",
                     Duration = 2
                 })
-            end
-        end)
-        
-        -- Make entire frame draggable
-        local dragStart = nil
-        local startPos = nil
-        local isDragging = false
-        
-        frame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                if not dropdownOpen then
-                    isDragging = true
-                    dragStart = input.Position
-                    startPos = frame.Position
-                end
-            end
-        end)
-        
-        frame.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
-                local delta = input.Position - dragStart
-                frame.Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-        
-        frame.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isDragging = false
+                singleMethodTeleport(basePosition, selectedMethod)
             end
         end)
         
@@ -1501,6 +1517,10 @@ Tabs.Misc:AddButton({
                 end
             end
         end)
+        
+        -- Update status on frame creation
+        statusLabel.Text = basePosition and "✅ Base Position Set" or "❌ Base Position Not Set"
+        statusLabel.TextColor3 = basePosition and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
     end
 })
 
