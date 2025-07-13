@@ -7,8 +7,8 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 local Window = Fluent:CreateWindow({
     Title = "Water HUB",
     SubTitle = "",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(550, 260),
+    TabWidth = 120,
+    Size = UDim2.fromOffset(355, 320),
     Acrylic = true,
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl
@@ -144,22 +144,24 @@ UserInputService.InputBegan:Connect(onKeyDown)
 
 -- Variables for features
 local speedBoostEnabled = false
-local autoCollectMoney = false
-local fastStealEnabled = false
 local antiTrapEnabled = false
 local antiStunEnabled = false
 local espPlayersEnabled = false
 local espBoxEnabled = false
+local autoCollectMoney = false
+local fastStealEnabled = false
 
 -- Helper variables
 local stealHelperGui = nil
 local originalWalkSpeed = 16
 local originalJumpPower = 50
 local espBoxes = {}
+local antiTrapConnection = nil
 
 -- Create tabs
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Money = Window:AddTab({ Title = "Money", Icon = "dollar-sign" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "eye" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "settings" })
 }
@@ -183,8 +185,91 @@ Tabs.Main:AddToggle("SpeedBoost", {
     end
 })
 
--- Steal Helper
-Tabs.Main:AddButton({
+-- Anti trap with movement freedom
+Tabs.Main:AddToggle("AntiTrap", {
+    Title = "Anti Trap (Movement Freedom)",
+    Default = false,
+    Callback = function(value)
+        antiTrapEnabled = value
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            if value then
+                -- Enable anti-trap functionality
+                antiTrapConnection = RunService.Heartbeat:Connect(function()
+                    if player.Character and player.Character:FindFirstChild("Humanoid") then
+                        local humanoid = player.Character.Humanoid
+                        -- Reset any forced states that might trap the player
+                        humanoid.PlatformStand = false
+                        humanoid.Sit = false
+                        
+                        -- Prevent getting stuck in place
+                        if player.Character:FindFirstChild("HumanoidRootPart") then
+                            local rootPart = player.Character.HumanoidRootPart
+                            -- Ensure the player can always move
+                            rootPart.Anchored = false
+                        end
+                        
+                        -- Remove any potential trap effects
+                        for _, v in pairs(player.Character:GetChildren()) do
+                            if v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") then
+                                v:Destroy()
+                            end
+                        end
+                    end
+                end)
+            else
+                -- Disable anti-trap functionality
+                if antiTrapConnection then
+                    antiTrapConnection:Disconnect()
+                    antiTrapConnection = nil
+                end
+            end
+        end
+    end
+})
+
+-- Anti stun (god mode)
+Tabs.Main:AddToggle("AntiStun", {
+    Title = "Anti Stun (God Mode)",
+    Default = false,
+    Callback = function(value)
+        antiStunEnabled = value
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            if value then
+                player.Character.Humanoid.PlatformStand = true
+            else
+                player.Character.Humanoid.PlatformStand = false
+            end
+        end
+    end
+})
+
+-- MONEY TAB
+-- Money label
+local moneyLabel = Tabs.Money:AddParagraph({
+    Title = "Current Money",
+    Content = "0"
+})
+
+-- Auto collect money
+Tabs.Money:AddToggle("AutoCollectMoney", {
+    Title = "Auto Collect Money",
+    Default = false,
+    Callback = function(value)
+        autoCollectMoney = value
+    end
+})
+
+-- Fast steal (moved from misc)
+Tabs.Money:AddToggle("FastSteal", {
+    Title = "Fast Steal",
+    Default = false,
+    Callback = function(value)
+        fastStealEnabled = value
+    end
+})
+
+-- Steal Helper (moved from main)
+Tabs.Money:AddButton({
     Title = "Steal Helper",
     Description = "Open steal helper GUI",
     Callback = function()
@@ -394,30 +479,6 @@ Tabs.Main:AddButton({
     end
 })
 
--- Money label
-local moneyLabel = Tabs.Main:AddParagraph({
-    Title = "Money",
-    Content = "0"
-})
-
--- Auto collect money
-Tabs.Main:AddToggle("AutoCollectMoney", {
-    Title = "Auto Collect Money",
-    Default = false,
-    Callback = function(value)
-        autoCollectMoney = value
-    end
-})
-
--- Fast steal
-Tabs.Main:AddToggle("FastSteal", {
-    Title = "Fast Steal",
-    Default = false,
-    Callback = function(value)
-        fastStealEnabled = value
-    end
-})
-
 -- VISUAL TAB
 -- ESP Players
 Tabs.Visual:AddToggle("ESPPlayers", {
@@ -524,30 +585,10 @@ Tabs.Visual:AddToggle("ESPBox", {
     end
 })
 
--- MISC TAB
--- Anti trap
-Tabs.Misc:AddToggle("AntiTrap", {
-    Title = "Anti Trap",
-    Default = false,
-    Callback = function(value)
-        antiTrapEnabled = value
-    end
-})
-
--- Anti stun (god mode)
-Tabs.Misc:AddToggle("AntiStun", {
-    Title = "Anti Stun (God Mode)",
-    Default = false,
-    Callback = function(value)
-        antiStunEnabled = value
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            if value then
-                player.Character.Humanoid.PlatformStand = true
-            else
-                player.Character.Humanoid.PlatformStand = false
-            end
-        end
-    end
+-- MISC TAB (now mostly empty since features moved to other tabs)
+Tabs.Misc:AddParagraph({
+    Title = "Misc Settings",
+    Content = "Additional settings and features will be added here."
 })
 
 -- Update money label
