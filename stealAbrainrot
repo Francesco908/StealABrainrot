@@ -14,98 +14,70 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl -- Tasto per minimizzare/ripristinare
 })
 
--- Crea l'immagine per riaprire quando minimizzato
+-- Crea l'immagine persistente (sempre visibile)
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Crea l'immagine minimizzata
-local minimizedGui = Instance.new("ScreenGui")
-minimizedGui.Name = "FluentMinimized"
-minimizedGui.Parent = playerGui
-minimizedGui.ResetOnSpawn = false
-minimizedGui.Enabled = true
+local persistentGui = Instance.new("ScreenGui")
+persistentGui.Name = "FluentPersistentButton"
+persistentGui.Parent = playerGui
+persistentGui.ResetOnSpawn = false
+persistentGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+persistentGui.Enabled = true
 
+-- Immagine "fighissima" (personalizza con il tuo asset ID)
 local imageButton = Instance.new("ImageButton")
-imageButton.Name = "RestoreButton"
-imageButton.Size = UDim2.fromOffset(60, 60)
-imageButton.Position = UDim2.new(0, 10, 0, 10)
-imageButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+imageButton.Name = "PersistentControl"
+imageButton.Size = UDim2.fromOffset(70, 70)
+imageButton.Position = UDim2.new(0, 20, 0.5, -35) -- Centro sinistra
+imageButton.AnchorPoint = Vector2.new(0, 0.5)
+imageButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 imageButton.BorderSizePixel = 0
-imageButton.Image = "rbxasset://textures/ui/TopBar/iconSort.png" -- Icona di default
-imageButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
-imageButton.Parent = minimizedGui
+imageButton.Image = "rbxassetid://7072717836" -- Icona razzo (sostituisci con il tuo ID)
+imageButton.ScaleType = Enum.ScaleType.Fit
+imageButton.Parent = persistentGui
+
+-- Effetto trasparenza
+imageButton.BackgroundTransparency = 0.5
+imageButton.ImageTransparency = 0.2
 
 -- Arrotonda gli angoli
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
+corner.CornerRadius = UDim.new(0.3, 0)
 corner.Parent = imageButton
 
 -- Effetto hover
-local function createHoverEffect()
-    local hoverTween = TweenService:Create(imageButton, TweenInfo.new(0.2), {
-        Size = UDim2.fromOffset(65, 65),
-        BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    })
-    
-    local normalTween = TweenService:Create(imageButton, TweenInfo.new(0.2), {
-        Size = UDim2.fromOffset(60, 60),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    })
-    
-    imageButton.MouseEnter:Connect(function()
-        hoverTween:Play()
-    end)
-    
-    imageButton.MouseLeave:Connect(function()
-        normalTween:Play()
-    end)
-end
+local TweenService = game:GetService("TweenService")
+local hoverTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
+    BackgroundTransparency = 0.2,
+    ImageTransparency = 0,
+    Size = UDim2.fromOffset(75, 75)
+})
+local normalTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
+    BackgroundTransparency = 0.5,
+    ImageTransparency = 0.2,
+    Size = UDim2.fromOffset(70, 70)
+})
 
-createHoverEffect()
+imageButton.MouseEnter:Connect(function()
+    hoverTween:Play()
+end)
+imageButton.MouseLeave:Connect(function()
+    normalTween:Play()
+end)
 
 -- Funzione per simulare il click di LeftControl
 local function simulateLeftControl()
-    local virtualInput = {
-        KeyCode = Enum.KeyCode.LeftControl,
-        UserInputType = Enum.UserInputType.Keyboard,
-        UserInputState = Enum.UserInputState.Begin
-    }
-    
-    -- Simula la pressione del tasto
-    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
-    wait(0.1)
-    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
+    local virtualInput = game:GetService("VirtualInputManager")
+    virtualInput:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
+    task.wait(0.1)
+    virtualInput:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
 end
 
--- Click handler per desktop e mobile
+-- Click handler
 imageButton.MouseButton1Click:Connect(simulateLeftControl)
-
--- Touch handler per mobile
 imageButton.TouchTap:Connect(simulateLeftControl)
-
--- Monitora lo stato della finestra Fluent
-local function monitorWindowState()
-    spawn(function()
-        while true do
-            wait(0.5)
-            
-            -- Controlla se la finestra è minimizzata
-            local fluentGui = playerGui:FindFirstChild("Fluent")
-            if fluentGui then
-                local isMinimized = not fluentGui.Enabled or fluentGui.Parent == nil
-                minimizedGui.Enabled = isMinimized
-            end
-            
-            if Fluent.Unloaded then break end
-        end
-    end)
-end
-
-monitorWindowState()
 
 -- Crea le tab
 local Tabs = {
@@ -113,7 +85,7 @@ local Tabs = {
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
--- TAB MAIN - Un solo pulsante
+-- TAB MAIN
 Tabs.Main:AddButton({
     Title = "Pulsante Test",
     Description = "Clicca per testare",
@@ -126,7 +98,7 @@ Tabs.Main:AddButton({
     end
 })
 
--- TAB SETTINGS - Un solo pulsante
+-- TAB SETTINGS
 Tabs.Settings:AddButton({
     Title = "Pulsante Settings",
     Description = "Pulsante nelle impostazioni",
@@ -142,27 +114,27 @@ Tabs.Settings:AddButton({
 -- Configura i manager
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
-
--- Ignora le impostazioni del tema per il salvataggio
 SaveManager:IgnoreThemeSettings()
-
--- Imposta le cartelle per salvare le configurazioni
 InterfaceManager:SetFolder("FluentTest")
 SaveManager:SetFolder("FluentTest/config")
-
--- Costruisce le sezioni di interfaccia e configurazione nella tab Settings
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 
--- Seleziona la prima tab (Main)
+-- Seleziona la prima tab
 Window:SelectTab(1)
 
 -- Notifica di caricamento
 Fluent:Notify({
     Title = "Caricato",
     Content = "Script caricato con successo!",
-    Duration = 5
+    Duration = 5,
+    Image = "rbxassetid://7072717836" -- Stessa icona dell'immagine persistente
 })
 
--- Carica configurazione automatica se presente
+-- Carica configurazione automatica
 SaveManager:LoadAutoloadConfig()
+
+-- Distruggi la GUI quando lo script viene chiuso
+Fluent.Unloaded:Connect(function()
+    persistentGui:Destroy()
+end)
