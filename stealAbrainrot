@@ -323,6 +323,192 @@ local function toggleInfiniteJump(enabled)
     end
 end
 
+-- Single Method Teleportation System
+local function singleMethodTeleport(targetPosition, methodNumber)
+    local rootPart = getRootPart()
+    if not rootPart or not targetPosition then return false end
+    
+    local startTime = tick()
+    local attemptConnection
+    local success = false
+    local wasNoclip = states.noclip
+    local timeout = 10 -- 10 seconds timeout for single method
+    
+    -- Enable noclip temporarily
+    if not wasNoclip then
+        states.noclip = true
+        if connections.noclip then
+            connections.noclip:Disconnect()
+        end
+        connections.noclip = RunService.Stepped:Connect(function()
+            local character = getCharacter()
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- Cleanup function
+    local function cleanup()
+        for _, child in pairs(rootPart:GetChildren()) do
+            if child.Name:find("Teleport") then
+                child:Destroy()
+            end
+        end
+        
+        if not wasNoclip then
+            states.noclip = false
+            if connections.noclip then
+                connections.noclip:Disconnect()
+                connections.noclip = nil
+            end
+        end
+    end
+    
+    -- Success function
+    local function onSuccess()
+        success = true
+        if attemptConnection then
+            attemptConnection:Disconnect()
+        end
+        cleanup()
+        Fluent:Notify({
+            Title = "Base TP",
+            Content = "Successfully teleported using method " .. methodNumber .. "!",
+            Duration = 3
+        })
+    end
+    
+    -- Method execution functions
+    local methods = {
+        -- Method 1: Direct CFrame teleportation
+        function(target)
+            rootPart.CFrame = CFrame.new(target)
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+        end,
+        
+        -- Method 2: High altitude bypass
+        function(target)
+            local highTarget = Vector3.new(target.X, target.Y + 150, target.Z)
+            rootPart.CFrame = CFrame.new(highTarget)
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+            wait(0.3)
+            rootPart.CFrame = CFrame.new(target)
+        end,
+        
+        -- Method 3: Smooth flying movement
+        function(target)
+            local currentPos = rootPart.Position
+            local direction = (target - currentPos).Unit
+            local distance = (target - currentPos).Magnitude
+            
+            if distance > 3 then
+                local speed = math.min(80, distance * 1.5)
+                local newPos = currentPos + direction * speed * (1/60)
+                rootPart.CFrame = CFrame.new(newPos)
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+            end
+        end,
+        
+        -- Method 4: BodyPosition method
+        function(target)
+            local bodyPos = rootPart:FindFirstChild("TeleportBodyPosition")
+            if not bodyPos then
+                bodyPos = Instance.new("BodyPosition")
+                bodyPos.Name = "TeleportBodyPosition"
+                bodyPos.MaxForce = Vector3.new(8000, 8000, 8000)
+                bodyPos.P = 10000
+                bodyPos.D = 1000
+                bodyPos.Parent = rootPart
+            end
+            bodyPos.Position = target
+        end,
+        
+        -- Method 5: Step-by-step teleportation
+        function(target)
+            local currentPos = rootPart.Position
+            local distance = (target - currentPos).Magnitude
+            local steps = math.ceil(distance / 15)
+            
+            for i = 1, steps do
+                local alpha = i / steps
+                local stepPos = currentPos:Lerp(target, alpha)
+                rootPart.CFrame = CFrame.new(stepPos)
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+                wait(0.05)
+            end
+        end,
+        
+        -- Method 6: Velocity-based teleportation
+        function(target)
+            local bodyVel = rootPart:FindFirstChild("TeleportBodyVelocity")
+            if not bodyVel then
+                bodyVel = Instance.new("BodyVelocity")
+                bodyVel.Name = "TeleportBodyVelocity"
+                bodyVel.MaxForce = Vector3.new(8000, 8000, 8000)
+                bodyVel.Parent = rootPart
+            end
+            
+            local direction = (target - rootPart.Position).Unit
+            local distance = (target - rootPart.Position).Magnitude
+            
+            if distance > 3 then
+                bodyVel.Velocity = direction * math.min(150, distance * 8)
+            else
+                bodyVel.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    }
+    
+    if not methods[methodNumber] then
+        Fluent:Notify({
+            Title = "Base TP",
+            Content = "Invalid method number!",
+            Duration = 3
+        })
+        cleanup()
+        return false
+    end
+    
+    attemptConnection = RunService.Heartbeat:Connect(function()
+        local currentTime = tick()
+        local elapsed = currentTime - startTime
+        
+        -- Check if we're close enough to target (success condition)
+        local distance = (rootPart.Position - targetPosition).Magnitude
+        if distance < 4 then
+            onSuccess()
+            return
+        end
+        
+        -- Execute the selected method
+        pcall(function()
+            methods[methodNumber](targetPosition)
+        end)
+        
+        -- Timeout check
+        if elapsed > timeout then
+            if attemptConnection then
+                attemptConnection:Disconnect()
+            end
+            
+            cleanup()
+            
+            Fluent:Notify({
+                Title = "Base TP",
+                Content = "Method " .. methodNumber .. " failed - timeout reached!",
+                Duration = 4
+            })
+        end
+    end)
+    
+    return true
+end
+
 -- Enhanced Multi-Method Base Teleportation System
 local function advancedBaseTeleport(targetPosition)
     local rootPart = getRootPart()
@@ -990,7 +1176,7 @@ Tabs.Misc:AddButton({
         baseSystemGui.ResetOnSpawn = false
         
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(140, 100)
+        frame.Size = UDim2.fromOffset(180, 150)  -- Increased height for dropdown
         frame.Position = UDim2.new(0, 200, 0.4, 0)
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         frame.BackgroundTransparency = 0.1
@@ -1031,9 +1217,9 @@ Tabs.Misc:AddButton({
         title.Size = UDim2.new(1, -20, 1, 0)
         title.Position = UDim2.new(0, 3, 0, 0)
         title.BackgroundTransparency = 1
-        title.Text = "📍 Base"
+        title.Text = "📍 Base System"
         title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        title.TextSize = 11
+        title.TextSize = 10
         title.Font = Enum.Font.SourceSansBold
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = titleBar
@@ -1057,14 +1243,142 @@ Tabs.Misc:AddButton({
             baseSystemGui:Destroy()
         end)
         
+        -- Method selection dropdown
+        local dropdownFrame = Instance.new("Frame")
+        dropdownFrame.Size = UDim2.new(1, -8, 0, 25)
+        dropdownFrame.Position = UDim2.new(0, 4, 0, 28)
+        dropdownFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        dropdownFrame.BackgroundTransparency = 0.2
+        dropdownFrame.BorderSizePixel = 0
+        dropdownFrame.Parent = frame
+        
+        local dropdownCorner = Instance.new("UICorner")
+        dropdownCorner.CornerRadius = UDim.new(0, 6)
+        dropdownCorner.Parent = dropdownFrame
+        
+        local dropdownButton = Instance.new("TextButton")
+        dropdownButton.Size = UDim2.new(1, -20, 1, 0)
+        dropdownButton.Position = UDim2.new(0, 3, 0, 0)
+        dropdownButton.BackgroundTransparency = 1
+        dropdownButton.Text = "Auto (All Methods)"
+        dropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        dropdownButton.TextSize = 9
+        dropdownButton.Font = Enum.Font.SourceSans
+        dropdownButton.TextXAlignment = Enum.TextXAlignment.Left
+        dropdownButton.Parent = dropdownFrame
+        
+        local dropdownArrow = Instance.new("TextLabel")
+        dropdownArrow.Size = UDim2.new(0, 15, 1, 0)
+        dropdownArrow.Position = UDim2.new(1, -18, 0, 0)
+        dropdownArrow.BackgroundTransparency = 1
+        dropdownArrow.Text = "▼"
+        dropdownArrow.TextColor3 = Color3.fromRGB(255, 255, 255)
+        dropdownArrow.TextSize = 8
+        dropdownArrow.Font = Enum.Font.SourceSans
+        dropdownArrow.Parent = dropdownFrame
+        
+        -- Dropdown options
+        local dropdownOptions = {
+            {text = "Auto (All Methods)", value = 0},
+            {text = "Try TP 1 (Direct)", value = 1},
+            {text = "Try TP 2 (High Altitude)", value = 2},
+            {text = "Try TP 3 (Smooth Flying)", value = 3},
+            {text = "Try TP 4 (BodyPosition)", value = 4},
+            {text = "Try TP 5 (Step-by-Step)", value = 5},
+            {text = "Try TP 6 (Velocity-Based)", value = 6}
+        }
+        
+        local selectedMethod = 0
+        local dropdownOpen = false
+        local optionsFrame = nil
+        
+        local function closeDropdown()
+            if optionsFrame then
+                optionsFrame:Destroy()
+                optionsFrame = nil
+            end
+            dropdownOpen = false
+            dropdownArrow.Text = "▼"
+        end
+        
+        local function openDropdown()
+            if optionsFrame then
+                closeDropdown()
+                return
+            end
+            
+            dropdownOpen = true
+            dropdownArrow.Text = "▲"
+            
+            optionsFrame = Instance.new("Frame")
+            optionsFrame.Size = UDim2.new(1, 0, 0, #dropdownOptions * 22)
+            optionsFrame.Position = UDim2.new(0, 0, 1, 2)
+            optionsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            optionsFrame.BackgroundTransparency = 0.1
+            optionsFrame.BorderSizePixel = 0
+            optionsFrame.ZIndex = 10
+            optionsFrame.Parent = dropdownFrame
+            
+            local optionsCorner = Instance.new("UICorner")
+            optionsCorner.CornerRadius = UDim.new(0, 6)
+            optionsCorner.Parent = optionsFrame
+            
+            local optionsStroke = Instance.new("UIStroke")
+            optionsStroke.Color = Color3.fromRGB(0, 170, 255)
+            optionsStroke.Transparency = 0.7
+            optionsStroke.Thickness = 1
+            optionsStroke.Parent = optionsFrame
+            
+            for i, option in ipairs(dropdownOptions) do
+                local optionButton = Instance.new("TextButton")
+                optionButton.Size = UDim2.new(1, -4, 0, 20)
+                optionButton.Position = UDim2.new(0, 2, 0, (i-1) * 22 + 1)
+                optionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                optionButton.BackgroundTransparency = selectedMethod == option.value and 0.3 or 0.8
+                optionButton.Text = option.text
+                optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                optionButton.TextSize = 9
+                optionButton.Font = Enum.Font.SourceSans
+                optionButton.TextXAlignment = Enum.TextXAlignment.Left
+                optionButton.ZIndex = 11
+                optionButton.Parent = optionsFrame
+                
+                local optionCorner = Instance.new("UICorner")
+                optionCorner.CornerRadius = UDim.new(0, 4)
+                optionCorner.Parent = optionButton
+                
+                optionButton.MouseEnter:Connect(function()
+                    if selectedMethod ~= option.value then
+                        optionButton.BackgroundTransparency = 0.5
+                    end
+                end)
+                
+                optionButton.MouseLeave:Connect(function()
+                    if selectedMethod ~= option.value then
+                        optionButton.BackgroundTransparency = 0.8
+                    end
+                end)
+                
+                optionButton.MouseButton1Click:Connect(function()
+                    selectedMethod = option.value
+                    dropdownButton.Text = option.text
+                    closeDropdown()
+                end)
+            end
+        end
+        
+        dropdownButton.MouseButton1Click:Connect(openDropdown)
+        dropdownFrame.MouseButton1Click:Connect(openDropdown)
+        
+        -- Set button
         local setBtn = Instance.new("TextButton")
         setBtn.Size = UDim2.new(1, -8, 0, 30)
-        setBtn.Position = UDim2.new(0, 4, 0, 26)
+        setBtn.Position = UDim2.new(0, 4, 0, 60)
         setBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
         setBtn.BackgroundTransparency = 0.2
-        setBtn.Text = "SET"
+        setBtn.Text = "SET BASE"
         setBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        setBtn.TextSize = 11
+        setBtn.TextSize = 10
         setBtn.Font = Enum.Font.SourceSansBold
         setBtn.Parent = frame
         
@@ -1072,14 +1386,15 @@ Tabs.Misc:AddButton({
         setCorner.CornerRadius = UDim.new(0, 6)
         setCorner.Parent = setBtn
         
+        -- TP button
         local tpBtn = Instance.new("TextButton")
         tpBtn.Size = UDim2.new(1, -8, 0, 30)
-        tpBtn.Position = UDim2.new(0, 4, 0, 62)
+        tpBtn.Position = UDim2.new(0, 4, 0, 96)
         tpBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
         tpBtn.BackgroundTransparency = 0.2
-        tpBtn.Text = "TP"
+        tpBtn.Text = "TELEPORT"
         tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        tpBtn.TextSize = 11
+        tpBtn.TextSize = 10
         tpBtn.Font = Enum.Font.SourceSansBold
         tpBtn.Parent = frame
         
@@ -1087,10 +1402,23 @@ Tabs.Misc:AddButton({
         tpCorner.CornerRadius = UDim.new(0, 6)
         tpCorner.Parent = tpBtn
         
+        -- Status label
+        local statusLabel = Instance.new("TextLabel")
+        statusLabel.Size = UDim2.new(1, -8, 0, 20)
+        statusLabel.Position = UDim2.new(0, 4, 0, 130)
+        statusLabel.BackgroundTransparency = 1
+        statusLabel.Text = basePosition and "Base: Set" or "Base: Not Set"
+        statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        statusLabel.TextSize = 8
+        statusLabel.Font = Enum.Font.SourceSans
+        statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+        statusLabel.Parent = frame
+        
         setBtn.MouseButton1Click:Connect(function()
             local rootPart = getRootPart()
             if rootPart then
                 basePosition = rootPart.Position
+                statusLabel.Text = "Base: Set"
                 Fluent:Notify({
                     Title = "Base System",
                     Content = "Base position set!",
@@ -1100,13 +1428,24 @@ Tabs.Misc:AddButton({
         end)
         
         tpBtn.MouseButton1Click:Connect(function()
+            closeDropdown() -- Close dropdown if open
+            
             if basePosition then
-                Fluent:Notify({
-                    Title = "Base TP",
-                    Content = "Starting advanced teleportation...",
-                    Duration = 2
-                })
-                advancedBaseTeleport(basePosition)
+                if selectedMethod == 0 then
+                    Fluent:Notify({
+                        Title = "Base TP",
+                        Content = "Starting auto teleportation (all methods)...",
+                        Duration = 2
+                    })
+                    advancedBaseTeleport(basePosition)
+                else
+                    Fluent:Notify({
+                        Title = "Base TP",
+                        Content = "Using method " .. selectedMethod .. "...",
+                        Duration = 2
+                    })
+                    singleMethodTeleport(basePosition, selectedMethod)
+                end
             else
                 Fluent:Notify({
                     Title = "Base TP",
@@ -1123,9 +1462,11 @@ Tabs.Misc:AddButton({
         
         frame.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isDragging = true
-                dragStart = input.Position
-                startPos = frame.Position
+                if not dropdownOpen then
+                    isDragging = true
+                    dragStart = input.Position
+                    startPos = frame.Position
+                end
             end
         end)
         
@@ -1144,6 +1485,20 @@ Tabs.Misc:AddButton({
         frame.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 isDragging = false
+            end
+        end)
+        
+        -- Close dropdown when clicking outside
+        baseSystemGui.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and dropdownOpen then
+                local mousePos = input.Position
+                local framePos = dropdownFrame.AbsolutePosition
+                local frameSize = dropdownFrame.AbsoluteSize
+                
+                if mousePos.X < framePos.X or mousePos.X > framePos.X + frameSize.X or
+                   mousePos.Y < framePos.Y or mousePos.Y > framePos.Y + frameSize.Y + (#dropdownOptions * 22) then
+                    closeDropdown()
+                end
             end
         end)
     end
