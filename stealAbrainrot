@@ -748,7 +748,7 @@ local function createRayfieldUI()
             Note = "Join our Discord for keys",
             FileName = "WaterHubKey",
             SaveKey = true,
-            Key = ""
+            Key = "LIKE"
         }
     })
 
