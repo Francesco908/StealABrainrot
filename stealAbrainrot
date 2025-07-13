@@ -334,6 +334,7 @@ local function advancedBaseTeleport(targetPosition)
     local currentMethod = 1
     local methodStartTime = startTime
     local wasNoclip = states.noclip
+    local methodTimeouts = {2, 3, 4, 3, 3, 3} -- Timeout for each method
     
     -- Enable noclip temporarily
     if not wasNoclip then
@@ -353,238 +354,195 @@ local function advancedBaseTeleport(targetPosition)
         end)
     end
     
+    -- Cleanup function
+    local function cleanup()
+        for _, child in pairs(rootPart:GetChildren()) do
+            if child.Name:find("Teleport") then
+                child:Destroy()
+            end
+        end
+        
+        if not wasNoclip then
+            states.noclip = false
+            if connections.noclip then
+                connections.noclip:Disconnect()
+                connections.noclip = nil
+            end
+        end
+    end
+    
+    -- Success function
+    local function onSuccess(methodUsed)
+        success = true
+        if attemptConnection then
+            attemptConnection:Disconnect()
+        end
+        cleanup()
+        Fluent:Notify({
+            Title = "Base TP",
+            Content = "Successfully teleported using method " .. methodUsed .. "!",
+            Duration = 3
+        })
+    end
+    
     -- Teleportation methods array
     local methods = {
         -- Method 1: Direct CFrame teleportation
-        function(target, elapsed)
-            if elapsed < 1 then
-                rootPart.CFrame = CFrame.new(target)
-                rootPart.Velocity = Vector3.new(0, 0, 0)
-                return (rootPart.Position - target).Magnitude < 5
-            end
-            return false
+        function(target)
+            rootPart.CFrame = CFrame.new(target)
+            rootPart.Velocity = Vector3.new(0, 0, 0)
         end,
         
         -- Method 2: High altitude bypass
-        function(target, elapsed)
-            if elapsed < 3 then
-                local highTarget = Vector3.new(target.X, target.Y + 200, target.Z)
-                rootPart.CFrame = CFrame.new(highTarget)
-                rootPart.Velocity = Vector3.new(0, 0, 0)
-                wait(0.5)
-                rootPart.CFrame = CFrame.new(target)
-                return (rootPart.Position - target).Magnitude < 5
-            end
-            return false
+        function(target)
+            local highTarget = Vector3.new(target.X, target.Y + 150, target.Z)
+            rootPart.CFrame = CFrame.new(highTarget)
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+            wait(0.3)
+            rootPart.CFrame = CFrame.new(target)
         end,
         
         -- Method 3: Smooth flying movement
-        function(target, elapsed)
-            if elapsed < 4 then
-                local currentPos = rootPart.Position
-                local direction = (target - currentPos).Unit
-                local distance = (target - currentPos).Magnitude
-                
-                if distance > 2 then
-                    local speed = math.min(100, distance * 2)
-                    local newPos = currentPos + direction * speed * (1/60)
-                    rootPart.CFrame = CFrame.new(newPos)
-                    rootPart.Velocity = Vector3.new(0, 0, 0)
-                    return false
-                else
-                    return true
-                end
+        function(target)
+            local currentPos = rootPart.Position
+            local direction = (target - currentPos).Unit
+            local distance = (target - currentPos).Magnitude
+            
+            if distance > 3 then
+                local speed = math.min(80, distance * 1.5)
+                local newPos = currentPos + direction * speed * (1/60)
+                rootPart.CFrame = CFrame.new(newPos)
+                rootPart.Velocity = Vector3.new(0, 0, 0)
             end
-            return false
         end,
         
         -- Method 4: BodyPosition method
-        function(target, elapsed)
-            if elapsed < 3 then
-                local bodyPos = rootPart:FindFirstChild("TeleportBodyPosition")
-                if not bodyPos then
-                    bodyPos = Instance.new("BodyPosition")
-                    bodyPos.Name = "TeleportBodyPosition"
-                    bodyPos.MaxForce = Vector3.new(4000, 4000, 4000)
-                    bodyPos.Parent = rootPart
-                end
-                bodyPos.Position = target
-                return (rootPart.Position - target).Magnitude < 3
-            else
-                local bodyPos = rootPart:FindFirstChild("TeleportBodyPosition")
-                if bodyPos then bodyPos:Destroy() end
-                return false
+        function(target)
+            local bodyPos = rootPart:FindFirstChild("TeleportBodyPosition")
+            if not bodyPos then
+                bodyPos = Instance.new("BodyPosition")
+                bodyPos.Name = "TeleportBodyPosition"
+                bodyPos.MaxForce = Vector3.new(8000, 8000, 8000)
+                bodyPos.P = 10000
+                bodyPos.D = 1000
+                bodyPos.Parent = rootPart
             end
+            bodyPos.Position = target
         end,
         
-        -- Method 5: Multi-step teleportation
-        function(target, elapsed)
-            if elapsed < 4 then
-                local steps = 10
-                local currentStep = math.floor(elapsed * steps / 4)
-                local startPos = Vector3.new(rootPart.Position.X, rootPart.Position.Y, rootPart.Position.Z)
-                
-                for i = 1, steps do
-                    local alpha = i / steps
-                    local stepPos = startPos:Lerp(target, alpha)
-                    rootPart.CFrame = CFrame.new(stepPos)
-                    rootPart.Velocity = Vector3.new(0, 0, 0)
-                    wait(0.1)
-                end
-                
-                return (rootPart.Position - target).Magnitude < 5
+        -- Method 5: Step-by-step teleportation
+        function(target)
+            local currentPos = rootPart.Position
+            local distance = (target - currentPos).Magnitude
+            local steps = math.ceil(distance / 20) -- 20 studs per step
+            
+            for i = 1, steps do
+                local alpha = i / steps
+                local stepPos = currentPos:Lerp(target, alpha)
+                rootPart.CFrame = CFrame.new(stepPos)
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+                wait(0.05)
             end
-            return false
         end,
         
         -- Method 6: Velocity-based teleportation
-        function(target, elapsed)
-            if elapsed < 3 then
-                local bodyVel = rootPart:FindFirstChild("TeleportBodyVelocity")
-                if not bodyVel then
-                    bodyVel = Instance.new("BodyVelocity")
-                    bodyVel.Name = "TeleportBodyVelocity"
-                    bodyVel.MaxForce = Vector3.new(4000, 4000, 4000)
-                    bodyVel.Parent = rootPart
-                end
-                
-                local direction = (target - rootPart.Position).Unit
-                local distance = (target - rootPart.Position).Magnitude
-                
-                if distance > 2 then
-                    bodyVel.Velocity = direction * math.min(200, distance * 10)
-                    return false
-                else
-                    bodyVel:Destroy()
-                    return true
-                end
+        function(target)
+            local bodyVel = rootPart:FindFirstChild("TeleportBodyVelocity")
+            if not bodyVel then
+                bodyVel = Instance.new("BodyVelocity")
+                bodyVel.Name = "TeleportBodyVelocity"
+                bodyVel.MaxForce = Vector3.new(8000, 8000, 8000)
+                bodyVel.Parent = rootPart
+            end
+            
+            local direction = (target - rootPart.Position).Unit
+            local distance = (target - rootPart.Position).Magnitude
+            
+            if distance > 3 then
+                bodyVel.Velocity = direction * math.min(150, distance * 8)
             else
-                local bodyVel = rootPart:FindFirstChild("TeleportBodyVelocity")
-                if bodyVel then bodyVel:Destroy() end
-                return false
+                bodyVel.Velocity = Vector3.new(0, 0, 0)
             end
         end
     }
+    
+    -- Initial notification
+    Fluent:Notify({
+        Title = "Base TP",
+        Content = "Starting method 1...",
+        Duration = 1
+    })
     
     attemptConnection = RunService.Heartbeat:Connect(function()
         local currentTime = tick()
         local totalElapsed = currentTime - startTime
         local methodElapsed = currentTime - methodStartTime
         
-        -- Check if we're close enough to target
+        -- Check if we're close enough to target (success condition)
         local distance = (rootPart.Position - targetPosition).Magnitude
-        if distance < 3 then
-            success = true
-            if attemptConnection then
-                attemptConnection:Disconnect()
-            end
-            
-            -- Clean up any body movers
+        if distance < 4 then
+            onSuccess(currentMethod)
+            return
+        end
+        
+        -- Check if current method has timed out
+        local currentTimeout = methodTimeouts[currentMethod] or 3
+        if methodElapsed > currentTimeout then
+            -- Clean up current method
             for _, child in pairs(rootPart:GetChildren()) do
                 if child.Name:find("Teleport") then
                     child:Destroy()
                 end
             end
             
-            -- Restore noclip state
-            if not wasNoclip then
-                states.noclip = false
-                if connections.noclip then
-                    connections.noclip:Disconnect()
-                    connections.noclip = nil
-                end
-            end
+            -- Move to next method
+            currentMethod = currentMethod + 1
+            methodStartTime = currentTime
             
-            Fluent:Notify({
-                Title = "Base TP",
-                Content = "Successfully teleported to base using method " .. currentMethod .. "!",
-                Duration = 3
-            })
-            return
-        end
-        
-        -- Try current method
-        if currentMethod <= #methods then
-            local methodSuccess = methods[currentMethod](targetPosition, methodElapsed)
-            
-            if methodSuccess then
-                success = true
+            if currentMethod <= #methods then
+                Fluent:Notify({
+                    Title = "Base TP",
+                    Content = "Method " .. (currentMethod - 1) .. " failed. Trying method " .. currentMethod .. "...",
+                    Duration = 1
+                })
+            else
+                -- All methods failed
                 if attemptConnection then
                     attemptConnection:Disconnect()
                 end
                 
-                -- Clean up
-                for _, child in pairs(rootPart:GetChildren()) do
-                    if child.Name:find("Teleport") then
-                        child:Destroy()
-                    end
-                end
-                
-                if not wasNoclip then
-                    states.noclip = false
-                    if connections.noclip then
-                        connections.noclip:Disconnect()
-                        connections.noclip = nil
-                    end
-                end
+                -- Emergency escape
+                rootPart.CFrame = CFrame.new(rootPart.Position.X, 500, rootPart.Position.Z)
+                cleanup()
                 
                 Fluent:Notify({
                     Title = "Base TP",
-                    Content = "Successfully teleported using method " .. currentMethod .. "!",
-                    Duration = 3
+                    Content = "All methods failed - Emergency exit!",
+                    Duration = 4
                 })
                 return
             end
-            
-            -- Switch to next method after timeout
-            if methodElapsed > 3 then
-                currentMethod = currentMethod + 1
-                methodStartTime = currentTime
-                
-                -- Clean up previous method
-                for _, child in pairs(rootPart:GetChildren()) do
-                    if child.Name:find("Teleport") then
-                        child:Destroy()
-                    end
-                end
-                
-                if currentMethod <= #methods then
-                    Fluent:Notify({
-                        Title = "Base TP",
-                        Content = "Trying method " .. currentMethod .. "...",
-                        Duration = 1
-                    })
-                end
-            end
         end
         
-        -- Ultimate timeout after 20 seconds
-        if totalElapsed > 20 then
+        -- Execute current method if still valid
+        if currentMethod <= #methods then
+            pcall(function()
+                methods[currentMethod](targetPosition)
+            end)
+        end
+        
+        -- Ultimate safety timeout after 25 seconds
+        if totalElapsed > 25 then
             if attemptConnection then
                 attemptConnection:Disconnect()
             end
             
-            -- Emergency high altitude escape
             rootPart.CFrame = CFrame.new(rootPart.Position.X, 1000, rootPart.Position.Z)
-            
-            -- Clean up
-            for _, child in pairs(rootPart:GetChildren()) do
-                if child.Name:find("Teleport") then
-                    child:Destroy()
-                end
-            end
-            
-            if not wasNoclip then
-                states.noclip = false
-                if connections.noclip then
-                    connections.noclip:Disconnect()
-                    connections.noclip = nil
-                end
-            end
+            cleanup()
             
             Fluent:Notify({
                 Title = "Base TP",
-                Content = "All methods failed - Emergency exit activated!",
+                Content = "Ultimate timeout - Emergency exit!",
                 Duration = 4
             })
         end
