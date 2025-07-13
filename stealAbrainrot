@@ -1,49 +1,64 @@
 -- main.lua
--- Entry point for setting up a simple UI using Fluent for Roblox
+-- Entry point for setting up a Fluent UI for Roblox
 
--- Fetch and initialize Fluent
+-- Load Fluent library
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
--- Create a new window
-local Window = Fluent:Window({
+-- Create the main window
+local Window = Fluent:CreateWindow({
     Title = "Test UI",
-    Size = UDim2.new(0, 400, 0, 300),
+    SubTitle = "by SKIBIDI",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(400, 300),
+    Acrylic = true,
     Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl,
 })
 
--- Create a settings tab
-local SettingsTab = Window:Tab("Settings")
+-- Add tabs
+local Tabs = {
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+    Main     = Window:AddTab({ Title = "Main",     Icon = "play"     }),
+}
 
--- Add a toggle setting
-local exampleToggle = SettingsTab:Toggle({
-    Name = "Example Toggle",
-    Default = false,
+-- SETTINGS TAB
+-- Section for example toggle
+local SettingsSection = Tabs.Settings:AddSection("Example Features")
+
+local exampleToggle = SettingsSection:AddToggle("ExampleToggle", {
+    Title = "Example Toggle",
     Description = "Enable or disable the example feature",
+    Default = false,
     Callback = function(state)
         print("Example Toggle state:", state)
     end,
 })
 
--- Create a main tab for actions
-local MainTab = Window:Tab("Main")
+-- MAIN TAB
+-- Section for actions
+local MainSection = Tabs.Main:AddSection("Actions")
 
--- Add a button to the main tab
-MainTab:Button({
-    Name = "Test Button",
+MainSection:AddButton({
+    Title = "Test Button",
     Description = "Press to run test action",
     Callback = function()
         print("Test Button pressed!")
-        -- Example: toggle the setting programmatically
-        exampleToggle:Set(not exampleToggle:Get())
-        print("Toggle is now", exampleToggle:Get())
+        -- toggle example setting programmatically
+        exampleToggle:SetValue(not exampleToggle.Value)
+        print("Toggle is now", exampleToggle.Value)
+        -- show a notification
+        Fluent:Notify({
+            Title = "Action",
+            Content = "Test Button executed",
+            Duration = 3,
+        })
     end,
 })
 
--- Finalize and display the window
+-- Display the window
 Window:Display()
 
--- ==== Minimized Restore Functionality ====
--- Create a restore icon that appears when window is hidden
+-- RESTORE ICON (when window is minimized)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
@@ -53,31 +68,17 @@ local restoreIcon = Instance.new("ImageButton")
 restoreIcon.Name = "RestoreIcon"
 restoreIcon.Size = UDim2.new(0, 50, 0, 50)
 restoreIcon.Position = UDim2.new(1, -60, 1, -60)
-restoreIcon.Image = "rbxassetid://123456789" -- Sostituisci con l'ID immagine desiderata
+restoreIcon.Image = "rbxassetid://123456789" -- replace with your image asset ID
 restoreIcon.BackgroundTransparency = 1
 restoreIcon.Visible = false
 restoreIcon.Parent = playerGui
 
--- Function to restore window
-local function restoreWindow()
-    Window:Display()
-end
-
--- Bind left control key to restore
-Fluent:BindKey(Enum.KeyCode.LeftControl, function()
-    if not Window:IsVisible() then
-        restoreWindow()
-    end
-end)
-
--- Show or hide the icon based on window visibility each frame
+-- Show/hide icon based on window visibility
 RunService.RenderStepped:Connect(function()
-    -- assumes Fluent Window API provides IsVisible()
-    local hidden = not Window:IsVisible()
-    restoreIcon.Visible = hidden
+    restoreIcon.Visible = not Window:IsVisible()
 end)
 
--- Click on the icon restores the window
+-- Click restores window
 restoreIcon.MouseButton1Click:Connect(function()
-    restoreWindow()
+    Window:Display()
 end)
