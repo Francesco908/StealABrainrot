@@ -1,4 +1,4 @@
--- Carica la libreria Fluent
+ -- Carica la libreria Fluent
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -11,10 +11,10 @@ local Window = Fluent:CreateWindow({
     Size = UDim2.fromOffset(580, 460),
     Acrylic = true,
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.Z
+    MinimizeKey = Enum.KeyCode.LeftControl -- Tasto per minimizzare/ripristinare
 })
 
--- Crea l'immagine persistente a destra
+-- Crea l'immagine persistente (sempre visibile)
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -24,41 +24,40 @@ persistentGui.Name = "FluentPersistentButton"
 persistentGui.Parent = playerGui
 persistentGui.ResetOnSpawn = false
 persistentGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+persistentGui.Enabled = true
 
--- Immagine "fighissima" (sostituisci con il tuo asset ID preferito)
+-- Immagine "fighissima" (personalizza con il tuo asset ID)
 local imageButton = Instance.new("ImageButton")
-imageButton.Name = "ZButton"
-imageButton.Size = UDim2.fromOffset(80, 80)
-imageButton.Position = UDim2.new(1, -100, 0.5, -40) -- Destra al centro
-imageButton.AnchorPoint = Vector2.new(1, 0.5)
-imageButton.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+imageButton.Name = "PersistentControl"
+imageButton.Size = UDim2.fromOffset(70, 70)
+imageButton.Position = UDim2.new(0, 20, 0.5, -35) -- Centro sinistra
+imageButton.AnchorPoint = Vector2.new(0, 0.5)
+imageButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 imageButton.BorderSizePixel = 0
-imageButton.Image = "rbxassetid://11149159963" -- Icona Z (sostituisci con il tuo ID)
+imageButton.Image = "rbxassetid://7072717836" -- Icona razzo (sostituisci con il tuo ID)
 imageButton.ScaleType = Enum.ScaleType.Fit
 imageButton.Parent = persistentGui
 
--- Effetti visivi
-imageButton.BackgroundTransparency = 0.3
-imageButton.ImageTransparency = 0.1
+-- Effetto trasparenza
+imageButton.BackgroundTransparency = 0.5
+imageButton.ImageTransparency = 0.2
 
 -- Arrotonda gli angoli
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0.4, 0)
+corner.CornerRadius = UDim.new(0.3, 0)
 corner.Parent = imageButton
 
 -- Effetto hover
 local TweenService = game:GetService("TweenService")
 local hoverTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
-    BackgroundTransparency = 0.1,
+    BackgroundTransparency = 0.2,
     ImageTransparency = 0,
-    Size = UDim2.fromOffset(85, 85),
-    Rotation = 5
+    Size = UDim2.fromOffset(75, 75)
 })
 local normalTween = TweenService:Create(imageButton, TweenInfo.new(0.3), {
-    BackgroundTransparency = 0.3,
-    ImageTransparency = 0.1,
-    Size = UDim2.fromOffset(80, 80),
-    Rotation = 0
+    BackgroundTransparency = 0.5,
+    ImageTransparency = 0.2,
+    Size = UDim2.fromOffset(70, 70)
 })
 
 imageButton.MouseEnter:Connect(function()
@@ -68,33 +67,41 @@ imageButton.MouseLeave:Connect(function()
     normalTween:Play()
 end)
 
--- Funzione per simulare il tasto Z
-local function simulateZKey()
-    local virtualInput = game:GetService("VirtualInputManager")
+-- Funzione per gestire il menu senza interferire con il gioco
+local function toggleFluentMenu()
+    local FluentGui = playerGui:FindFirstChild("Fluent")
     
-    -- Simula pressione del tasto Z
-    virtualInput:SendKeyEvent(true, Enum.KeyCode.Z, false, game)
-    task.wait(0.1)
-    virtualInput:SendKeyEvent(false, Enum.KeyCode.Z, false, game)
-    
-    -- Effetto visivo al click
-    local clickTween = TweenService:Create(imageButton, TweenInfo.new(0.15), {
-        Size = UDim2.fromOffset(75, 75),
-        BackgroundColor3 = Color3.fromRGB(60, 45, 80)
-    })
-    local releaseTween = TweenService:Create(imageButton, TweenInfo.new(0.15), {
-        Size = UDim2.fromOffset(85, 85),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-    })
-    
-    clickTween:Play()
-    task.wait(0.15)
-    releaseTween:Play()
+    if FluentGui then
+        local isMinimized = not FluentGui.Enabled
+        
+        -- Attiva/disattiva direttamente la GUI di Fluent
+        FluentGui.Enabled = isMinimized
+        
+        -- Aggiorna lo stato minimizzato
+        Window.Minimized = isMinimized
+        
+        -- Animazione di feedback
+        local feedbackTween = TweenService:Create(imageButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = isMinimized and Color3.fromRGB(60, 40, 40) or Color3.fromRGB(25, 25, 25)
+        })
+        feedbackTween:Play()
+    end
 end
 
--- Click handler per desktop e mobile
-imageButton.MouseButton1Click:Connect(simulateZKey)
-imageButton.TouchTap:Connect(simulateZKey)
+-- Click handler
+imageButton.MouseButton1Click:Connect(toggleFluentMenu)
+imageButton.TouchTap:Connect(toggleFluentMenu)
+
+-- Disabilita l'interazione di LeftControl con il gioco
+local UIS = game:GetService("UserInputService")
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.LeftControl and not gameProcessed then
+        -- Blocca l'input al gioco quando viene premuto LeftControl
+        toggleFluentMenu()
+        return Enum.ContextActionResult.Sink
+    end
+end)
 
 -- Crea le tab
 local Tabs = {
@@ -128,19 +135,6 @@ Tabs.Settings:AddButton({
     end
 })
 
--- Aggiungi un'etichetta "Z" sotto l'immagine
-local zLabel = Instance.new("TextLabel")
-zLabel.Name = "ZLabel"
-zLabel.Text = "Z"
-zLabel.Font = Enum.Font.GothamBold
-zLabel.TextSize = 20
-zLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-zLabel.BackgroundTransparency = 1
-zLabel.Size = UDim2.new(0, 30, 0, 30)
-zLabel.Position = UDim2.new(1, -85, 0.5, 45)
-zLabel.AnchorPoint = Vector2.new(1, 0.5)
-zLabel.Parent = persistentGui
-
 -- Configura i manager
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
@@ -153,12 +147,12 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 -- Seleziona la prima tab
 Window:SelectTab(1)
 
--- Notifica di caricamento con icona Z
+-- Notifica di caricamento
 Fluent:Notify({
     Title = "Caricato",
-    Content = "Premi il pulsante Z a destra!",
+    Content = "Script caricato con successo!",
     Duration = 5,
-    Image = "rbxassetid://7072718162" -- Stessa icona del pulsante
+    Image = "rbxassetid://7072717836" -- Stessa icona dell'immagine persistente
 })
 
 -- Carica configurazione automatica
