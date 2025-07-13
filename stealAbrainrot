@@ -1133,6 +1133,22 @@ Tabs.Misc:AddSection("📍 Base System")
 
 local baseSystemGui = nil
 
+-- Auto-set spawn position when character spawns
+player.CharacterAdded:Connect(function(character)
+    wait(2) -- Wait for character to fully load
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        if not basePosition then -- Only auto-set if no base is manually configured
+            basePosition = rootPart.Position
+            Fluent:Notify({
+                Title = "Base System",
+                Content = "Spawn position automatically set as base!",
+                Duration = 3
+            })
+        end
+    end
+end)
+
 Tabs.Misc:AddButton({
     Title = "📍 Open Base System",
     Description = "Advanced multi-method base teleportation",
@@ -1147,7 +1163,7 @@ Tabs.Misc:AddButton({
         baseSystemGui.ResetOnSpawn = false
         
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.fromOffset(200, 180)
+        frame.Size = UDim2.fromOffset(220, 220)  -- Increased size for new elements
         frame.Position = UDim2.new(0, 200, 0.4, 0)
         frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         frame.BackgroundTransparency = 0.1
@@ -1240,10 +1256,34 @@ Tabs.Misc:AddButton({
         statusLabel.TextXAlignment = Enum.TextXAlignment.Left
         statusLabel.Parent = statusSection
         
+        -- Coordinates display
+        local coordsSection = Instance.new("Frame")
+        coordsSection.Size = UDim2.new(1, -10, 0, 30)
+        coordsSection.Position = UDim2.new(0, 5, 0, 60)
+        coordsSection.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        coordsSection.BackgroundTransparency = 0.3
+        coordsSection.BorderSizePixel = 0
+        coordsSection.Parent = frame
+        
+        local coordsCorner = Instance.new("UICorner")
+        coordsCorner.CornerRadius = UDim.new(0, 6)
+        coordsCorner.Parent = coordsSection
+        
+        local coordsLabel = Instance.new("TextLabel")
+        coordsLabel.Size = UDim2.new(1, -10, 1, 0)
+        coordsLabel.Position = UDim2.new(0, 5, 0, 0)
+        coordsLabel.BackgroundTransparency = 1
+        coordsLabel.Text = basePosition and string.format("📍 X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z) or "📍 No coordinates set"
+        coordsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        coordsLabel.TextSize = 9
+        coordsLabel.Font = Enum.Font.SourceSans
+        coordsLabel.TextXAlignment = Enum.TextXAlignment.Left
+        coordsLabel.Parent = coordsSection
+        
         -- Set Base button (always visible)
         local setBtn = Instance.new("TextButton")
         setBtn.Size = UDim2.new(1, -10, 0, 30)
-        setBtn.Position = UDim2.new(0, 5, 0, 60)
+        setBtn.Position = UDim2.new(0, 5, 0, 95)
         setBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
         setBtn.BackgroundTransparency = 0.2
         setBtn.Text = "SET BASE POSITION"
@@ -1259,7 +1299,7 @@ Tabs.Misc:AddButton({
         -- Method selection dropdown
         local dropdownFrame = Instance.new("Frame")
         dropdownFrame.Size = UDim2.new(1, -10, 0, 25)
-        dropdownFrame.Position = UDim2.new(0, 5, 0, 95)
+        dropdownFrame.Position = UDim2.new(0, 5, 0, 130)
         dropdownFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         dropdownFrame.BackgroundTransparency = 0.2
         dropdownFrame.BorderSizePixel = 0
@@ -1385,45 +1425,57 @@ Tabs.Misc:AddButton({
         dropdownButton.MouseButton1Click:Connect(openDropdown)
         dropdownFrame.MouseButton1Click:Connect(openDropdown)
         
-        -- Teleport button (always visible)
-        local tpBtn = Instance.new("TextButton")
-        tpBtn.Size = UDim2.new(1, -10, 0, 30)
-        tpBtn.Position = UDim2.new(0, 5, 0, 125)
-        tpBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
-        tpBtn.BackgroundTransparency = 0.2
-        tpBtn.Text = "TELEPORT TO BASE"
-        tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        tpBtn.TextSize = 10
-        tpBtn.Font = Enum.Font.SourceSansBold
-        tpBtn.Parent = frame
+        -- Try TP button (works with dropdown selection)
+        local tryTPBtn = Instance.new("TextButton")
+        tryTPBtn.Size = UDim2.new(1, -10, 0, 30)
+        tryTPBtn.Position = UDim2.new(0, 5, 0, 160)
+        tryTPBtn.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+        tryTPBtn.BackgroundTransparency = 0.2
+        tryTPBtn.Text = "TRY TP"
+        tryTPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tryTPBtn.TextSize = 10
+        tryTPBtn.Font = Enum.Font.SourceSansBold
+        tryTPBtn.Parent = frame
         
-        local tpCorner = Instance.new("UICorner")
-        tpCorner.CornerRadius = UDim.new(0, 6)
-        tpCorner.Parent = tpBtn
+        local tryTPCorner = Instance.new("UICorner")
+        tryTPCorner.CornerRadius = UDim.new(0, 6)
+        tryTPCorner.Parent = tryTPBtn
         
         -- Info label
         local infoLabel = Instance.new("TextLabel")
-        infoLabel.Size = UDim2.new(1, -10, 0, 20)
-        infoLabel.Position = UDim2.new(0, 5, 0, 160)
+        infoLabel.Size = UDim2.new(1, -10, 0, 25)
+        infoLabel.Position = UDim2.new(0, 5, 0, 195)
         infoLabel.BackgroundTransparency = 1
-        infoLabel.Text = "First SET BASE, then select method & TP"
-        infoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        infoLabel.Text = "Auto spawn detection enabled"
+        infoLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
         infoLabel.TextSize = 8
         infoLabel.Font = Enum.Font.SourceSansItalic
         infoLabel.TextXAlignment = Enum.TextXAlignment.Center
         infoLabel.Parent = frame
         
+        -- Function to update display elements
+        local function updateDisplay()
+            if basePosition then
+                statusLabel.Text = "✅ Base Position Set"
+                statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                coordsLabel.Text = string.format("📍 X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z)
+                coordsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            else
+                statusLabel.Text = "❌ Base Position Not Set"
+                statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                coordsLabel.Text = "📍 No coordinates set"
+                coordsLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
+            end
+        end
+        
         -- Event handlers
         setBtn.MouseButton1Click:Connect(function()
-            local character = getCharacter()
-            local rootPart = getRootPart()
+            local character = player.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
             
-            if character and rootPart then
+            if rootPart then
                 basePosition = rootPart.Position
-                print("Base position set to:", basePosition) -- Debug output
-                
-                statusLabel.Text = "✅ Base Position Set - Ready to TP"
-                statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                updateDisplay()
                 
                 -- Visual feedback on button
                 local originalColor = setBtn.BackgroundColor3
@@ -1431,10 +1483,6 @@ Tabs.Misc:AddButton({
                 setBtn.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
                 setBtn.Text = "✅ BASE SET!"
                 
-                -- Update TP button text immediately
-                tpBtn.Text = "TP TO BASE"
-                
-                -- Reset button appearance after delay
                 task.spawn(function()
                     task.wait(1.5)
                     if setBtn and setBtn.Parent then
@@ -1445,39 +1493,29 @@ Tabs.Misc:AddButton({
                 
                 Fluent:Notify({
                     Title = "Base System",
-                    Content = string.format("Base set at position: X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z),
+                    Content = string.format("Manual base set at X:%.1f Y:%.1f Z:%.1f", basePosition.X, basePosition.Y, basePosition.Z),
                     Duration = 4
                 })
             else
                 Fluent:Notify({
                     Title = "Base System",
-                    Content = "Error: Cannot detect player. Please ensure character is loaded and try again.",
+                    Content = "Error: Cannot detect player position. Please ensure your character is loaded.",
                     Duration = 4
                 })
-                
-                -- Visual error feedback
-                local originalColor = setBtn.BackgroundColor3
-                setBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-                task.spawn(function()
-                    task.wait(1)
-                    if setBtn and setBtn.Parent then
-                        setBtn.BackgroundColor3 = originalColor
-                    end
-                end)
             end
         end)
         
-        tpBtn.MouseButton1Click:Connect(function()
+        tryTPBtn.MouseButton1Click:Connect(function()
             closeDropdown()
             
             if not basePosition then
                 Fluent:Notify({
-                    Title = "Base TP",
-                    Content = "Base position must be configured before teleportation! Please click SET BASE POSITION first.",
+                    Title = "Try TP",
+                    Content = "Base position must be configured before attempting teleportation. Please set a base first.",
                     Duration = 4
                 })
                 
-                -- Highlight set button to guide user
+                -- Highlight set button
                 local originalColor = setBtn.BackgroundColor3
                 setBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
                 task.spawn(function()
@@ -1486,23 +1524,20 @@ Tabs.Misc:AddButton({
                         setBtn.BackgroundColor3 = originalColor
                     end
                 end)
-                
                 return
             end
             
-            print("Teleporting to base position:", basePosition) -- Debug output
-            
             if selectedMethod == 0 then
                 Fluent:Notify({
-                    Title = "Base TP",
-                    Content = "Initiating automatic multi-method teleportation sequence...",
+                    Title = "Try TP",
+                    Content = "Executing automatic multi-method teleportation sequence...",
                     Duration = 2
                 })
                 advancedBaseTeleport(basePosition)
             else
                 Fluent:Notify({
-                    Title = "Base TP",
-                    Content = "Executing teleportation method " .. selectedMethod .. "...",
+                    Title = "Try TP",
+                    Content = "Testing teleportation method " .. selectedMethod .. "...",
                     Duration = 2
                 })
                 singleMethodTeleport(basePosition, selectedMethod)
@@ -1523,16 +1558,8 @@ Tabs.Misc:AddButton({
             end
         end)
         
-        -- Update status on frame creation to reflect persistent base
-        if basePosition then
-            statusLabel.Text = "✅ Base Position Set - Ready to TP"
-            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            tpBtn.Text = "TP TO BASE"
-        else
-            statusLabel.Text = "❌ Base Position Not Set"
-            statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-            tpBtn.Text = "TELEPORT TO BASE"
-        end
+        -- Initial display update
+        updateDisplay()
     end
 })
 
