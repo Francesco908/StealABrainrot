@@ -1,8 +1,5 @@
--- Water Hub Script - Rayfield Optimized Edition v5.2
--- Using Rayfield library for optimized performance without lag
-
--- Load Rayfield library
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- Water Hub Script - Optimized Version v5.0
+-- Removed unnecessary animations for better performance
 
 -- Services
 local Players = game:GetService("Players")
@@ -12,97 +9,183 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local StarterGui = game:GetService("StarterGui")
-local VirtualUser = game:GetService("VirtualUser")
+local GuiService = game:GetService("GuiService")
+local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local StarterGui = game:GetService("StarterGui")
+
+-- Advanced Bypass Variables
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+local protect = newcclosure or protect_function
+local hookfunction = hookfunction or function() end
+local getsenv = getsenv or function() return {} end
 
 -- Variables
 local player = Players.LocalPlayer
-local camera = Workspace.CurrentCamera
+local mouse = player:GetMouse()
+local camera = workspace.CurrentCamera
+
+-- Mobile detection
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- Global state management
+-- Global variables
+local waterHubGui = nil
+local minimizedIcon = nil
+local loadingGui = nil
+local openGuis = {}
 local connections = {}
 local states = {
     infiniteJump = false,
     speedBoost = false,
-    espBox = false,
+    espPlayers = false,
     espLines = false,
+    espBox = false,
     espSkeleton = false,
     espNames = false,
     noclip = false,
     fly = false,
     godMode = true,
-    float = false,
     antiKick = true,
-    antiBan = true
+    antiBan = true,
+    tpBase = false,
+    stealHelper = false
 }
 
+local flyPart = nil
 local basePosition = nil
 local originalWalkSpeed = 16
 local originalJumpPower = 50
+local characterAddedConnection = nil
 local espObjects = {}
-local flyPart = nil
-local floatBody = nil
-local minimizedIcon = nil
+local noclipConnection = nil
+local godModeConnection = nil
 
--- Advanced Anticheat Bypass Setup
+-- Color Scheme
+local colors = {
+    primary = Color3.fromRGB(0, 170, 255),
+    secondary = Color3.fromRGB(0, 140, 210),
+    background = Color3.fromRGB(25, 30, 40),
+    surface = Color3.fromRGB(35, 40, 50),
+    surfaceLight = Color3.fromRGB(45, 50, 60),
+    success = Color3.fromRGB(40, 167, 69),
+    danger = Color3.fromRGB(220, 53, 69),
+    warning = Color3.fromRGB(255, 193, 7),
+    text = Color3.fromRGB(255, 255, 255),
+    textSecondary = Color3.fromRGB(200, 200, 200),
+    glow = Color3.fromRGB(100, 200, 255)
+}
+
+-- Enhanced Anticheat Bypass Setup
 local function setupBypass()
+    -- Method 1: Advanced metatable hooking
     pcall(function()
-        -- Method 1: Advanced metatable protection
-        local mt = getrawmetatable(game)
-        if mt then
-            local oldIndex = mt.__index
-            local oldNewIndex = mt.__newindex
-            
-            setreadonly(mt, false)
-            
-            mt.__index = newcclosure(function(self, key)
-                if checkcaller() then
-                    return oldIndex(self, key)
-                end
-                
-                if tostring(self) == "Humanoid" then
-                    if key == "WalkSpeed" then
-                        return 16
-                    elseif key == "JumpPower" then
-                        return 50
-                    end
-                end
-                
+        setreadonly(mt, false)
+        
+        local oldIndex = mt.__index
+        local oldNewIndex = mt.__newindex
+        
+        mt.__index = newcclosure(function(self, key)
+            if checkcaller() then
                 return oldIndex(self, key)
-            end)
+            end
             
-            mt.__newindex = newcclosure(function(self, key, value)
-                if checkcaller() then
-                    return oldNewIndex(self, key, value)
+            -- Spoof WalkSpeed and JumpPower
+            if tostring(self) == "Humanoid" then
+                if key == "WalkSpeed" then
+                    return 16
+                elseif key == "JumpPower" then
+                    return 50
                 end
-                
-                if key == "WalkSpeed" or key == "JumpPower" or key == "HipHeight" then
-                    return
-                end
-                
+            end
+            
+            return oldIndex(self, key)
+        end)
+        
+        mt.__newindex = newcclosure(function(self, key, value)
+            if checkcaller() then
                 return oldNewIndex(self, key, value)
-            end)
+            end
             
-            setreadonly(mt, true)
-        end
+            -- Block suspicious property changes
+            if key == "WalkSpeed" or key == "JumpPower" or key == "HipHeight" then
+                return
+            end
+            
+            return oldNewIndex(self, key, value)
+        end)
+        
+        mt.__namecall = protect(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+            
+            -- Block kick/ban attempts
+            if method == "Kick" or method == "kick" then
+                return nil
+            end
+            
+            -- Block teleport detection
+            if method == "GetPropertyChangedSignal" then
+                if args[1] == "CFrame" or args[1] == "Position" then
+                    return Instance.new("BindableEvent").Event
+                end
+            end
+            
+            -- Block remote events that might be anticheat
+            if (method == "FireServer" or method == "InvokeServer") and self:IsA("RemoteEvent") or self:IsA("RemoteFunction") then
+                local name = tostring(self)
+                if name:lower():find("anti") or name:lower():find("cheat") or name:lower():find("ban") or 
+                   name:lower():find("kick") or name:lower():find("detect") or name:lower():find("flag") then
+                    return nil
+                end
+            end
+            
+            return old(self, ...)
+        end)
+        
+        setreadonly(mt, true)
     end)
     
-    -- Method 2: Anti-idle
-    player.Idled:Connect(function()
-        VirtualUser:Button2Down(Vector2.new(0, 0), camera.CFrame)
-        wait(1)
-        VirtualUser:Button2Up(Vector2.new(0, 0), camera.CFrame)
-    end)
-    
-    -- Method 3: Disable error reporting
+    -- Method 2: Hook game close
     pcall(function()
         for _, v in pairs(getconnections(game.Close)) do
             v:Disable()
         end
     end)
+    
+    -- Method 3: Disable common anticheat connections
+    pcall(function()
+        for _, v in pairs(getconnections(player.Idled)) do
+            v:Disable()
+        end
+    end)
+    
+    -- Method 4: Anti-idle
+    player.Idled:Connect(function()
+        VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        wait(1)
+        VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    end)
+    
+    -- Method 5: Disable error reporting
+    local oldError = error
+    local oldWarn = warn
+    
+    getgenv().error = function(msg)
+        if type(msg) == "string" and (msg:lower():find("exploit") or msg:lower():find("cheat") or msg:lower():find("hack")) then
+            return
+        end
+        return oldError(msg)
+    end
+    
+    getgenv().warn = function(msg)
+        if type(msg) == "string" and (msg:lower():find("exploit") or msg:lower():find("cheat") or msg:lower():find("hack")) then
+            return
+        end
+        return oldWarn(msg)
+    end
 end
 
 -- Utility Functions
@@ -117,20 +200,138 @@ end
 
 local function getRootPart()
     local char = getCharacter()
-    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso"))
+    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:WaitForChild("HumanoidRootPart", 2))
+end
+
+-- Simplified UI Creation (no animations)
+local function createFrame(parent, size, position, color, transparency)
+    local frame = Instance.new("Frame")
+    frame.Size = size
+    frame.Position = position
+    frame.BackgroundColor3 = color
+    frame.BackgroundTransparency = transparency or 0
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = frame
+    
+    return frame
+end
+
+local function createButton(parent, size, position, color, text)
+    local button = Instance.new("TextButton")
+    button.Size = size
+    button.Position = position
+    button.BackgroundColor3 = color
+    button.Text = text
+    button.TextColor3 = colors.text
+    button.TextScaled = true
+    button.Font = Enum.Font.SourceSansBold
+    button.BorderSizePixel = 0
+    button.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = button
+    
+    return button
+end
+
+local function createSwitch(parent, position, callback, initialState)
+    local switchFrame = createFrame(parent, 
+        UDim2.new(0, 50, 0, 25), 
+        position, 
+        initialState and colors.primary or Color3.fromRGB(80, 80, 80), 
+        0
+    )
+    switchFrame.Active = true
+    
+    local switchButton = createFrame(switchFrame, 
+        UDim2.new(0, 21, 0, 21), 
+        initialState and UDim2.new(1, -23, 0, 2) or UDim2.new(0, 2, 0, 2), 
+        Color3.fromRGB(255, 255, 255), 
+        0
+    )
+    
+    local isOn = initialState or false
+    
+    local function toggle()
+        isOn = not isOn
+        
+        -- Instant toggle (no animation)
+        switchButton.Position = isOn and UDim2.new(1, -23, 0, 2) or UDim2.new(0, 2, 0, 2)
+        switchFrame.BackgroundColor3 = isOn and colors.primary or Color3.fromRGB(80, 80, 80)
+        
+        if callback then
+            callback(isOn)
+        end
+    end
+    
+    switchFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            toggle()
+        end
+    end)
+    
+    return switchFrame, toggle
+end
+
+local function makeDraggable(frame, dragArea)
+    dragArea = dragArea or frame
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    local function update(input)
+        if dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end
+    
+    dragArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    
+    dragArea.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            update(input)
+        end
+    end)
 end
 
 -- Feature Functions
-local function toggleGodMode(enabled)
+local toggleGodMode, toggleInfiniteJump, toggleSpeedBoost, toggleNoclip, toggleFly, toggleESP
+local createMainGui, createMinimizedIcon
+
+-- God Mode
+toggleGodMode = function(enabled)
     states.godMode = enabled
     
-    if connections.godMode then
-        connections.godMode:Disconnect()
-        connections.godMode = nil
+    if godModeConnection then
+        godModeConnection:Disconnect()
+        godModeConnection = nil
     end
     
     if enabled then
-        connections.godMode = RunService.Heartbeat:Connect(function()
+        godModeConnection = RunService.Heartbeat:Connect(function()
             local humanoid = getHumanoid()
             if humanoid then
                 humanoid.Health = humanoid.MaxHealth
@@ -141,6 +342,7 @@ local function toggleGodMode(enabled)
                     humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
                 end)
                 
+                -- Create invisible forcefield
                 local char = getCharacter()
                 if char and not char:FindFirstChild("ForceField") then
                     local ff = Instance.new("ForceField")
@@ -152,7 +354,8 @@ local function toggleGodMode(enabled)
     end
 end
 
-local function toggleInfiniteJump(enabled)
+-- Infinite Jump
+toggleInfiniteJump = function(enabled)
     states.infiniteJump = enabled
     
     if connections.infiniteJump then
@@ -166,22 +369,27 @@ local function toggleInfiniteJump(enabled)
     end
     
     if enabled then
+        -- Main jump connection
         connections.infiniteJump = UserInputService.JumpRequest:Connect(function()
             local humanoid = getHumanoid()
             local rootPart = getRootPart()
             
             if humanoid and rootPart and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
+                -- Force jump state
                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 
+                -- Apply upward velocity for smooth movement
                 local bodyVelocity = Instance.new("BodyVelocity")
                 bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
                 bodyVelocity.Velocity = Vector3.new(0, 60, 0)
                 bodyVelocity.Parent = rootPart
                 
+                -- Remove after jump
                 game:GetService("Debris"):AddItem(bodyVelocity, 0.1)
             end
         end)
         
+        -- Maintain jump ability
         connections.jumpHeight = RunService.Heartbeat:Connect(function()
             local humanoid = getHumanoid()
             if humanoid then
@@ -192,12 +400,18 @@ local function toggleInfiniteJump(enabled)
     end
 end
 
-local function toggleSpeedBoost(enabled)
+-- Speed Boost
+toggleSpeedBoost = function(enabled)
     states.speedBoost = enabled
     
     if connections.speedBoost then
         connections.speedBoost:Disconnect()
         connections.speedBoost = nil
+    end
+    
+    local humanoid = getHumanoid()
+    if humanoid then
+        originalWalkSpeed = 16
     end
     
     if enabled then
@@ -208,6 +422,7 @@ local function toggleSpeedBoost(enabled)
             if humanoid and rootPart then
                 humanoid.WalkSpeed = 25
                 
+                -- Additional velocity boost for better movement
                 if humanoid.MoveDirection.Magnitude > 0 then
                     local moveDirection = humanoid.MoveDirection.Unit
                     rootPart.Velocity = Vector3.new(
@@ -226,16 +441,17 @@ local function toggleSpeedBoost(enabled)
     end
 end
 
-local function toggleNoclip(enabled)
+-- Noclip
+toggleNoclip = function(enabled)
     states.noclip = enabled
     
-    if connections.noclip then
-        connections.noclip:Disconnect()
-        connections.noclip = nil
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
     end
     
     if enabled then
-        connections.noclip = RunService.Stepped:Connect(function()
+        noclipConnection = RunService.Stepped:Connect(function()
             local character = getCharacter()
             if character then
                 for _, part in pairs(character:GetDescendants()) do
@@ -257,7 +473,8 @@ local function toggleNoclip(enabled)
     end
 end
 
-local function toggleFly(enabled)
+-- Fly
+toggleFly = function(enabled)
     states.fly = enabled
     
     if connections.flyControl then
@@ -271,13 +488,19 @@ local function toggleFly(enabled)
     end
     
     if enabled then
+        local humanoid = getHumanoid()
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+        
+        -- Create invisible platform
         flyPart = Instance.new("Part")
         flyPart.Size = Vector3.new(5, 0.2, 5)
         flyPart.Transparency = 1
         flyPart.CanCollide = true
         flyPart.Anchored = true
         flyPart.Name = "FlyPart"
-        flyPart.Parent = Workspace
+        flyPart.Parent = workspace
         
         connections.flyControl = RunService.Heartbeat:Connect(function()
             local rootPart = getRootPart()
@@ -288,9 +511,10 @@ local function toggleFly(enabled)
                 return 
             end
             
+            -- Position platform under player
             flyPart.CFrame = CFrame.new(rootPart.Position - Vector3.new(0, 3.5, 0))
             
-            local cam = Workspace.CurrentCamera
+            local cam = workspace.CurrentCamera
             local moveVector = Vector3.new(0, 0, 0)
             
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then
@@ -312,8 +536,11 @@ local function toggleFly(enabled)
                 moveVector = moveVector - Vector3.new(0, 1, 0)
             end
             
+            -- Apply movement
             local speed = 50
             rootPart.Velocity = moveVector * speed
+            
+            -- Keep upright
             rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(0, math.rad(rootPart.Orientation.Y), 0)
         end)
     else
@@ -329,37 +556,7 @@ local function toggleFly(enabled)
     end
 end
 
-local function toggleFloat(enabled)
-    states.float = enabled
-    
-    if connections.float then
-        connections.float:Disconnect()
-        connections.float = nil
-    end
-    
-    if floatBody then
-        floatBody:Destroy()
-        floatBody = nil
-    end
-    
-    if enabled then
-        local rootPart = getRootPart()
-        if rootPart then
-            floatBody = Instance.new("BodyPosition")
-            floatBody.MaxForce = Vector3.new(0, math.huge, 0)
-            floatBody.Position = rootPart.Position
-            floatBody.Parent = rootPart
-            
-            connections.float = RunService.Heartbeat:Connect(function()
-                if floatBody and rootPart then
-                    floatBody.Position = rootPart.Position
-                end
-            end)
-        end
-    end
-end
-
--- ESP Functions
+-- ESP System
 local function createAdvancedESP(targetPlayer)
     if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return
@@ -376,6 +573,7 @@ local function createAdvancedESP(targetPlayer)
     
     espObjects[targetPlayer] = {}
     
+    -- ESP Box
     if states.espBox then
         local box = Instance.new("BoxHandleAdornment")
         box.Size = character:GetExtentsSize()
@@ -388,6 +586,7 @@ local function createAdvancedESP(targetPlayer)
         table.insert(espObjects[targetPlayer], box)
     end
     
+    -- ESP Lines
     if states.espLines then
         local myRoot = getRootPart()
         if myRoot then
@@ -411,6 +610,7 @@ local function createAdvancedESP(targetPlayer)
         end
     end
     
+    -- ESP Names
     if states.espNames then
         local billboard = Instance.new("BillboardGui")
         billboard.Adornee = rootPart
@@ -449,7 +649,7 @@ local function createAdvancedESP(targetPlayer)
     end
 end
 
-local function toggleESP(espType, enabled)
+toggleESP = function(espType, enabled)
     states[espType] = enabled
     
     for player, objects in pairs(espObjects) do
@@ -475,14 +675,13 @@ local function toggleESP(espType, enabled)
     end
 end
 
--- Base System Functions
+-- Teleport to Base
 local function teleportToBase()
     if not basePosition then
-        Rayfield:Notify({
+        StarterGui:SetCore("SendNotification", {
             Title = "Water Hub",
-            Content = "Please set a base position first!",
-            Duration = 3,
-            Image = 4483362458
+            Text = "Please set a base position first!",
+            Duration = 3
         })
         return false
     end
@@ -493,57 +692,39 @@ local function teleportToBase()
         return false
     end
     
+    -- Enable bypass features temporarily
     local wasNoclip = states.noclip
     if not wasNoclip then toggleNoclip(true) end
     
+    -- Phase 1: Instant teleport to 165 height
     rootPart.CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)
+    
+    -- Wait 2 seconds
     wait(2)
     
-    local targetPosition = Vector3.new(basePosition.X, 165, basePosition.Z)
-    local startPosition = rootPart.Position
-    local distance = (targetPosition - startPosition).Magnitude
+    -- Phase 2: Move to base position at height 165
+    rootPart.CFrame = CFrame.new(basePosition.X, 165, basePosition.Z)
     
-    local flyConnection
-    local elapsed = 0
-    local flyDuration = math.max(distance / 50, 1)
+    -- Wait 2 more seconds
+    wait(2)
     
-    flyConnection = RunService.Heartbeat:Connect(function(dt)
-        elapsed = elapsed + dt
-        local progress = math.min(elapsed / flyDuration, 1)
-        
-        local newPosition = startPosition:Lerp(targetPosition, progress)
-        rootPart.CFrame = CFrame.new(newPosition)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        
-        if progress >= 1 then
-            flyConnection:Disconnect()
-        end
-    end)
-    
-    wait(flyDuration + 2)
-    
+    -- Restore noclip state
     if not wasNoclip then toggleNoclip(false) end
     
-    -- Create down button
+    -- Create down button in center of screen
     local downGui = Instance.new("ScreenGui")
     downGui.Name = "DownButton"
     downGui.Parent = CoreGui
     downGui.ResetOnSpawn = false
     
-    local downBtn = Instance.new("TextButton")
-    downBtn.Size = UDim2.new(0, 150, 0, 60)
-    downBtn.Position = UDim2.new(0.5, -75, 0.5, -30)
-    downBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
-    downBtn.Text = "⬇️ Down"
-    downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downBtn.TextScaled = true
+    local downBtn = createButton(downGui, 
+        UDim2.new(0, 150, 0, 60), 
+        UDim2.new(0.5, -75, 0.5, -30), 
+        colors.danger, 
+        "⬇️ Down"
+    )
     downBtn.Font = Enum.Font.SourceSansBold
-    downBtn.BorderSizePixel = 0
-    downBtn.Parent = downGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = downBtn
+    downBtn.TextSize = 24
     
     downBtn.MouseButton1Click:Connect(function()
         if basePosition then
@@ -555,78 +736,195 @@ local function teleportToBase()
     return true
 end
 
--- Give All Items Function
-local function giveAllItems()
-    local character = getCharacter()
-    if not character then return 0 end
+-- TP Base GUI
+local tpBaseGui = nil
+local function toggleTPBase(enabled)
+    states.tpBase = enabled
     
-    local backpack = player:FindFirstChild("Backpack")
-    if not backpack then return 0 end
-    
-    local rootPart = getRootPart()
-    if not rootPart then return 0 end
-    
-    local collected = 0
-    
-    local function collectItem(obj)
-        if obj:IsA("Tool") and not obj.Parent:IsA("Model") then
-            pcall(function()
-                obj.Parent = backpack
-                collected = collected + 1
+    if enabled then
+        if not tpBaseGui or not tpBaseGui.Parent then
+            tpBaseGui = Instance.new("ScreenGui")
+            tpBaseGui.Name = "TPBaseGui"
+            tpBaseGui.Parent = CoreGui
+            tpBaseGui.ResetOnSpawn = false
+            table.insert(openGuis, tpBaseGui)
+            
+            local frame = createFrame(tpBaseGui, 
+                UDim2.new(0, 250, 0, 150), 
+                UDim2.new(0.5, -125, 0.3, 0), 
+                colors.surface, 
+                0.1
+            )
+            frame.Active = true
+            makeDraggable(frame)
+            
+            -- Header
+            local header = createFrame(frame, 
+                UDim2.new(1, 0, 0, 35), 
+                UDim2.new(0, 0, 0, 0), 
+                colors.primary, 
+                0
+            )
+            
+            local title = Instance.new("TextLabel")
+            title.Size = UDim2.new(1, -40, 1, 0)
+            title.Position = UDim2.new(0, 10, 0, 0)
+            title.BackgroundTransparency = 1
+            title.Text = "📍 Base System"
+            title.TextColor3 = colors.text
+            title.TextScaled = true
+            title.Font = Enum.Font.SourceSansBold
+            title.Parent = header
+            
+            local closeBtn = createButton(header, 
+                UDim2.new(0, 30, 0, 30), 
+                UDim2.new(1, -35, 0.5, -15), 
+                colors.danger, 
+                "×"
+            )
+            
+            -- Buttons
+            local setBtn = createButton(frame, 
+                UDim2.new(0.9, 0, 0, 35), 
+                UDim2.new(0.05, 0, 0, 50), 
+                colors.success, 
+                "📍 Set Base"
+            )
+            
+            local tpBtn = createButton(frame, 
+                UDim2.new(0.9, 0, 0, 35), 
+                UDim2.new(0.05, 0, 0, 95), 
+                colors.warning, 
+                "🚀 Teleport to Base"
+            )
+            
+            -- Events
+            closeBtn.MouseButton1Click:Connect(function()
+                tpBaseGui:Destroy()
+                tpBaseGui = nil
+                states.tpBase = false
+            end)
+            
+            setBtn.MouseButton1Click:Connect(function()
+                local rootPart = getRootPart()
+                if rootPart then
+                    basePosition = rootPart.Position
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Water Hub",
+                        Text = "Base position set!",
+                        Duration = 2
+                    })
+                end
+            end)
+            
+            tpBtn.MouseButton1Click:Connect(function()
+                teleportToBase()
             end)
         end
-        
-        if obj:IsA("BasePart") then
-            local name = obj.Name:lower()
-            if name:match("item") or name:match("coin") or name:match("collectible") or 
-               name:match("pickup") or name:match("drop") or name:match("loot") then
-                pcall(function()
-                    obj.CFrame = rootPart.CFrame
-                    collected = collected + 1
-                end)
-                
-                pcall(function()
-                    firetouchinterest(rootPart, obj, 0)
-                    wait()
-                    firetouchinterest(rootPart, obj, 1)
-                end)
-            end
-        end
-        
-        if obj:IsA("ProximityPrompt") then
-            pcall(function()
-                fireproximityprompt(obj)
-                collected = collected + 1
-            end)
-        end
-        
-        if obj:IsA("ClickDetector") then
-            pcall(function()
-                fireclickdetector(obj)
-                collected = collected + 1
-            end)
+    else
+        if tpBaseGui then
+            tpBaseGui:Destroy()
+            tpBaseGui = nil
         end
     end
-    
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        collectItem(obj)
-    end
-    
-    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("Tool") then
-            pcall(function()
-                local clone = obj:Clone()
-                clone.Parent = backpack
-                collected = collected + 1
-            end)
-        end
-    end
-    
-    return collected
 end
 
--- Minimized Icon
-local function createMinimizedIcon()
+-- Steal Helper GUI
+local stealHelperGui = nil
+local stealIsAtTop = false
+
+local function toggleStealHelper(enabled)
+    states.stealHelper = enabled
+    
+    if enabled then
+        if not stealHelperGui or not stealHelperGui.Parent then
+            stealHelperGui = Instance.new("ScreenGui")
+            stealHelperGui.Name = "StealHelperGui"
+            stealHelperGui.Parent = CoreGui
+            stealHelperGui.ResetOnSpawn = false
+            table.insert(openGuis, stealHelperGui)
+            
+            local frame = createFrame(stealHelperGui, 
+                UDim2.new(0, 180, 0, 120), 
+                UDim2.new(0.8, -90, 0.5, -60), 
+                colors.surface, 
+                0.1
+            )
+            frame.Active = true
+            makeDraggable(frame)
+            
+            -- Header
+            local header = createFrame(frame, 
+                UDim2.new(1, 0, 0, 30), 
+                UDim2.new(0, 0, 0, 0), 
+                colors.primary, 
+                0
+            )
+            
+            local title = Instance.new("TextLabel")
+            title.Size = UDim2.new(1, -35, 1, 0)
+            title.Position = UDim2.new(0, 10, 0, 0)
+            title.BackgroundTransparency = 1
+            title.Text = "💰 Steal Helper"
+            title.TextColor3 = colors.text
+            title.TextScaled = true
+            title.Font = Enum.Font.SourceSansBold
+            title.Parent = header
+            
+            local closeBtn = createButton(header, 
+                UDim2.new(0, 25, 0, 25), 
+                UDim2.new(1, -30, 0.5, -12.5), 
+                colors.danger, 
+                "×"
+            )
+            
+            -- Buttons
+            local upBtn = createButton(frame, 
+                UDim2.new(0.43, 0, 0, 35), 
+                UDim2.new(0.05, 0, 0, 45), 
+                colors.success, 
+                "⬆️ Up"
+            )
+            
+            local downBtn = createButton(frame, 
+                UDim2.new(0.43, 0, 0, 35), 
+                UDim2.new(0.52, 0, 0, 45), 
+                colors.danger, 
+                "⬇️ Down"
+            )
+            
+            -- Events
+            closeBtn.MouseButton1Click:Connect(function()
+                stealHelperGui:Destroy()
+                stealHelperGui = nil
+                states.stealHelper = false
+            end)
+            
+            upBtn.MouseButton1Click:Connect(function()
+                local rootPart = getRootPart()
+                if rootPart then
+                    rootPart.CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)
+                    stealIsAtTop = true
+                end
+            end)
+            
+            downBtn.MouseButton1Click:Connect(function()
+                local rootPart = getRootPart()
+                if rootPart then
+                    rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 50, 0)
+                end
+            end)
+        end
+    else
+        if stealHelperGui then
+            stealHelperGui:Destroy()
+            stealHelperGui = nil
+        end
+    end
+end
+
+-- Minimized Icon (simple, no animations)
+createMinimizedIcon = function()
     if minimizedIcon then
         minimizedIcon:Destroy()
     end
@@ -637,415 +935,390 @@ local function createMinimizedIcon()
     minimizedIcon.ResetOnSpawn = false
     
     local waterDrop = Instance.new("ImageButton")
-    waterDrop.Size = UDim2.new(0, 80, 0, 80)
+    waterDrop.Size = UDim2.new(0, 70, 0, 70)
     waterDrop.Position = UDim2.new(0, 20, 0, 20)
     waterDrop.BackgroundTransparency = 1
     waterDrop.Image = "rbxassetid://6034684930"
-    waterDrop.ImageColor3 = Color3.fromRGB(0, 170, 255)
+    waterDrop.ImageColor3 = colors.primary
     waterDrop.Parent = minimizedIcon
     waterDrop.Active = true
     
-    -- Make draggable
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-    
-    waterDrop.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = waterDrop.Position
-        end
-    end)
-    
-    waterDrop.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            waterDrop.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-    
-    -- Animation
-    spawn(function()
-        local rotation = 0
-        while minimizedIcon and minimizedIcon.Parent do
-            rotation = rotation + 2
-            waterDrop.Rotation = rotation
-            RunService.Heartbeat:Wait()
-        end
-    end)
+    makeDraggable(waterDrop)
     
     waterDrop.MouseButton1Click:Connect(function()
         minimizedIcon:Destroy()
         minimizedIcon = nil
-        -- Recreate the main GUI
-        createWaterHubGUI()
+        createMainGui()
     end)
 end
 
--- Main GUI Creation with Rayfield
-function createWaterHubGUI()
-    local Window = Rayfield:CreateWindow({
-        Name = "💧 Water Hub - Ultimate Edition v5.2",
-        LoadingTitle = "Loading Water Hub...",
-        LoadingSubtitle = "by Water Team",
-        ConfigurationSaving = {
-            Enabled = true,
-            FolderName = "WaterHub",
-            FileName = "WaterHubConfig"
-        },
-        Discord = {
-            Enabled = false,
-            Invite = "noinvitelink",
-            RememberJoins = true
-        },
-        KeySystem = false
-    })
-    
-    -- Main Tab
-    local MainTab = Window:CreateTab("🛡️ Main", 4483362458)
-    
-    local GodModeToggle = MainTab:CreateToggle({
-        Name = "🛡️ God Mode",
-        CurrentValue = states.godMode,
-        Flag = "GodModeToggle",
-        Callback = function(Value)
-            toggleGodMode(Value)
-        end,
-    })
-    
-    local InfiniteJumpToggle = MainTab:CreateToggle({
-        Name = "🦘 Infinite Jump",
-        CurrentValue = states.infiniteJump,
-        Flag = "InfiniteJumpToggle",
-        Callback = function(Value)
-            toggleInfiniteJump(Value)
-        end,
-    })
-    
-    if isMobile then
-        local FloatToggle = MainTab:CreateToggle({
-            Name = "🎈 Float (Mobile)",
-            CurrentValue = states.float,
-            Flag = "FloatToggle",
-            Callback = function(Value)
-                toggleFloat(Value)
-            end,
-        })
+-- Main GUI (optimized)
+createMainGui = function()
+    if waterHubGui then
+        waterHubGui:Destroy()
     end
     
-    local SpeedBoostToggle = MainTab:CreateToggle({
-        Name = "⚡ Speed Boost",
-        CurrentValue = states.speedBoost,
-        Flag = "SpeedBoostToggle",
-        Callback = function(Value)
-            toggleSpeedBoost(Value)
-        end,
-    })
+    waterHubGui = Instance.new("ScreenGui")
+    waterHubGui.Name = "WaterHubMain"
+    waterHubGui.Parent = CoreGui
+    waterHubGui.ResetOnSpawn = false
+    table.insert(openGuis, waterHubGui)
     
-    local NoclipToggle = MainTab:CreateToggle({
-        Name = "👻 Noclip",
-        CurrentValue = states.noclip,
-        Flag = "NoclipToggle",
-        Callback = function(Value)
-            toggleNoclip(Value)
-        end,
-    })
+    -- Main frame
+    local mainFrame = createFrame(waterHubGui, 
+        UDim2.new(0, 350, 0, 400), 
+        UDim2.new(0.5, -175, 0.5, -200), 
+        colors.background, 
+        0.15
+    )
+    mainFrame.Active = true
     
-    local FlyToggle = MainTab:CreateToggle({
-        Name = "✈️ Fly",
-        CurrentValue = states.fly,
-        Flag = "FlyToggle",
-        Callback = function(Value)
-            toggleFly(Value)
-        end,
-    })
+    -- Header
+    local header = createFrame(mainFrame, 
+        UDim2.new(1, 0, 0, 40), 
+        UDim2.new(0, 0, 0, 0), 
+        colors.primary, 
+        0
+    )
+    makeDraggable(mainFrame, header)
     
-    -- Visual Tab
-    local VisualTab = Window:CreateTab("👁️ Visual", 4483362458)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.6, 0, 1, 0)
+    title.Position = UDim2.new(0, 15, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "💧 Water Hub v5"
+    title.TextColor3 = colors.text
+    title.TextScaled = true
+    title.Font = Enum.Font.SourceSansBold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
     
-    local ESPBoxToggle = VisualTab:CreateToggle({
-        Name = "📦 ESP Box",
-        CurrentValue = states.espBox,
-        Flag = "ESPBoxToggle",
-        Callback = function(Value)
-            toggleESP("espBox", Value)
-        end,
-    })
+    -- Window controls
+    local minimizeBtn = createButton(header, 
+        UDim2.new(0, 30, 0, 30), 
+        UDim2.new(1, -70, 0.5, -15), 
+        colors.warning, 
+        "−"
+    )
     
-    local ESPLinesToggle = VisualTab:CreateToggle({
-        Name = "📐 ESP Lines",
-        CurrentValue = states.espLines,
-        Flag = "ESPLinesToggle",
-        Callback = function(Value)
-            toggleESP("espLines", Value)
-        end,
-    })
+    local closeBtn = createButton(header, 
+        UDim2.new(0, 30, 0, 30), 
+        UDim2.new(1, -35, 0.5, -15), 
+        colors.danger, 
+        "×"
+    )
     
-    local ESPNamesToggle = VisualTab:CreateToggle({
-        Name = "🏷️ ESP Names & Health",
-        CurrentValue = states.espNames,
-        Flag = "ESPNamesToggle",
-        Callback = function(Value)
-            toggleESP("espNames", Value)
-        end,
-    })
+    -- Tab system
+    local tabContainer = createFrame(mainFrame, 
+        UDim2.new(1, -20, 0, 35), 
+        UDim2.new(0, 10, 0, 50), 
+        colors.surface, 
+        0.1
+    )
     
-    -- Misc Tab
-    local MiscTab = Window:CreateTab("🔧 Misc", 4483362458)
+    local tabs = {"Main", "Visual", "Server"}
+    local tabButtons = {}
+    local contentFrames = {}
     
-    local BaseSection = MiscTab:CreateSection("📍 Base System")
+    for i, tabName in ipairs(tabs) do
+        local tabBtn = createButton(tabContainer, 
+            UDim2.new(0.33, -5, 1, -10), 
+            UDim2.new((i-1) * 0.33 + 0.02, 0, 0, 5), 
+            i == 1 and colors.primary or colors.surface, 
+            tabName
+        )
+        tabBtn.Font = Enum.Font.SourceSans
+        tabButtons[i] = tabBtn
+        
+        -- Content frame
+        local contentFrame = createFrame(mainFrame, 
+            UDim2.new(1, -20, 1, -105), 
+            UDim2.new(0, 10, 0, 95), 
+            colors.surface, 
+            0.05
+        )
+        contentFrame.Visible = (i == 1)
+        contentFrame.ClipsDescendants = true
+        
+        local scrollFrame = Instance.new("ScrollingFrame")
+        scrollFrame.Size = UDim2.new(1, -10, 1, -10)
+        scrollFrame.Position = UDim2.new(0, 5, 0, 5)
+        scrollFrame.BackgroundTransparency = 1
+        scrollFrame.BorderSizePixel = 0
+        scrollFrame.ScrollBarThickness = 6
+        scrollFrame.ScrollBarImageColor3 = colors.primary
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scrollFrame.Parent = contentFrame
+        
+        contentFrames[i] = scrollFrame
+    end
     
-    local SetBaseButton = MiscTab:CreateButton({
-        Name = "📍 Set Base",
-        Callback = function()
-            local rootPart = getRootPart()
-            if rootPart then
-                basePosition = rootPart.Position
-                Rayfield:Notify({
-                    Title = "Water Hub",
-                    Content = "Base position set successfully!",
-                    Duration = 2,
-                    Image = 4483362458
-                })
+    -- Tab switching (no animations)
+    for i, btn in ipairs(tabButtons) do
+        btn.MouseButton1Click:Connect(function()
+            for j, frame in ipairs(contentFrames) do
+                frame.Parent.Visible = (j == i)
             end
-        end,
-    })
-    
-    local TeleportBaseButton = MiscTab:CreateButton({
-        Name = "🚀 Teleport to Base",
-        Callback = function()
-            teleportToBase()
-        end,
-    })
-    
-    local ToolsSection = MiscTab:CreateSection("🔨 Tools")
-    
-    local GiveItemsButton = MiscTab:CreateButton({
-        Name = "📦 Give All Items",
-        Callback = function()
-            local itemCount = giveAllItems()
-            if itemCount > 0 then
-                Rayfield:Notify({
-                    Title = "Water Hub",
-                    Content = "Collected " .. itemCount .. " items!",
-                    Duration = 3,
-                    Image = 4483362458
-                })
-            else
-                Rayfield:Notify({
-                    Title = "Water Hub",
-                    Content = "No items found to collect!",
-                    Duration = 3,
-                    Image = 4483362458
-                })
+            for j, button in ipairs(tabButtons) do
+                button.BackgroundColor3 = (j == i) and colors.primary or colors.surface
             end
-        end,
-    })
+        end)
+    end
     
-    local StealHelperSection = MiscTab:CreateSection("💰 Steal Helper")
+    -- MAIN TAB
+    local mainContent = contentFrames[1]
+    local yPos = 10
     
-    local stealIsAtTop = false
-    local StealHelperButton = MiscTab:CreateButton({
-        Name = "⬆️ Up to 165",
-        Callback = function()
-            local rootPart = getRootPart()
-            if rootPart then
-                if stealIsAtTop then
-                    rootPart.CFrame = rootPart.CFrame - Vector3.new(0, 50, 0)
-                    stealIsAtTop = false
-                    -- Update button text would require recreating it in Rayfield
-                else
-                    rootPart.CFrame = CFrame.new(rootPart.Position.X, 165, rootPart.Position.Z)
-                    stealIsAtTop = true
-                    -- Update button text would require recreating it in Rayfield
-                end
-            end
-        end,
-    })
+    local function addFeature(text, icon, callback, initialState)
+        local container = Instance.new("Frame")
+        container.Size = UDim2.new(1, -20, 0, 35)
+        container.Position = UDim2.new(0, 10, 0, yPos)
+        container.BackgroundTransparency = 1
+        container.Parent = mainContent
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -60, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = icon .. " " .. text
+        label.TextColor3 = colors.text
+        label.TextScaled = true
+        label.Font = Enum.Font.SourceSans
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = container
+        
+        createSwitch(container, UDim2.new(1, -55, 0.5, -12.5), callback, initialState)
+        
+        yPos = yPos + 40
+    end
     
-    -- Server Tab
-    local ServerTab = Window:CreateTab("🌐 Server", 4483362458)
+    addFeature("God Mode", "🛡️", toggleGodMode, states.godMode)
+    addFeature("Infinite Jump", "🦘", toggleInfiniteJump, states.infiniteJump)
+    addFeature("Speed Boost", "⚡", toggleSpeedBoost, states.speedBoost)
+    addFeature("Noclip", "👻", toggleNoclip, states.noclip)
+    addFeature("Fly", "✈️", toggleFly, states.fly)
+    addFeature("TP Base", "📍", toggleTPBase, states.tpBase)
+    addFeature("Steal Helper", "💰", toggleStealHelper, states.stealHelper)
     
-    local ServerSection = ServerTab:CreateSection("🔄 Server Controls")
+    mainContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
     
-    local RejoinButton = ServerTab:CreateButton({
-        Name = "🔄 Rejoin Server",
-        Callback = function()
-            TeleportService:Teleport(game.PlaceId, player)
-        end,
-    })
+    -- VISUAL TAB
+    local visualContent = contentFrames[2]
+    yPos = 10
     
-    local LeaveButton = ServerTab:CreateButton({
-        Name = "🚪 Leave Game",
-        Callback = function()
-            player:Kick("Left the game via Water Hub")
-        end,
-    })
+    local function addESP(text, icon, espType)
+        local container = Instance.new("Frame")
+        container.Size = UDim2.new(1, -20, 0, 35)
+        container.Position = UDim2.new(0, 10, 0, yPos)
+        container.BackgroundTransparency = 1
+        container.Parent = visualContent
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -60, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = icon .. " " .. text
+        label.TextColor3 = colors.text
+        label.TextScaled = true
+        label.Font = Enum.Font.SourceSans
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = container
+        
+        createSwitch(container, UDim2.new(1, -55, 0.5, -12.5), function(enabled)
+            toggleESP(espType, enabled)
+        end, states[espType])
+        
+        yPos = yPos + 40
+    end
     
-    local ServerHopButton = ServerTab:CreateButton({
-        Name = "🌐 Server Hop",
-        Callback = function()
-            local servers = {}
-            local req = syn and syn.request or http_request or request
+    addESP("ESP Box", "📦", "espBox")
+    addESP("ESP Lines", "📐", "espLines")
+    addESP("ESP Names", "🏷️", "espNames")
+    
+    visualContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
+    
+    -- SERVER TAB
+    local serverContent = contentFrames[3]
+    yPos = 10
+    
+    local function addServerButton(text, icon, color, callback)
+        local btn = createButton(serverContent, 
+            UDim2.new(1, -20, 0, 60), 
+            UDim2.new(0, 10, 0, yPos), 
+            color, 
+            icon .. "  " .. text
+        )
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextSize = 20
+        btn.MouseButton1Click:Connect(callback)
+        yPos = yPos + 70
+    end
+    
+    addServerButton("Rejoin Server", "🔄", colors.primary, function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+    
+    addServerButton("Server Hop", "🌐", colors.success, function()
+        local servers = {}
+        local req = syn and syn.request or http_request or request
+        
+        if req then
+            local success, result = pcall(function()
+                return req({
+                    Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100",
+                    Method = "GET"
+                })
+            end)
             
-            if req then
-                local success, result = pcall(function()
-                    return req({
-                        Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100",
-                        Method = "GET"
-                    })
-                end)
+            if success and result.Success then
+                local data = HttpService:JSONDecode(result.Body)
+                for _, server in pairs(data.data) do
+                    if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                        table.insert(servers, server.id)
+                    end
+                end
                 
-                if success and result.Success then
-                    local data = HttpService:JSONDecode(result.Body)
-                    for _, server in pairs(data.data) do
-                        if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                            table.insert(servers, server.id)
-                        end
-                    end
-                    
-                    if #servers > 0 then
-                        TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
-                    else
-                        Rayfield:Notify({
-                            Title = "Water Hub",
-                            Content = "No available servers found!",
-                            Duration = 3,
-                            Image = 4483362458
-                        })
-                    end
+                if #servers > 0 then
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)])
+                else
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Water Hub",
+                        Text = "No available servers found!",
+                        Duration = 3
+                    })
                 end
-            end
-        end,
-    })
-    
-    local InfoSection = ServerTab:CreateSection("📊 Server Information")
-    
-    local playerCountLabel = ServerTab:CreateLabel("Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers)
-    local serverIdLabel = ServerTab:CreateLabel("Server ID: " .. game.JobId:sub(1, 8) .. "...")
-    local pingLabel = ServerTab:CreateLabel("Ping: Calculating...")
-    
-    -- Update server info periodically
-    spawn(function()
-        while true do
-            wait(2)
-            if playerCountLabel then
-                playerCountLabel:Set("Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers)
-            end
-            
-            local ping = player:GetNetworkPing()
-            if ping and pingLabel then
-                pingLabel:Set("Ping: " .. math.floor(ping * 1000) .. "ms")
             end
         end
     end)
     
-    -- Credits Tab
-    local CreditsTab = Window:CreateTab("ℹ️ Credits", 4483362458)
+    serverContent.CanvasSize = UDim2.new(0, 0, 0, yPos + 20)
     
-    local AboutSection = CreditsTab:CreateSection("💧 About Water Hub")
+    -- Event handlers
+    minimizeBtn.MouseButton1Click:Connect(function()
+        waterHubGui:Destroy()
+        createMinimizedIcon()
+    end)
     
-    CreditsTab:CreateLabel("Water Hub - Ultimate Edition v5.2")
-    CreditsTab:CreateLabel("Developed by Water Team")
-    CreditsTab:CreateLabel("Using Rayfield UI Library")
-    CreditsTab:CreateLabel("")
-    CreditsTab:CreateLabel("Features:")
-    CreditsTab:CreateLabel("• Advanced Anticheat Bypass")
-    CreditsTab:CreateLabel("• God Mode Protection")
-    CreditsTab:CreateLabel("• Movement Enhancements")
-    CreditsTab:CreateLabel("• ESP System")
-    CreditsTab:CreateLabel("• Base Teleportation")
-    CreditsTab:CreateLabel("• Mobile Support")
-    CreditsTab:CreateLabel("• And much more!")
-    
-    local BypassSection = CreditsTab:CreateSection("🔒 Bypass Status")
-    
-    CreditsTab:CreateLabel("✅ Metatable Protection Active")
-    CreditsTab:CreateLabel("✅ Remote Filtering Active")
-    CreditsTab:CreateLabel("✅ Anti-Kick Protection")
-    CreditsTab:CreateLabel("✅ Anti-Idle Active")
-    CreditsTab:CreateLabel("✅ Error Suppression Active")
-    
-    local MinimizeButton = CreditsTab:CreateButton({
-        Name = "➖ Minimize to Icon",
-        Callback = function()
-            Rayfield:Destroy()
-            createMinimizedIcon()
-        end,
-    })
-    
-    -- Show notification on load
-    Rayfield:Notify({
-        Title = "Water Hub",
-        Content = "Successfully loaded! All features active.",
-        Duration = 5,
-        Image = 4483362458
-    })
+    closeBtn.MouseButton1Click:Connect(function()
+        -- Close all GUIs
+        for _, gui in pairs(openGuis) do
+            if gui and gui.Parent then
+                gui:Destroy()
+            end
+        end
+        openGuis = {}
+        
+        -- Disable all features
+        for stateName, _ in pairs(states) do
+            if states[stateName] then
+                if stateName == "infiniteJump" then toggleInfiniteJump(false)
+                elseif stateName == "speedBoost" then toggleSpeedBoost(false)
+                elseif stateName == "noclip" then toggleNoclip(false)
+                elseif stateName == "fly" then toggleFly(false)
+                elseif stateName == "godMode" then toggleGodMode(false)
+                elseif stateName:find("esp") then toggleESP(stateName, false)
+                end
+            end
+        end
+        
+        waterHubGui:Destroy()
+        if minimizedIcon then
+            minimizedIcon:Destroy()
+        end
+    end)
 end
 
--- Character respawn handler with state restoration
+-- Simple Loading Screen
+local function createLoadingScreen()
+    loadingGui = Instance.new("ScreenGui")
+    loadingGui.Name = "WaterHubLoading"
+    loadingGui.Parent = CoreGui
+    loadingGui.ResetOnSpawn = false
+    loadingGui.DisplayOrder = 999999
+    
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = colors.background
+    bg.BorderSizePixel = 0
+    bg.Parent = loadingGui
+    
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0, 300, 0, 200)
+    container.Position = UDim2.new(0.5, -150, 0.5, -100)
+    container.BackgroundTransparency = 1
+    container.Parent = loadingGui
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 50)
+    title.BackgroundTransparency = 1
+    title.Text = "WATER HUB"
+    title.TextColor3 = colors.text
+    title.TextScaled = true
+    title.Font = Enum.Font.SourceSansBold
+    title.Parent = container
+    
+    local loadingText = Instance.new("TextLabel")
+    loadingText.Size = UDim2.new(1, 0, 0, 30)
+    loadingText.Position = UDim2.new(0, 0, 0, 70)
+    loadingText.BackgroundTransparency = 1
+    loadingText.Text = "Loading..."
+    loadingText.TextColor3 = colors.textSecondary
+    loadingText.TextScaled = true
+    loadingText.Font = Enum.Font.SourceSans
+    loadingText.Parent = container
+    
+    -- Simple loading bar
+    local loadingBarBg = createFrame(container, 
+        UDim2.new(0.8, 0, 0, 10), 
+        UDim2.new(0.1, 0, 0, 120), 
+        colors.surface, 
+        0
+    )
+    
+    local loadingBar = createFrame(loadingBarBg, 
+        UDim2.new(0, 0, 1, 0), 
+        UDim2.new(0, 0, 0, 0), 
+        colors.primary, 
+        0
+    )
+    
+    -- Quick loading
+    spawn(function()
+        for i = 0, 1, 0.1 do
+            loadingBar.Size = UDim2.new(i, 0, 1, 0)
+            wait(0.1)
+        end
+        
+        wait(0.2)
+        loadingGui:Destroy()
+        createMainGui()
+        
+        -- Enable God Mode
+        toggleGodMode(true)
+        
+        StarterGui:SetCore("SendNotification", {
+            Title = "Water Hub",
+            Text = "Successfully loaded! God Mode activated.",
+            Icon = "rbxassetid://6034684930",
+            Duration = 5
+        })
+    end)
+end
+
+-- Character respawn handler
 local function onCharacterAdded(character)
     wait(0.5)
     
-    Rayfield:Notify({
+    StarterGui:SetCore("SendNotification", {
         Title = "Water Hub",
-        Content = "Restoring features after respawn...",
-        Duration = 2,
-        Image = 4483362458
+        Text = "Restoring features after respawn...",
+        Duration = 2
     })
     
-    local restoredFeatures = {}
-    
-    if states.godMode then 
-        toggleGodMode(true)
-        table.insert(restoredFeatures, "God Mode")
-    end
-    
-    if states.speedBoost then 
-        toggleSpeedBoost(true)
-        table.insert(restoredFeatures, "Speed Boost")
-    end
-    
-    if states.infiniteJump then 
-        toggleInfiniteJump(true)
-        table.insert(restoredFeatures, "Infinite Jump")
-    end
-    
-    if states.float then 
-        toggleFloat(true)
-        table.insert(restoredFeatures, "Float")
-    end
-    
-    if states.noclip then 
-        toggleNoclip(true)
-        table.insert(restoredFeatures, "Noclip")
-    end
-    
-    if states.fly then 
-        toggleFly(true)
-        table.insert(restoredFeatures, "Fly")
-    end
-    
-    if #restoredFeatures > 0 then
-        Rayfield:Notify({
-            Title = "Water Hub",
-            Content = "Restored: " .. table.concat(restoredFeatures, ", "),
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
+    -- Reapply active states
+    if states.godMode then toggleGodMode(true) end
+    if states.speedBoost then toggleSpeedBoost(true) end
+    if states.infiniteJump then toggleInfiniteJump(true) end
+    if states.noclip then toggleNoclip(true) end
+    if states.fly then toggleFly(true) end
 end
 
 -- Cleanup function
@@ -1064,9 +1337,19 @@ local function cleanup()
     end
     espObjects = {}
     
-    if floatBody then floatBody:Destroy() end
-    if flyPart then flyPart:Destroy() end
+    if characterAddedConnection then
+        characterAddedConnection:Disconnect()
+    end
+    
+    for _, gui in pairs(openGuis) do
+        if gui and gui.Parent then
+            gui:Destroy()
+        end
+    end
+    
+    if waterHubGui then waterHubGui:Destroy() end
     if minimizedIcon then minimizedIcon:Destroy() end
+    if loadingGui then loadingGui:Destroy() end
 end
 
 -- Player removing handler
@@ -1077,28 +1360,19 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
 end)
 
 -- Setup character respawn handler
-player.CharacterAdded:Connect(onCharacterAdded)
+characterAddedConnection = player.CharacterAdded:Connect(onCharacterAdded)
 
 -- Initialize Water Hub
 local success, err = pcall(function()
     setupBypass()
-    
-    -- Small delay to prevent initial lag
-    wait(0.1)
-    
-    createWaterHubGUI()
-    
-    -- Enable god mode by default
-    toggleGodMode(true)
+    createLoadingScreen()
 end)
 
 if not success then
     warn("Water Hub initialization error:", err)
-    if StarterGui then
-        StarterGui:SetCore("SendNotification", {
-            Title = "Water Hub Error",
-            Text = "Failed to initialize. Please try again.",
-            Duration = 5
-        })
-    end
+    StarterGui:SetCore("SendNotification", {
+        Title = "Water Hub Error",
+        Text = "Failed to initialize. Please try again.",
+        Duration = 5
+    })
 end
