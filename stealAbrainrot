@@ -1,184 +1,168 @@
+-- Carica la libreria Fluent
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Configurazione avanzata finestra principale
+-- Crea la finestra principale
 local Window = Fluent:CreateWindow({
-    Title = "My Fluent UI",
-    SubTitle = "Premium Script v1.0",
-    TabWidth = 120,
-    Size = UDim2.fromOffset(450, 350),
+    Title = "Script Semplice",
+    SubTitle = "Test UI",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
     Acrylic = true,
     Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl,
-    Mica = true,
-    FadeTime = 0.2
+    MinimizeKey = Enum.KeyCode.LeftControl -- Tasto per minimizzare/ripristinare
 })
 
--- Aggiunta tabs con icone
+-- Crea l'immagine per riaprire quando minimizzato
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Crea l'immagine minimizzata
+local minimizedGui = Instance.new("ScreenGui")
+minimizedGui.Name = "FluentMinimized"
+minimizedGui.Parent = playerGui
+minimizedGui.ResetOnSpawn = false
+minimizedGui.Enabled = false
+
+local imageButton = Instance.new("ImageButton")
+imageButton.Name = "RestoreButton"
+imageButton.Size = UDim2.fromOffset(60, 60)
+imageButton.Position = UDim2.new(0, 10, 0, 10)
+imageButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+imageButton.BorderSizePixel = 0
+imageButton.Image = "rbxasset://textures/ui/TopBar/iconSort.png" -- Icona di default
+imageButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
+imageButton.Parent = minimizedGui
+
+-- Arrotonda gli angoli
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = imageButton
+
+-- Effetto hover
+local function createHoverEffect()
+    local hoverTween = TweenService:Create(imageButton, TweenInfo.new(0.2), {
+        Size = UDim2.fromOffset(65, 65),
+        BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    })
+    
+    local normalTween = TweenService:Create(imageButton, TweenInfo.new(0.2), {
+        Size = UDim2.fromOffset(60, 60),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    })
+    
+    imageButton.MouseEnter:Connect(function()
+        hoverTween:Play()
+    end)
+    
+    imageButton.MouseLeave:Connect(function()
+        normalTween:Play()
+    end)
+end
+
+createHoverEffect()
+
+-- Funzione per simulare il click di LeftControl
+local function simulateLeftControl()
+    local virtualInput = {
+        KeyCode = Enum.KeyCode.LeftControl,
+        UserInputType = Enum.UserInputType.Keyboard,
+        UserInputState = Enum.UserInputState.Begin
+    }
+    
+    -- Simula la pressione del tasto
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
+    wait(0.1)
+    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
+end
+
+-- Click handler per desktop e mobile
+imageButton.MouseButton1Click:Connect(simulateLeftControl)
+
+-- Touch handler per mobile
+imageButton.TouchTap:Connect(simulateLeftControl)
+
+-- Monitora lo stato della finestra Fluent
+local function monitorWindowState()
+    spawn(function()
+        while true do
+            wait(0.5)
+            
+            -- Controlla se la finestra è minimizzata
+            local fluentGui = playerGui:FindFirstChild("Fluent")
+            if fluentGui then
+                local isMinimized = not fluentGui.Enabled or fluentGui.Parent == nil
+                minimizedGui.Enabled = isMinimized
+            end
+            
+            if Fluent.Unloaded then break end
+        end
+    end)
+end
+
+monitorWindowState()
+
+-- Crea le tab
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
-    Info = Window:AddTab({ Title = "Info", Icon = "info" })
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
--- Sezione Main con più funzionalità
-local MainSection = Tabs.Main:AddSection("Controls")
-
-MainSection:AddButton({
-    Title = "Test Button",
-    Description = "Click to show notification",
+-- TAB MAIN - Un solo pulsante
+Tabs.Main:AddButton({
+    Title = "Pulsante Test",
+    Description = "Clicca per testare",
     Callback = function()
         Fluent:Notify({
-            Title = "Success",
-            Content = "Button worked correctly!",
-            SubContent = "Fluent UI Notification", 
-            Duration = 5,
-            Image = "rbxassetid://7072718362"
-        })
-    end
-})
-
-MainSection:AddToggle("AutoFarmToggle", {
-    Title = "Enable Auto Farm",
-    Description = "Automatically collects resources",
-    Default = false,
-    Callback = function(Value)
-        Fluent:Notify({
-            Title = "Auto Farm",
-            Content = Value and "Enabled" or "Disabled",
-            Duration = 2
-        })
-    end
-})
-
--- Sezione Settings avanzata
-local SettingsSection = Tabs.Settings:AddSection("Configuration")
-
-SettingsSection:AddDropdown("ThemeSelect", {
-    Title = "UI Theme",
-    Description = "Change the interface theme",
-    Values = {"Dark", "Light", "Darker", "Lighter", "Rose"},
-    Default = "Dark",
-    Multi = false,
-    Callback = function(Value)
-        Fluent:ChangeTheme(Value)
-    end
-})
-
-SettingsSection:AddSlider("UIOpacity", {
-    Title = "UI Transparency",
-    Description = "Adjust window transparency",
-    Default = 50,
-    Min = 0,
-    Max = 100,
-    Rounding = 0,
-    Callback = function(Value)
-        Window:SetAcrylic(Value/100)
-    end
-})
-
--- Sezione Info
-local InfoSection = Tabs.Info:AddSection("About")
-
-InfoSection:AddParagraph({
-    Title = "Script Information",
-    Content = "This is a premium Fluent UI script with advanced features and mobile support."
-})
-
-InfoSection:AddButton({
-    Title = "Copy Discord",
-    Description = "Click to copy our Discord invite",
-    Callback = function()
-        setclipboard("discord.gg/example")
-        Fluent:Notify({
-            Title = "Copied",
-            Content = "Discord invite copied to clipboard!",
+            Title = "Test",
+            Content = "Pulsante premuto!",
             Duration = 3
         })
     end
 })
 
--- Sistema avanzato di restore con immagine personalizzata
-do
-    local restoreNotif
-    local firstMinimize = true
-    local notificationImage = "rbxassetid://7072718362" -- Sostituisci con il tuo AssetID
-
-    Window.Minimized:Connect(function()
-        if firstMinimize then
-            firstMinimize = false
-            return
-        end
-        
-        restoreNotif = Fluent:Notify({
-            Title = "UI Minimized",
-            Content = "Press LEFT CTRL or click here to restore",
-            Duration = 60 * 60 * 24, -- 24 ore
-            Image = notificationImage,
-            Actions = {
-                {
-                    Title = "Restore",
-                    Callback = function()
-                        Window:Restore()
-                    end
-                }
-            }
+-- TAB SETTINGS - Un solo pulsante
+Tabs.Settings:AddButton({
+    Title = "Pulsante Settings",
+    Description = "Pulsante nelle impostazioni",
+    Callback = function()
+        Fluent:Notify({
+            Title = "Settings",
+            Content = "Pulsante settings premuto!",
+            Duration = 3
         })
-        
-        -- Aggiornamento dinamico dell'immagine
-        local connection
-        connection = game:GetService("RunService").Heartbeat:Connect(function()
-            if restoreNotif and restoreNotif.Visible then
-                restoreNotif:SetImage(notificationImage)
-            else
-                connection:Disconnect()
-            end
-        end)
-    end)
+    end
+})
 
-    Window.Restored:Connect(function()
-        if restoreNotif then
-            restoreNotif:Hide()
-            restoreNotif = nil
-        end
-    end)
-end
-
--- Mobile detection e ottimizzazioni
-local UserInputService = game:GetService("UserInputService")
-local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-
-if isMobile then
-    Fluent:Notify({
-        Title = "Mobile Detected",
-        Content = "Tap notifications to restore the UI",
-        Duration = 8
-    })
-end
-
--- Gestione avanzata salvataggio
+-- Configura i manager
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 
+-- Ignora le impostazioni del tema per il salvataggio
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({"ThemeSelect"}) -- Escludi il tema dal salvataggio
 
-InterfaceManager:SetFolder("MyFluentScript")
-SaveManager:SetFolder("MyFluentScript/config")
+-- Imposta le cartelle per salvare le configurazioni
+InterfaceManager:SetFolder("FluentTest")
+SaveManager:SetFolder("FluentTest/config")
 
-Window:SelectTab(1)
-
--- Notifica di benvenuto personalizzata
-task.delay(1, function()
-    Fluent:Notify({
-        Title = "Welcome",
-        Content = "Script loaded successfully!",
-        Duration = 5,
-        Image = "rbxassetid://7072718362"
-    })
-end)
-
+-- Costruisce le sezioni di interfaccia e configurazione nella tab Settings
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
+
+-- Seleziona la prima tab (Main)
+Window:SelectTab(1)
+
+-- Notifica di caricamento
+Fluent:Notify({
+    Title = "Caricato",
+    Content = "Script caricato con successo!",
+    Duration = 5
+})
+
+-- Carica configurazione automatica se presente
 SaveManager:LoadAutoloadConfig()
