@@ -177,7 +177,9 @@ local states = {
     fastSteal = false,
     godMode = false,
     noclip = false,
-    fly = false
+    fly = false,
+    removeLasers = false,
+    autoRemoveLasers = false
 }
 
 -- Helper variables
@@ -202,6 +204,44 @@ end
 local function getRootPart()
     local char = getCharacter()
     return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+-- LASER REMOVAL SYSTEM
+local function removeLasers()
+    local lasersRemoved = 0
+    
+    -- Function to check if object might be a laser
+    local function isLaser(obj)
+        local name = obj.Name:lower()
+        return name:match("laser") or name:match("beam") or name:match("ray") or 
+               name:match("kill") and (name:match("part") or name:match("brick")) or
+               (obj:IsA("Part") and obj.Material == Enum.Material.Neon and 
+                (obj.BrickColor == BrickColor.new("Really red") or 
+                 obj.BrickColor == BrickColor.new("Bright red") or
+                 obj.Color == Color3.fromRGB(255, 0, 0)))
+    end
+    
+    -- Remove lasers from Workspace
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and isLaser(obj) then
+            pcall(function()
+                obj:Destroy()
+                lasersRemoved = lasersRemoved + 1
+            end)
+        elseif obj:IsA("Beam") then
+            pcall(function()
+                obj:Destroy()
+                lasersRemoved = lasersRemoved + 1
+            end)
+        elseif obj:IsA("Model") and isLaser(obj) then
+            pcall(function()
+                obj:Destroy()
+                lasersRemoved = lasersRemoved + 1
+            end)
+        end
+    end
+    
+    return lasersRemoved
 end
 
 -- Create teleport overlay function
@@ -791,6 +831,42 @@ Tabs.Main:AddToggle("Noclip", {
                     end
                 end
             end
+        end
+    end
+})
+
+-- ADD REMOVE LASER TO MAIN TAB
+Tabs.Main:AddSection("🔥 Laser Protection")
+
+Tabs.Main:AddButton({
+    Title = "🚫 Remove All Lasers",
+    Description = "Instantly removes all lasers from the game",
+    Callback = function()
+        local removed = removeLasers()
+        Fluent:Notify({
+            Title = "Laser Remover",
+            Content = "Removed " .. removed .. " lasers!",
+            Duration = 3
+        })
+    end
+})
+
+Tabs.Main:AddToggle("AutoRemoveLasers", {
+    Title = "🔄 Auto Remove Lasers",
+    Description = "Automatically removes lasers as they appear",
+    Default = false,
+    Callback = function(value)
+        states.autoRemoveLasers = value
+        
+        if connections.autoRemoveLasers then
+            connections.autoRemoveLasers:Disconnect()
+            connections.autoRemoveLasers = nil
+        end
+        
+        if value then
+            connections.autoRemoveLasers = RunService.Heartbeat:Connect(function()
+                removeLasers()
+            end)
         end
     end
 })
@@ -1658,7 +1734,7 @@ Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "💧 Water HUB Loaded",
-    Content = "Ultra Bypass System Activated! Enjoy your enhanced experience!",
+    Content = "Ultra Bypass System Activated! Now with Laser Removal!",
     Duration = 5,
     Image = "rbxassetid://84130584727260"
 })
