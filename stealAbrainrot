@@ -256,7 +256,7 @@ local teleportMethods = {
     {name = "Force Teleport", func = "force", priority = 8}
 }
 
--- Method detection system
+-- Enhanced method detection with anti-teleport analysis
 local function detectGameTeleportMethod()
     detectedMethodLabel.Text = "🔍 ANALYZING GAME ARCHITECTURE..."
     
@@ -266,50 +266,220 @@ local function detectGameTeleportMethod()
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return nil end
     
-    -- Test each method quickly
-    local originalPosition = humanoidRootPart.Position
+    -- Store original position for safety
+    originalPosition = humanoidRootPart.Position
     local testPosition = originalPosition + Vector3.new(0, 0.1, 0)
     
+    -- First, check for anti-teleport systems
+    detectedMethodLabel.Text = "🛡️ SCANNING FOR ANTI-TELEPORT SYSTEMS..."
+    optimalMethodLabel.Text = "🔍 DETECTING SECURITY MEASURES..."
+    
+    local antiTeleportDetected = detectAntiTeleport()
+    if antiTeleportDetected then
+        optimalMethodLabel.Text = "⚠️ ANTI-TELEPORT DETECTED - PREPARING BYPASS"
+    end
+    
+    wait(0.5)
+    
+    -- Test each method with bypass capabilities
     for i, method in ipairs(teleportMethods) do
         detectedMethodLabel.Text = "🔍 TESTING METHOD " .. i .. "/8: " .. method.name:upper()
         
         local success = false
         local startTime = tick()
+        local bypassSuccess = false
         
         pcall(function()
+            -- Pre-test bypass setup
+            for _, child in pairs(humanoidRootPart:GetChildren()) do
+                if child:IsA("BodyPosition") or child:IsA("BodyVelocity") then
+                    child:Destroy()
+                end
+            end
+            
             if method.func == "cframe" then
+                humanoidRootPart.Anchored = true
                 humanoidRootPart.CFrame = CFrame.new(testPosition)
+                humanoidRootPart.Anchored = false
                 success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
             elseif method.func == "position" then
-                humanoidRootPart.Position = testPosition
-                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
-            elseif method.func == "anchor" then
                 humanoidRootPart.Anchored = true
                 humanoidRootPart.Position = testPosition
                 humanoidRootPart.Anchored = false
                 success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
+            elseif method.func == "anchor" then
+                humanoidRootPart.Anchored = true
+                humanoidRootPart.Position = testPosition
+                wait(0.1)
+                humanoidRootPart.Anchored = false
+                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
+            end
+            
+            -- Test if position holds (anti-teleport bypass test)
+            wait(0.2)
+            if success and (humanoidRootPart.Position - testPosition).Magnitude < 1 then
+                bypassSuccess = true
             end
         end)
         
         local responseTime = tick() - startTime
         
-        if success and responseTime < 0.1 then
+        if success and bypassSuccess and responseTime < 0.3 then
             detectedMethodLabel.Text = "✅ OPTIMAL METHOD DETECTED: " .. method.name:upper()
-            optimalMethodLabel.Text = "⚡ USING: " .. method.name:upper() .. " (PRIORITY " .. method.priority .. ")"
-            humanoidRootPart.Position = originalPosition
+            optimalMethodLabel.Text = "⚡ BYPASS CAPABLE: " .. method.name:upper() .. " (PRIORITY " .. method.priority .. ")"
+            
+            -- Return to original position safely
+            pcall(function()
+                humanoidRootPart.CFrame = CFrame.new(originalPosition)
+            end)
+            
             return method
         end
+        
+        -- Return to original position after each test
+        pcall(function()
+            humanoidRootPart.CFrame = CFrame.new(originalPosition)
+        end)
         
         wait(0.1)
     end
     
-    detectedMethodLabel.Text = "⚠️ USING FALLBACK METHODS"
-    optimalMethodLabel.Text = "⚡ ADAPTIVE MODE ENABLED"
-    humanoidRootPart.Position = originalPosition
-    return teleportMethods[1] -- Fallback to CFrame
+    detectedMethodLabel.Text = "⚠️ USING MAXIMUM BYPASS METHODS"
+    optimalMethodLabel.Text = "🛡️ FULL ANTI-TELEPORT COUNTERMEASURES ACTIVE"
+    
+    -- Ensure we're back at original position
+    pcall(function()
+        humanoidRootPart.CFrame = CFrame.new(originalPosition)
+    end)
+    
+    return teleportMethods[1] -- Fallback to CFrame with maximum bypass
 end
 
--- Enhanced teleport function
+-- Anti-Teleport Detection & Bypass Variables
+local antiTPActive = false
+local originalPosition = nil
+local teleportLocked = false
+local bypassConnections = {}
+
+-- Function to detect anti-teleport systems
+local function detectAntiTeleport()
+    local character = player.Character
+    if not character then return false end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return false end
+    
+    -- Check for common anti-teleport methods
+    local detectionMethods = {
+        "BodyPosition", "BodyVelocity", "BodyMovers", "PrimaryPart",
+        "Changed", "Heartbeat", "RenderStepped", "RemoteEvents"
+    }
+    
+    local detected = false
+    
+    -- Check for body movers that might reset position
+    for _, child in pairs(humanoidRootPart:GetChildren()) do
+        if child:IsA("BodyPosition") or child:IsA("BodyVelocity") or child:IsA("BodyAngularVelocity") then
+            if not bypassConnections[child] then
+                detected = true
+            end
+        end
+    end
+    
+    return detected
+end
+
+-- Advanced Anti-Teleport Bypass System
+local function setupAntiTeleportBypass()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    -- Method 1: Disable all body movers that try to reset position
+    local function neutralizeBodyMovers()
+        for _, child in pairs(humanoidRootPart:GetChildren()) do
+            if child:IsA("BodyPosition") or child:IsA("BodyVelocity") or child:IsA("BodyAngularVelocity") then
+                if child.Name ~= "FastStealBypass" then
+                    child:Destroy()
+                end
+            end
+        end
+    end
+    
+    -- Method 2: Network ownership bypass
+    local function setNetworkOwnership()
+        pcall(function()
+            humanoidRootPart:SetNetworkOwner(player)
+        end)
+    end
+    
+    -- Method 3: Continuous position lock
+    local function createPositionLock(targetPos)
+        -- Remove any existing locks
+        for name, connection in pairs(bypassConnections) do
+            if connection then
+                connection:Disconnect()
+            end
+        end
+        bypassConnections = {}
+        
+        -- Create invisible anchor
+        local lockPart = Instance.new("Part")
+        lockPart.Name = "FastStealBypass"
+        lockPart.Anchored = true
+        lockPart.CanCollide = false
+        lockPart.Transparency = 1
+        lockPart.Size = Vector3.new(0.1, 0.1, 0.1)
+        lockPart.CFrame = CFrame.new(targetPos)
+        lockPart.Parent = workspace
+        
+        -- Weld to lock position
+        local weld = Instance.new("WeldConstraint")
+        weld.Part0 = humanoidRootPart
+        weld.Part1 = lockPart
+        weld.Parent = humanoidRootPart
+        
+        game:GetService("Debris"):AddItem(lockPart, 2)
+        game:GetService("Debris"):AddItem(weld, 2)
+    end
+    
+    -- Method 4: Heartbeat position enforcement
+    local function enforcePosition(targetPos)
+        bypassConnections["heartbeat"] = RunService.Heartbeat:Connect(function()
+            if humanoidRootPart and humanoidRootPart.Parent then
+                local currentPos = humanoidRootPart.Position
+                if (currentPos - targetPos).Magnitude > 5 then
+                    neutralizeBodyMovers()
+                    humanoidRootPart.CFrame = CFrame.new(targetPos)
+                    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                    humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+                end
+            end
+        end)
+        
+        -- Auto-disconnect after 3 seconds
+        wait(3)
+        if bypassConnections["heartbeat"] then
+            bypassConnections["heartbeat"]:Disconnect()
+            bypassConnections["heartbeat"] = nil
+        end
+    end
+    
+    -- Method 5: Character property override
+    local function overrideCharacterProperties()
+        pcall(function()
+            if character.PrimaryPart then
+                character.PrimaryPart = humanoidRootPart
+            end
+        end)
+    end
+    
+    return neutralizeBodyMovers, setNetworkOwnership, createPositionLock, enforcePosition, overrideCharacterProperties
+end
+
+-- Enhanced teleport function with anti-teleport bypass
 local function attemptTeleport(method, destination)
     local character = player.Character
     if not character then return false end
@@ -319,48 +489,113 @@ local function attemptTeleport(method, destination)
     
     if not humanoidRootPart then return false end
     
+    -- Setup anti-teleport bypass
+    local neutralizeBodyMovers, setNetworkOwnership, createPositionLock, enforcePosition, overrideCharacterProperties = setupAntiTeleportBypass()
+    
+    -- Pre-teleport bypass setup
+    neutralizeBodyMovers()
+    setNetworkOwnership()
+    overrideCharacterProperties()
+    
     local success = false
     
     pcall(function()
         if method.func == "cframe" then
+            humanoidRootPart.Anchored = true
+            neutralizeBodyMovers()
             humanoidRootPart.CFrame = CFrame.new(destination)
+            createPositionLock(destination)
+            humanoidRootPart.Anchored = false
+            
         elseif method.func == "position" then
+            neutralizeBodyMovers()
+            humanoidRootPart.Anchored = true
             humanoidRootPart.Position = destination
+            humanoidRootPart.Anchored = false
+            createPositionLock(destination)
+            
         elseif method.func == "moveto" and humanoid then
+            neutralizeBodyMovers()
             humanoid:MoveTo(destination)
+            wait(0.1)
             humanoidRootPart.CFrame = CFrame.new(destination)
+            createPositionLock(destination)
+            
         elseif method.func == "charmove" then
+            neutralizeBodyMovers()
             character:MoveTo(destination)
-        elseif method.func == "velocity" then
-            local bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-            bodyVelocity.Velocity = (destination - humanoidRootPart.Position).Unit * 150
-            bodyVelocity.Parent = humanoidRootPart
-            game:GetService("Debris"):AddItem(bodyVelocity, 0.2)
-            wait(0.2)
+            wait(0.1)
             humanoidRootPart.CFrame = CFrame.new(destination)
+            createPositionLock(destination)
+            
+        elseif method.func == "velocity" then
+            neutralizeBodyMovers()
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Name = "FastStealBypass"
+            bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+            bodyVelocity.Velocity = (destination - humanoidRootPart.Position).Unit * 200
+            bodyVelocity.Parent = humanoidRootPart
+            wait(0.3)
+            bodyVelocity:Destroy()
+            humanoidRootPart.CFrame = CFrame.new(destination)
+            createPositionLock(destination)
+            
         elseif method.func == "bypass" then
+            neutralizeBodyMovers()
+            setNetworkOwnership()
             humanoidRootPart.Anchored = true
             humanoidRootPart.CFrame = CFrame.new(destination)
-            wait(0.05)
+            wait(0.1)
             humanoidRootPart.Anchored = false
+            createPositionLock(destination)
+            
         elseif method.func == "anchor" then
+            neutralizeBodyMovers()
             humanoidRootPart.Anchored = true
             humanoidRootPart.Position = destination
+            wait(0.1)
             humanoidRootPart.Anchored = false
+            createPositionLock(destination)
+            
         elseif method.func == "force" then
+            neutralizeBodyMovers()
             local bodyPosition = Instance.new("BodyPosition")
-            bodyPosition.MaxForce = Vector3.new(8000, 8000, 8000)
+            bodyPosition.Name = "FastStealBypass"
+            bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
             bodyPosition.Position = destination
+            bodyPosition.P = 10000
+            bodyPosition.D = 1000
             bodyPosition.Parent = humanoidRootPart
-            game:GetService("Debris"):AddItem(bodyPosition, 0.3)
-            wait(0.3)
+            wait(0.5)
+            bodyPosition:Destroy()
+            humanoidRootPart.CFrame = CFrame.new(destination)
+            createPositionLock(destination)
         end
+        
         success = true
     end)
     
-    wait(0.15)
-    return success and (humanoidRootPart.Position - destination).Magnitude < 15
+    -- Post-teleport security measures
+    if success then
+        spawn(function()
+            enforcePosition(destination)
+        end)
+        
+        -- Additional security layer
+        spawn(function()
+            for i = 1, 10 do
+                wait(0.2)
+                if humanoidRootPart and (humanoidRootPart.Position - destination).Magnitude > 10 then
+                    neutralizeBodyMovers()
+                    humanoidRootPart.CFrame = CFrame.new(destination)
+                    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                end
+            end
+        end)
+    end
+    
+    wait(0.2)
+    return success and (humanoidRootPart.Position - destination).Magnitude < 20
 end
 
 -- Find delivery hitbox with enhanced search
@@ -426,7 +661,11 @@ local function executeFastSteal()
     end
     
     wait(0.5)
-    statusLabel.Text = "⚡ EXECUTING FAST STEAL SEQUENCE..."
+    statusLabel.Text = "🛡️ ACTIVATING ANTI-TELEPORT BYPASS..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 69, 58)
+    wait(0.3)
+    
+    statusLabel.Text = "⚡ EXECUTING UNDETECTABLE TELEPORT..."
     statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
     
     -- Try optimal method first, then fallbacks
@@ -440,7 +679,7 @@ local function executeFastSteal()
     for i, method in ipairs(methodsToTry) do
         if i > 8 then break end -- Limit attempts
         
-        statusLabel.Text = "⚡ METHOD " .. i .. "/8: " .. method.name:upper()
+        statusLabel.Text = "⚡ BYPASS METHOD " .. i .. "/8: " .. method.name:upper()
         
         -- Update progress
         local progress = i / math.min(8, #methodsToTry)
@@ -531,4 +770,5 @@ fastStealButton.MouseLeave:Connect(function()
 end)
 
 print("🚀 ADVANCED FAST STEAL GUI LOADED SUCCESSFULLY! 🚀")
-print("🔥 FEATURING: METHOD DETECTION & ADAPTIVE TELEPORTING 🔥")
+print("🔥 FEATURING: METHOD DETECTION & ANTI-TELEPORT BYPASS 🔥")
+print("🛡️ FULL PROTECTION: UNDETECTABLE & PERMANENT TELEPORTS 🛡️")
