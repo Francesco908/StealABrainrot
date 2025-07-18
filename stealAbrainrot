@@ -1,72 +1,58 @@
---// SERVICES
-local Players      = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local RunService   = game:GetService("RunService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local char   = player.Character or player.CharacterAdded:Wait()
-local hrp    = char:WaitForChild("HumanoidRootPart")
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
--- Flag per bloccare ogni ulteriore teleport after success
 local hasTeleportedOnce = false
 
---// CREATING GUI (uguale a prima)
-local screenGui = Instance.new("ScreenGui")
+-- Crea GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 screenGui.Name = "FastStealGUI"
-screenGui.Parent = player:WaitForChild("PlayerGui")
 
-local mainFrame = Instance.new("Frame")
+local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Name = "Main"
-mainFrame.Size = UDim2.new(0, 250, 0, 100)
-mainFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
+mainFrame.Size = UDim2.new(0, 260, 0, 100)
+mainFrame.Position = UDim2.new(0.5, -130, 0.5, -50)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
-mainFrame.Parent = screenGui
 
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
+local titleBar = Instance.new("Frame", mainFrame)
 titleBar.Size = UDim2.new(1, 0, 0, 24)
 titleBar.BackgroundColor3 = Color3.fromRGB(20,20,20)
-titleBar.Parent = mainFrame
 
-local btnMin = Instance.new("TextButton")
-btnMin.Name = "Minimize"
+local btnMin = Instance.new("TextButton", titleBar)
 btnMin.Size = UDim2.new(0, 24, 0, 24)
 btnMin.Position = UDim2.new(1, -48, 0, 0)
 btnMin.Text = "–"
 btnMin.BackgroundTransparency = 1
 btnMin.TextColor3 = Color3.new(1,1,1)
-btnMin.Parent = titleBar
 
-local btnClose = Instance.new("TextButton")
-btnClose.Name = "Close"
+local btnClose = Instance.new("TextButton", titleBar)
 btnClose.Size = UDim2.new(0, 24, 0, 24)
 btnClose.Position = UDim2.new(1, -24, 0, 0)
 btnClose.Text = "✕"
 btnClose.BackgroundTransparency = 1
 btnClose.TextColor3 = Color3.new(1,1,1)
-btnClose.Parent = titleBar
 
-local content = Instance.new("Frame")
+local content = Instance.new("Frame", mainFrame)
 content.Name = "Content"
 content.Size = UDim2.new(1, 0, 1, -24)
 content.Position = UDim2.new(0, 0, 0, 24)
 content.BackgroundTransparency = 1
-content.Parent = mainFrame
 
-local btnTP = Instance.new("TextButton")
+local btnTP = Instance.new("TextButton", content)
 btnTP.Name = "TeleportButton"
 btnTP.Size = UDim2.new(1, -20, 0, 32)
 btnTP.Position = UDim2.new(0, 10, 0, 10)
-btnTP.Text = "Fast Teleport"
+btnTP.Text = "Fast Delivery"
 btnTP.BackgroundColor3 = Color3.fromRGB(50,50,50)
 btnTP.BorderSizePixel = 0
 btnTP.TextColor3 = Color3.new(1,1,1)
-btnTP.Parent = content
 
-local lblStatus = Instance.new("TextLabel")
+local lblStatus = Instance.new("TextLabel", content)
 lblStatus.Name = "StatusLabel"
 lblStatus.Size = UDim2.new(1, -20, 0, 24)
 lblStatus.Position = UDim2.new(0, 10, 0, 52)
@@ -74,36 +60,45 @@ lblStatus.Text = ""
 lblStatus.BackgroundTransparency = 1
 lblStatus.TextColor3 = Color3.new(1,1,1)
 lblStatus.TextXAlignment = Enum.TextXAlignment.Left
-lblStatus.Parent = content
 
--- Minimize/Close logic (uguale)
+-- Minimize/Close
 local minimized = false
 btnMin.MouseButton1Click:Connect(function()
     minimized = not minimized
     content.Visible = not minimized
-    mainFrame.Size = minimized and UDim2.new(0,250,0,24) or UDim2.new(0,250,0,100)
+    mainFrame.Size = minimized and UDim2.new(0,260,0,24) or UDim2.new(0,260,0,100)
 end)
 btnClose.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- Teleport methods
+-- 9 metodi di teleport (esempi di offset globali)
 local methods = {
-    CFrame.new(0, 50, 0),
-    CFrame.new(100, 50, 100),
-    CFrame.new(-100, 50, -100),
-    CFrame.new(200, 50, -200),
-    CFrame.new(-200, 50, 200),
-    CFrame.new(0, 100, 100)
+    CFrame.new(0,50,0), CFrame.new(50,50,0), CFrame.new(-50,50,0),
+    CFrame.new(0,50,50), CFrame.new(0,50,-50), CFrame.new(50,50,50),
+    CFrame.new(-50,50,-50), CFrame.new(50,50,-50), CFrame.new(-50,50,50),
 }
 
--- Tentativo singolo di teleport
-local function tryTeleport()
+-- Trova il DeliveryHitbox più vicino
+local function getNearestHitbox()
+    local nearest, minDist = nil, math.huge
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "DeliveryHitbox" and obj:IsA("BasePart") then
+            local d = (hrp.Position - obj.Position).Magnitude
+            if d < minDist then
+                minDist = d
+                nearest = obj
+            end
+        end
+    end
+    return nearest
+end
+
+-- Tentativo di teleport con i 9 metodi
+local function tryTeleportMethods()
     for _, cf in ipairs(methods) do
-        local success = pcall(function()
-            hrp.CFrame = cf
-        end)
-        if success then
+        local ok = pcall(function() hrp.CFrame = cf end)
+        if ok then
             return true
         end
         RunService.Heartbeat:Wait()
@@ -111,44 +106,30 @@ local function tryTeleport()
     return false
 end
 
--- Handler del pulsante Teleport
+-- Click “Fast Delivery”
 btnTP.MouseButton1Click:Connect(function()
-    -- Se già teletrasportato, non fare nulla
     if hasTeleportedOnce then
-        lblStatus.Text = "⛔ Teleport già effettuato!"
+        lblStatus.Text = "⛔ Già teletrasportato!"
         return
     end
 
     btnTP.Active = false
-    lblStatus.Text = "Trying teleport..."
-    local teleported = false
+    lblStatus.Text = "⏳ Teleport in corso..."
 
-    -- Loop finché non va a buon fine (una volta)
-    while not teleported do
-        teleported = tryTeleport()
-    end
+    -- Prova i 9 metodi finché uno non funziona
+    while not tryTeleportMethods() do end
 
-    -- Segna che il teleport è avvenuto
-    hasTeleportedOnce = true
-
-    -- Trova DeliveryHitbox e teletrasporta
-    local hitbox = workspace:FindFirstChild("DeliveryHitbox", true)
-    if hitbox and hitbox:IsA("BasePart") then
-        hrp.CFrame = hitbox.CFrame + Vector3.new(0, 5, 0)
-        lblStatus.Text = "✅ Teleport successful → DeliveryHitbox"
+    -- Teleporta infine al DeliveryHitbox più vicino
+    local hitbox = getNearestHitbox()
+    if hitbox then
+        hrp.CFrame = hitbox.CFrame + Vector3.new(0,5,0)
+        lblStatus.Text = "✅ Teleport → DeliveryHitbox"
     else
-        local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
-        if spawn then
-            hrp.CFrame = spawn.CFrame + Vector3.new(0, 5, 0)
-            lblStatus.Text = "✅ Teleport → SpawnPoint (Hitbox non trovata)"
-        else
-            lblStatus.Text = "✅ Teleport avvenuto, ma nessun spawn trovato!"
-        end
+        lblStatus.Text = "⚠ Hitbox non trovata!"
     end
 
-    -- Disabilita definitivamente il pulsante
-    btnTP.Text = "Teleport effettuato"
+    hasTeleportedOnce = true
+    btnTP.Text = "Effettuato"
     btnTP.AutoButtonColor = false
     btnTP.BackgroundTransparency = 0.5
-    btnTP.Active = false
 end)
