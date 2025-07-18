@@ -1,7 +1,8 @@
--- Advanced Fast Steal GUI with Method Detection
+-- Advanced Fast Steal GUI with Method Detection and Fixed Teleportation
+-- Author: SKIBIDI (Student)
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
@@ -26,12 +27,12 @@ mainFrame.Parent = screenGui
 mainFrame.Active = true
 mainFrame.Draggable = true
 
--- Glassmorphism effect
-local blur = Instance.new("Frame")
-blur.Size = UDim2.new(1, 0, 1, 0)
-blur.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-blur.BackgroundTransparency = 0.3
-blur.Parent = mainFrame
+-- Glassmorphism overlay
+theBlur = Instance.new("Frame")
+theBlur.Size = UDim2.new(1, 0, 1, 0)
+theBlur.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+theBlur.BackgroundTransparency = 0.3
+theBlur.Parent = mainFrame
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 12)
@@ -39,28 +40,25 @@ corner.Parent = mainFrame
 
 local blurCorner = Instance.new("UICorner")
 blurCorner.CornerRadius = UDim.new(0, 12)
-blurCorner.Parent = blur
+blurCorner.Parent = theBlur
 
--- Animated border
-local stroke = Instance.new("UIStroke")
+-- Animated gradient border
+dlocal stroke = Instance.new("UIStroke")
 stroke.Color = Color3.fromRGB(100, 255, 150)
 stroke.Thickness = 3
 stroke.Transparency = 0.3
 stroke.Parent = mainFrame
-
--- Animated gradient border effect
 spawn(function()
     local colors = {
-        Color3.fromRGB(255, 100, 255), -- Purple
-        Color3.fromRGB(100, 255, 255), -- Cyan
-        Color3.fromRGB(255, 255, 100), -- Yellow
-        Color3.fromRGB(100, 255, 100), -- Green
-        Color3.fromRGB(255, 100, 100)  -- Red
+        Color3.fromRGB(255, 100, 255),
+        Color3.fromRGB(100, 255, 255),
+        Color3.fromRGB(255, 255, 100),
+        Color3.fromRGB(100, 255, 100),
+        Color3.fromRGB(255, 100, 100)
     }
-    
     while screenGui.Parent do
-        for _, color in ipairs(colors) do
-            TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine), {Color = color}):Play()
+        for _, c in ipairs(colors) do
+            TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine), {Color = c}):Play()
             wait(1)
         end
     end
@@ -75,12 +73,11 @@ titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 titleBar.BackgroundTransparency = 0.2
 titleBar.BorderSizePixel = 0
 titleBar.Parent = mainFrame
-
 local titleCorner = Instance.new("UICorner")
 titleCorner.CornerRadius = UDim.new(0, 12)
 titleCorner.Parent = titleBar
 
--- Title with glow effect
+-- Title label
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Name = "Title"
 titleLabel.Size = UDim2.new(1, -80, 1, 0)
@@ -91,15 +88,13 @@ titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.TextSize = 16
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.Parent = titleBar
-
--- Add text glow
 local titleStroke = Instance.new("UIStroke")
 titleStroke.Color = Color3.fromRGB(100, 255, 200)
 titleStroke.Thickness = 1
 titleStroke.Transparency = 0.5
 titleStroke.Parent = titleLabel
 
--- Modern minimize button
+-- Control buttons
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Name = "MinimizeButton"
 minimizeButton.Size = UDim2.new(0, 30, 0, 30)
@@ -110,12 +105,10 @@ minimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 minimizeButton.TextSize = 16
 minimizeButton.Font = Enum.Font.GothamBold
 minimizeButton.Parent = titleBar
-
 local minCorner = Instance.new("UICorner")
 minCorner.CornerRadius = UDim.new(0, 6)
 minCorner.Parent = minimizeButton
 
--- Modern close button
 local closeButton = Instance.new("TextButton")
 closeButton.Name = "CloseButton"
 closeButton.Size = UDim2.new(0, 30, 0, 30)
@@ -126,7 +119,6 @@ closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.TextSize = 18
 closeButton.Font = Enum.Font.GothamBold
 closeButton.Parent = titleBar
-
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 6)
 closeCorner.Parent = closeButton
@@ -139,45 +131,10 @@ contentFrame.Position = UDim2.new(0, 15, 0, 50)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Method detection display
-local methodFrame = Instance.new("Frame")
-methodFrame.Size = UDim2.new(1, 0, 0, 50)
-methodFrame.Position = UDim2.new(0, 0, 0, 0)
-methodFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-methodFrame.BackgroundTransparency = 0.3
-methodFrame.Parent = contentFrame
-
-local methodCorner = Instance.new("UICorner")
-methodCorner.CornerRadius = UDim.new(0, 8)
-methodCorner.Parent = methodFrame
-
-local detectedMethodLabel = Instance.new("TextLabel")
-detectedMethodLabel.Size = UDim2.new(1, -20, 0.5, 0)
-detectedMethodLabel.Position = UDim2.new(0, 10, 0, 5)
-detectedMethodLabel.BackgroundTransparency = 1
-detectedMethodLabel.Text = "🔍 DETECTING GAME METHOD..."
-detectedMethodLabel.TextColor3 = Color3.fromRGB(255, 193, 7)
-detectedMethodLabel.TextSize = 12
-detectedMethodLabel.Font = Enum.Font.GothamBold
-detectedMethodLabel.TextXAlignment = Enum.TextXAlignment.Left
-detectedMethodLabel.Parent = methodFrame
-
-local optimalMethodLabel = Instance.new("TextLabel")
-optimalMethodLabel.Size = UDim2.new(1, -20, 0.5, 0)
-optimalMethodLabel.Position = UDim2.new(0, 10, 0.5, 0)
-optimalMethodLabel.BackgroundTransparency = 1
-optimalMethodLabel.Text = "⚡ OPTIMAL METHOD: ANALYZING..."
-optimalMethodLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
-optimalMethodLabel.TextSize = 12
-optimalMethodLabel.Font = Enum.Font.Gotham
-optimalMethodLabel.TextXAlignment = Enum.TextXAlignment.Left
-optimalMethodLabel.Parent = methodFrame
-
--- Status display
-local statusLabel = Instance.new("TextLabel")
+-- Status label\local statusLabel = Instance.new("TextLabel")
 statusLabel.Name = "StatusLabel"
 statusLabel.Size = UDim2.new(1, 0, 0, 35)
-statusLabel.Position = UDim2.new(0, 0, 0, 65)
+statusLabel.Position = UDim2.new(0, 0, 0, 0)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "🎯 READY TO EXECUTE FAST STEAL"
 statusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
@@ -185,17 +142,15 @@ statusLabel.TextSize = 14
 statusLabel.Font = Enum.Font.GothamBold
 statusLabel.Parent = contentFrame
 
--- Advanced progress bar
+-- Progress bar
 local progressContainer = Instance.new("Frame")
 progressContainer.Size = UDim2.new(1, 0, 0, 25)
-progressContainer.Position = UDim2.new(0, 0, 0, 110)
+progressContainer.Position = UDim2.new(0, 0, 0, 45)
 progressContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 progressContainer.Parent = contentFrame
-
 local progressCorner = Instance.new("UICorner")
 progressCorner.CornerRadius = UDim.new(0, 12)
 progressCorner.Parent = progressContainer
-
 local progressBar = Instance.new("Frame")
 progressBar.Name = "ProgressBar"
 progressBar.Size = UDim2.new(0, 0, 1, 0)
@@ -203,12 +158,9 @@ progressBar.Position = UDim2.new(0, 0, 0, 0)
 progressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
 progressBar.BorderSizePixel = 0
 progressBar.Parent = progressContainer
-
 local barCorner = Instance.new("UICorner")
 barCorner.CornerRadius = UDim.new(0, 12)
 barCorner.Parent = progressBar
-
--- Progress text
 local progressText = Instance.new("TextLabel")
 progressText.Size = UDim2.new(1, 0, 1, 0)
 progressText.BackgroundTransparency = 1
@@ -218,557 +170,164 @@ progressText.TextSize = 12
 progressText.Font = Enum.Font.GothamBold
 progressText.Parent = progressContainer
 
--- Enhanced Fast Steal button
+-- Execute button
 local fastStealButton = Instance.new("TextButton")
 fastStealButton.Name = "FastStealButton"
 fastStealButton.Size = UDim2.new(1, 0, 0, 50)
-fastStealButton.Position = UDim2.new(0, 0, 0, 150)
+fastStealButton.Position = UDim2.new(0, 0, 0, 80)
 fastStealButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
 fastStealButton.Text = "🚀 EXECUTE FAST STEAL 🚀"
 fastStealButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 fastStealButton.TextSize = 16
 fastStealButton.Font = Enum.Font.GothamBold
 fastStealButton.Parent = contentFrame
-
 local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 10)
 buttonCorner.Parent = fastStealButton
-
--- Button glow effect
 local buttonStroke = Instance.new("UIStroke")
 buttonStroke.Color = Color3.fromRGB(0, 255, 127)
 buttonStroke.Thickness = 2
 buttonStroke.Transparency = 0.5
 buttonStroke.Parent = fastStealButton
 
--- Variables
-local isMinimized = false
-local isTeleporting = false
-local detectedMethod = nil
-local teleportMethods = {
-    {name = "CFrame Direct", func = "cframe", priority = 1},
-    {name = "Root Position", func = "position", priority = 2},
-    {name = "Humanoid MoveTo", func = "moveto", priority = 3},
-    {name = "Character MoveTo", func = "charmove", priority = 4},
-    {name = "Velocity Boost", func = "velocity", priority = 5},
-    {name = "Network Bypass", func = "bypass", priority = 6},
-    {name = "Anchor Teleport", func = "anchor", priority = 7},
-    {name = "Force Teleport", func = "force", priority = 8}
+-- Teleportation Methods\local teleportMethods = {
+    {name = "CFrame Direct", func = "cframe"},
+    {name = "Root Position", func = "position"},
+    {name = "Humanoid MoveTo", func = "moveto"},
+    {name = "Character MoveTo", func = "charmove"},
+    {name = "Velocity Boost", func = "velocity"},
+    {name = "Network Bypass", func = "bypass"},
+    {name = "Anchor Teleport", func = "anchor"},
+    {name = "Force Teleport", func = "force"}
 }
 
--- Enhanced method detection with anti-teleport analysis
-local function detectGameTeleportMethod()
-    detectedMethodLabel.Text = "🔍 ANALYZING GAME ARCHITECTURE..."
-    
-    local character = player.Character
-    if not character then return nil end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return nil end
-    
-    -- Store original position for safety
-    originalPosition = humanoidRootPart.Position
-    local testPosition = originalPosition + Vector3.new(0, 0.1, 0)
-    
-    -- First, check for anti-teleport systems
-    detectedMethodLabel.Text = "🛡️ SCANNING FOR ANTI-TELEPORT SYSTEMS..."
-    optimalMethodLabel.Text = "🔍 DETECTING SECURITY MEASURES..."
-    
-    local antiTeleportDetected = detectAntiTeleport()
-    if antiTeleportDetected then
-        optimalMethodLabel.Text = "⚠️ ANTI-TELEPORT DETECTED - PREPARING BYPASS"
-    end
-    
-    wait(0.5)
-    
-    -- Test each method with bypass capabilities
-    for i, method in ipairs(teleportMethods) do
-        detectedMethodLabel.Text = "🔍 TESTING METHOD " .. i .. "/8: " .. method.name:upper()
-        
-        local success = false
-        local startTime = tick()
-        local bypassSuccess = false
-        
-        pcall(function()
-            -- Pre-test bypass setup
-            for _, child in pairs(humanoidRootPart:GetChildren()) do
-                if child:IsA("BodyPosition") or child:IsA("BodyVelocity") then
-                    child:Destroy()
-                end
-            end
-            
-            if method.func == "cframe" then
-                humanoidRootPart.Anchored = true
-                humanoidRootPart.CFrame = CFrame.new(testPosition)
-                humanoidRootPart.Anchored = false
-                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
-            elseif method.func == "position" then
-                humanoidRootPart.Anchored = true
-                humanoidRootPart.Position = testPosition
-                humanoidRootPart.Anchored = false
-                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
-            elseif method.func == "anchor" then
-                humanoidRootPart.Anchored = true
-                humanoidRootPart.Position = testPosition
-                wait(0.1)
-                humanoidRootPart.Anchored = false
-                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
-            end
-            
-            -- Test if position holds (anti-teleport bypass test)
-            wait(0.2)
-            if success and (humanoidRootPart.Position - testPosition).Magnitude < 1 then
-                bypassSuccess = true
-            end
-        end)
-        
-        local responseTime = tick() - startTime
-        
-        if success and bypassSuccess and responseTime < 0.3 then
-            detectedMethodLabel.Text = "✅ OPTIMAL METHOD DETECTED: " .. method.name:upper()
-            optimalMethodLabel.Text = "⚡ BYPASS CAPABLE: " .. method.name:upper() .. " (PRIORITY " .. method.priority .. ")"
-            
-            -- Return to original position safely
-            pcall(function()
-                humanoidRootPart.CFrame = CFrame.new(originalPosition)
-            end)
-            
-            return method
-        end
-        
-        -- Return to original position after each test
-        pcall(function()
-            humanoidRootPart.CFrame = CFrame.new(originalPosition)
-        end)
-        
-        wait(0.1)
-    end
-    
-    detectedMethodLabel.Text = "⚠️ USING MAXIMUM BYPASS METHODS"
-    optimalMethodLabel.Text = "🛡️ FULL ANTI-TELEPORT COUNTERMEASURES ACTIVE"
-    
-    -- Ensure we're back at original position
-    pcall(function()
-        humanoidRootPart.CFrame = CFrame.new(originalPosition)
-    end)
-    
-    return teleportMethods[1] -- Fallback to CFrame with maximum bypass
-end
-
--- Anti-Teleport Detection & Bypass Variables
-local antiTPActive = false
-local originalPosition = nil
-local teleportLocked = false
-local bypassConnections = {}
-
--- Function to detect anti-teleport systems
+-- Detect anti-teleport presence
 local function detectAntiTeleport()
-    local character = player.Character
-    if not character then return false end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return false end
-    
-    -- Check for common anti-teleport methods
-    local detectionMethods = {
-        "BodyPosition", "BodyVelocity", "BodyMovers", "PrimaryPart",
-        "Changed", "Heartbeat", "RenderStepped", "RemoteEvents"
-    }
-    
-    local detected = false
-    
-    -- Check for body movers that might reset position
-    for _, child in pairs(humanoidRootPart:GetChildren()) do
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    for _, child in ipairs(root:GetChildren()) do
         if child:IsA("BodyPosition") or child:IsA("BodyVelocity") or child:IsA("BodyAngularVelocity") then
-            if not bypassConnections[child] then
-                detected = true
-            end
+            return true
         end
     end
-    
-    return detected
+    return false
 end
 
--- Advanced Anti-Teleport Bypass System
-local function setupAntiTeleportBypass()
-    local character = player.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-    
-    -- Method 1: Disable all body movers that try to reset position
-    local function neutralizeBodyMovers()
-        for _, child in pairs(humanoidRootPart:GetChildren()) do
-            if child:IsA("BodyPosition") or child:IsA("BodyVelocity") or child:IsA("BodyAngularVelocity") then
-                if child.Name ~= "FastStealBypass" then
-                    child:Destroy()
-                end
-            end
-        end
-    end
-    
-    -- Method 2: Network ownership bypass
-    local function setNetworkOwnership()
-        pcall(function()
-            humanoidRootPart:SetNetworkOwner(player)
-        end)
-    end
-    
-    -- Method 3: Continuous position lock
-    local function createPositionLock(targetPos)
-        -- Remove any existing locks
-        for name, connection in pairs(bypassConnections) do
-            if connection then
-                connection:Disconnect()
-            end
-        end
-        bypassConnections = {}
-        
-        -- Create invisible anchor
-        local lockPart = Instance.new("Part")
-        lockPart.Name = "FastStealBypass"
-        lockPart.Anchored = true
-        lockPart.CanCollide = false
-        lockPart.Transparency = 1
-        lockPart.Size = Vector3.new(0.1, 0.1, 0.1)
-        lockPart.CFrame = CFrame.new(targetPos)
-        lockPart.Parent = workspace
-        
-        -- Weld to lock position
-        local weld = Instance.new("WeldConstraint")
-        weld.Part0 = humanoidRootPart
-        weld.Part1 = lockPart
-        weld.Parent = humanoidRootPart
-        
-        game:GetService("Debris"):AddItem(lockPart, 2)
-        game:GetService("Debris"):AddItem(weld, 2)
-    end
-    
-    -- Method 4: Heartbeat position enforcement
-    local function enforcePosition(targetPos)
-        bypassConnections["heartbeat"] = RunService.Heartbeat:Connect(function()
-            if humanoidRootPart and humanoidRootPart.Parent then
-                local currentPos = humanoidRootPart.Position
-                if (currentPos - targetPos).Magnitude > 5 then
-                    neutralizeBodyMovers()
-                    humanoidRootPart.CFrame = CFrame.new(targetPos)
-                    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                    humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
-                end
-            end
-        end)
-        
-        -- Auto-disconnect after 3 seconds
-        wait(3)
-        if bypassConnections["heartbeat"] then
-            bypassConnections["heartbeat"]:Disconnect()
-            bypassConnections["heartbeat"] = nil
-        end
-    end
-    
-    -- Method 5: Character property override
-    local function overrideCharacterProperties()
-        pcall(function()
-            if character.PrimaryPart then
-                character.PrimaryPart = humanoidRootPart
-            end
-        end)
-    end
-    
-    return neutralizeBodyMovers, setNetworkOwnership, createPositionLock, enforcePosition, overrideCharacterProperties
-end
-
--- Enhanced teleport function with anti-teleport bypass
-local function attemptTeleport(method, destination)
-    local character = player.Character
-    if not character then return false end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-    
-    if not humanoidRootPart then return false end
-    
-    -- Setup anti-teleport bypass
-    local neutralizeBodyMovers, setNetworkOwnership, createPositionLock, enforcePosition, overrideCharacterProperties = setupAntiTeleportBypass()
-    
-    -- Pre-teleport bypass setup
-    neutralizeBodyMovers()
-    setNetworkOwnership()
-    overrideCharacterProperties()
-    
-    local success = false
-    
-    pcall(function()
-        if method.func == "cframe" then
-            humanoidRootPart.Anchored = true
-            neutralizeBodyMovers()
-            humanoidRootPart.CFrame = CFrame.new(destination)
-            createPositionLock(destination)
-            humanoidRootPart.Anchored = false
-            
-        elseif method.func == "position" then
-            neutralizeBodyMovers()
-            humanoidRootPart.Anchored = true
-            humanoidRootPart.Position = destination
-            humanoidRootPart.Anchored = false
-            createPositionLock(destination)
-            
-        elseif method.func == "moveto" and humanoid then
-            neutralizeBodyMovers()
-            humanoid:MoveTo(destination)
-            wait(0.1)
-            humanoidRootPart.CFrame = CFrame.new(destination)
-            createPositionLock(destination)
-            
-        elseif method.func == "charmove" then
-            neutralizeBodyMovers()
-            character:MoveTo(destination)
-            wait(0.1)
-            humanoidRootPart.CFrame = CFrame.new(destination)
-            createPositionLock(destination)
-            
-        elseif method.func == "velocity" then
-            neutralizeBodyMovers()
-            local bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.Name = "FastStealBypass"
-            bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-            bodyVelocity.Velocity = (destination - humanoidRootPart.Position).Unit * 200
-            bodyVelocity.Parent = humanoidRootPart
-            wait(0.3)
-            bodyVelocity:Destroy()
-            humanoidRootPart.CFrame = CFrame.new(destination)
-            createPositionLock(destination)
-            
-        elseif method.func == "bypass" then
-            neutralizeBodyMovers()
-            setNetworkOwnership()
-            humanoidRootPart.Anchored = true
-            humanoidRootPart.CFrame = CFrame.new(destination)
-            wait(0.1)
-            humanoidRootPart.Anchored = false
-            createPositionLock(destination)
-            
-        elseif method.func == "anchor" then
-            neutralizeBodyMovers()
-            humanoidRootPart.Anchored = true
-            humanoidRootPart.Position = destination
-            wait(0.1)
-            humanoidRootPart.Anchored = false
-            createPositionLock(destination)
-            
-        elseif method.func == "force" then
-            neutralizeBodyMovers()
-            local bodyPosition = Instance.new("BodyPosition")
-            bodyPosition.Name = "FastStealBypass"
-            bodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bodyPosition.Position = destination
-            bodyPosition.P = 10000
-            bodyPosition.D = 1000
-            bodyPosition.Parent = humanoidRootPart
-            wait(0.5)
-            bodyPosition:Destroy()
-            humanoidRootPart.CFrame = CFrame.new(destination)
-            createPositionLock(destination)
-        end
-        
-        success = true
-    end)
-    
-    -- Post-teleport security measures
-    if success then
-        spawn(function()
-            enforcePosition(destination)
-        end)
-        
-        -- Additional security layer
-        spawn(function()
-            for i = 1, 10 do
-                wait(0.2)
-                if humanoidRootPart and (humanoidRootPart.Position - destination).Magnitude > 10 then
-                    neutralizeBodyMovers()
-                    humanoidRootPart.CFrame = CFrame.new(destination)
-                    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                end
-            end
-        end)
-    end
-    
-    wait(0.2)
-    return success and (humanoidRootPart.Position - destination).Magnitude < 20
-end
-
--- Find delivery hitbox with enhanced search
-local function findDeliveryHitbox()
-    local searchTerms = {"delivery", "hitbox", "deliver", "drop", "endpoint", "target"}
-    
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            local name = obj.Name:lower()
-            for _, term in ipairs(searchTerms) do
-                if name:find(term) then
-                    return obj
-                end
-            end
-        end
-    end
-    return nil
-end
-
--- Get spawn point
-local function getSpawnPoint()
-    local spawnLocation = workspace:FindFirstChild("SpawnLocation")
-    if spawnLocation then
-        return spawnLocation.Position + Vector3.new(0, 5, 0)
-    end
-    
-    -- Try to find other spawn points
-    for _, obj in pairs(workspace:GetChildren()) do
-        if obj.Name:lower():find("spawn") and obj:IsA("BasePart") then
-            return obj.Position + Vector3.new(0, 5, 0)
-        end
-    end
-    
-    return Vector3.new(0, 50, 0)
-end
-
--- Main fast steal function
-local function executeFastSteal()
-    if isTeleporting then return end
-    isTeleporting = true
-    
-    fastStealButton.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
-    fastStealButton.Text = "⏳ EXECUTING..."
-    
-    -- Detect optimal method first
-    statusLabel.Text = "🔍 DETECTING OPTIMAL TELEPORT METHOD..."
-    statusLabel.TextColor3 = Color3.fromRGB(255, 193, 7)
-    
-    local optimalMethod = detectGameTeleportMethod()
-    wait(0.5)
-    
-    -- Find target
-    statusLabel.Text = "🎯 LOCATING TARGET DESTINATION..."
-    local deliveryHitbox = findDeliveryHitbox()
-    local targetPosition
-    
-    if deliveryHitbox then
-        targetPosition = deliveryHitbox.Position + Vector3.new(0, 5, 0)
-        statusLabel.Text = "📦 DELIVERY HITBOX ACQUIRED!"
-    else
-        targetPosition = getSpawnPoint()
-        statusLabel.Text = "🏠 USING SPAWN COORDINATES"
-    end
-    
-    wait(0.5)
-    statusLabel.Text = "🛡️ ACTIVATING ANTI-TELEPORT BYPASS..."
-    statusLabel.TextColor3 = Color3.fromRGB(255, 69, 58)
-    wait(0.3)
-    
-    statusLabel.Text = "⚡ EXECUTING UNDETECTABLE TELEPORT..."
-    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-    
-    -- Try optimal method first, then fallbacks
-    local methodsToTry = {optimalMethod}
+-- Test each method and return optimal
+local function detectTeleportMethod()
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return teleportMethods[1] end
+    local orig = root.Position
+    local testPos = orig + Vector3.new(0, 5, 0)
     for _, method in ipairs(teleportMethods) do
-        if method ~= optimalMethod then
-            table.insert(methodsToTry, method)
+        local success = pcall(function()
+            if method.func == "cframe" then
+                root.CFrame = CFrame.new(testPos)
+            elseif method.func == "position" then
+                root.Position = testPos
+            elseif method.func == "anchor" then
+                root.Anchored = true; root.Position = testPos; wait(0.1); root.Anchored = false
+            end
+        end)
+        wait(0.3)
+        if (root.Position - testPos).Magnitude < 1 then
+            root.CFrame = CFrame.new(orig)
+            return method
+        else
+            root.CFrame = CFrame.new(orig)
         end
     end
-    
-    for i, method in ipairs(methodsToTry) do
-        if i > 8 then break end -- Limit attempts
-        
-        statusLabel.Text = "⚡ BYPASS METHOD " .. i .. "/8: " .. method.name:upper()
-        
-        -- Update progress
-        local progress = i / math.min(8, #methodsToTry)
-        TweenService:Create(progressBar, TweenInfo.new(0.3), {Size = UDim2.new(progress, 0, 1, 0)}):Play()
-        progressText.Text = math.floor(progress * 100) .. "%"
-        
-        local success = attemptTeleport(method, targetPosition)
-        
-        if success then
-            statusLabel.Text = "✅ TELEPORT SUCCESSFUL! TARGET REACHED!"
-            statusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-            
-            -- Success animation
-            TweenService:Create(fastStealButton, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0, true), {
-                BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            }):Play()
-            
-            -- Progress complete
-            TweenService:Create(progressBar, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-            progressText.Text = "100% - SUCCESS!"
-            
-            wait(3)
+    return teleportMethods[1]
+end
+
+-- Attempt teleport with bypass
+local function attemptTeleport(method, dest)
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    -- Disable body movers
+    for _, child in ipairs(root:GetChildren()) do
+        if child:IsA("BodyMover") then child:Destroy() end
+    end
+    -- Teleport
+    if method.func == "cframe" then
+        root.CFrame = CFrame.new(dest)
+    elseif method.func == "position" then
+        root.Position = dest
+    elseif method.func == "moveto" then
+        char:FindFirstChildOfClass("Humanoid"):MoveTo(dest)
+        wait(0.2)
+        root.CFrame = CFrame.new(dest)
+    elseif method.func == "charmove" then
+        char:MoveTo(dest)
+        wait(0.2)
+        root.CFrame = CFrame.new(dest)
+    elseif method.func == "velocity" then
+        local bv = Instance.new("BodyVelocity", root)
+        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bv.Velocity = (dest - root.Position).Unit * 200
+        wait(0.2)
+        bv:Destroy()
+        root.CFrame = CFrame.new(dest)
+    elseif method.func == "anchor" then
+        root.Anchored = true; root.Position = dest; wait(0.1); root.Anchored = false
+    elseif method.func == "force" then
+        local bp = Instance.new("BodyPosition", root)
+        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bp.Position = dest
+        wait(0.3)
+        bp:Destroy()
+        root.CFrame = CFrame.new(dest)
+    end
+    wait(0.2)
+    return (root.Position - dest).Magnitude < 3
+end
+
+-- Find delivery hitbox or spawn
+local function findTargetPosition()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("deliver") then
+            return obj.Position + Vector3.new(0,5,0)
+        end
+    end
+    local spawn = workspace:FindFirstChild("SpawnLocation")
+    return spawn and (spawn.Position + Vector3.new(0,5,0)) or Vector3.new(0,50,0)
+end
+
+-- Main execution
+local function executeFastSteal()
+    fastStealButton.Active = false
+    statusLabel.Text = "🔍 Detecting method..."
+    local method = detectTeleportMethod()
+    statusLabel.Text = "🎯 Locating target..."
+    local target = findTargetPosition()
+    statusLabel.Text = "⚡ Teleporting via " .. method.name
+    for i, m in ipairs(teleportMethods) do
+        TweenService:Create(progressBar, TweenInfo.new(0.3), {Size = UDim2.new(i/#teleportMethods,0,1,0)}):Play()
+        progressText.Text = math.floor((i/#teleportMethods)*100) .. "%"
+        if attemptTeleport(m, target) then
+            statusLabel.Text = "✅ Teleport Successful!"
             break
         else
-            wait(0.3)
+            statusLabel.Text = "❌ "..m.name.." failed, retrying..."
+            wait(0.2)
         end
     end
-    
-    if (player.Character and player.Character:FindFirstChild("HumanoidRootPart") and 
-        (player.Character.HumanoidRootPart.Position - targetPosition).Magnitude > 20) then
-        statusLabel.Text = "❌ ALL METHODS FAILED - TRYING EMERGENCY PROTOCOLS"
-        statusLabel.TextColor3 = Color3.fromRGB(255, 69, 58)
-    end
-    
-    -- Reset after delay
-    wait(3)
-    statusLabel.Text = "🎯 READY TO EXECUTE FAST STEAL"
-    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-    TweenService:Create(progressBar, TweenInfo.new(0.5), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+    wait(2)
+    -- Reset UI
+    TweenService:Create(progressBar, TweenInfo.new(0.5), {Size = UDim2.new(0,0,1,0)}):Play()
     progressText.Text = "0%"
-    fastStealButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
-    fastStealButton.Text = "🚀 EXECUTE FAST STEAL 🚀"
-    isTeleporting = false
+    statusLabel.Text = "🎯 READY TO EXECUTE FAST STEAL"
+    fastStealButton.Active = true
 end
 
--- Button events
 fastStealButton.MouseButton1Click:Connect(executeFastSteal)
-
-closeButton.MouseButton1Click:Connect(function()
-    TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0)
-    }):Play()
-    wait(0.3)
-    screenGui:Destroy()
-end)
-
+closeButton.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 minimizeButton.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    if isMinimized then
-        TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 380, 0, 40)}):Play()
-        contentFrame.Visible = false
-        minimizeButton.Text = "□"
-    else
-        TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 380, 0, 280)}):Play()
-        contentFrame.Visible = true
-        minimizeButton.Text = "−"
-    end
+    contentFrame.Visible = not contentFrame.Visible
+    minimizeButton.Text = contentFrame.Visible and "−" or "□"
 end)
 
--- Button hover effects
-fastStealButton.MouseEnter:Connect(function()
-    if not isTeleporting then
-        TweenService:Create(fastStealButton, TweenInfo.new(0.2), {
-            BackgroundColor3 = Color3.fromRGB(0, 200, 100),
-            Size = UDim2.new(1, 5, 0, 52)
-        }):Play()
-    end
-end)
-
-fastStealButton.MouseLeave:Connect(function()
-    if not isTeleporting then
-        TweenService:Create(fastStealButton, TweenInfo.new(0.2), {
-            BackgroundColor3 = Color3.fromRGB(0, 255, 127),
-            Size = UDim2.new(1, 0, 0, 50)
-        }):Play()
-    end
-end)
-
-print("🚀 ADVANCED FAST STEAL GUI LOADED SUCCESSFULLY! 🚀")
-print("🔥 FEATURING: METHOD DETECTION & ANTI-TELEPORT BYPASS 🔥")
-print("🛡️ FULL PROTECTION: UNDETECTABLE & PERMANENT TELEPORTS 🛡️")
+print("Advanced Fast Steal GUI Loaded and Teleport Fixes Applied")
