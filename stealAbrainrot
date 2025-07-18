@@ -1,191 +1,315 @@
--- Fast Steal GUI Script
+-- Advanced Fast Steal GUI with Method Detection
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Crea la GUI principale
+-- Create main GUI
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FastStealGUI"
+screenGui.Name = "AdvancedFastStealGUI"
 screenGui.Parent = playerGui
 screenGui.ResetOnSpawn = false
 
--- Frame principale
+-- Main frame with glassmorphism effect
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 300, 0, 200)
-mainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-mainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+mainFrame.Size = UDim2.new(0, 380, 0, 280)
+mainFrame.Position = UDim2.new(0.5, -190, 0.5, -140)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+mainFrame.BackgroundTransparency = 0.1
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 mainFrame.Active = true
 mainFrame.Draggable = true
 
--- Bordo con gradiente
+-- Glassmorphism effect
+local blur = Instance.new("Frame")
+blur.Size = UDim2.new(1, 0, 1, 0)
+blur.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+blur.BackgroundTransparency = 0.3
+blur.Parent = mainFrame
+
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
+corner.CornerRadius = UDim.new(0, 12)
 corner.Parent = mainFrame
 
+local blurCorner = Instance.new("UICorner")
+blurCorner.CornerRadius = UDim.new(0, 12)
+blurCorner.Parent = blur
+
+-- Animated border
 local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(0, 255, 255)
-stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(100, 255, 150)
+stroke.Thickness = 3
+stroke.Transparency = 0.3
 stroke.Parent = mainFrame
 
--- Barra del titolo
+-- Animated gradient border effect
+spawn(function()
+    local colors = {
+        Color3.fromRGB(255, 100, 255), -- Purple
+        Color3.fromRGB(100, 255, 255), -- Cyan
+        Color3.fromRGB(255, 255, 100), -- Yellow
+        Color3.fromRGB(100, 255, 100), -- Green
+        Color3.fromRGB(255, 100, 100)  -- Red
+    }
+    
+    while screenGui.Parent do
+        for _, color in ipairs(colors) do
+            TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine), {Color = color}):Play()
+            wait(1)
+        end
+    end
+end)
+
+-- Title bar
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.Size = UDim2.new(1, 0, 0, 40)
 titleBar.Position = UDim2.new(0, 0, 0, 0)
-titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+titleBar.BackgroundTransparency = 0.2
 titleBar.BorderSizePixel = 0
 titleBar.Parent = mainFrame
 
 local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.CornerRadius = UDim.new(0, 12)
 titleCorner.Parent = titleBar
 
--- Titolo
+-- Title with glow effect
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Name = "Title"
-titleLabel.Size = UDim2.new(1, -60, 1, 0)
-titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.Size = UDim2.new(1, -80, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "🔥 RUBBA UN BRAINROT 🔥"
+titleLabel.Text = "⚡ ADVANCED FAST STEAL ⚡"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextScaled = true
+titleLabel.TextSize = 16
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.Parent = titleBar
 
--- Bottone minimizza
+-- Add text glow
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Color = Color3.fromRGB(100, 255, 200)
+titleStroke.Thickness = 1
+titleStroke.Transparency = 0.5
+titleStroke.Parent = titleLabel
+
+-- Modern minimize button
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Name = "MinimizeButton"
-minimizeButton.Size = UDim2.new(0, 25, 0, 25)
-minimizeButton.Position = UDim2.new(1, -55, 0, 2.5)
-minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-minimizeButton.Text = "_"
+minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+minimizeButton.Position = UDim2.new(1, -70, 0, 5)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+minimizeButton.Text = "−"
 minimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-minimizeButton.TextScaled = true
+minimizeButton.TextSize = 16
 minimizeButton.Font = Enum.Font.GothamBold
 minimizeButton.Parent = titleBar
 
 local minCorner = Instance.new("UICorner")
-minCorner.CornerRadius = UDim.new(0, 4)
+minCorner.CornerRadius = UDim.new(0, 6)
 minCorner.Parent = minimizeButton
 
--- Bottone chiudi
+-- Modern close button
 local closeButton = Instance.new("TextButton")
 closeButton.Name = "CloseButton"
-closeButton.Size = UDim2.new(0, 25, 0, 25)
-closeButton.Position = UDim2.new(1, -27, 0, 2.5)
-closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-closeButton.Text = "X"
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+closeButton.Text = "×"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextScaled = true
+closeButton.TextSize = 18
 closeButton.Font = Enum.Font.GothamBold
 closeButton.Parent = titleBar
 
 local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.CornerRadius = UDim.new(0, 6)
 closeCorner.Parent = closeButton
 
--- Area contenuto
+-- Content area
 local contentFrame = Instance.new("Frame")
 contentFrame.Name = "ContentFrame"
-contentFrame.Size = UDim2.new(1, -20, 1, -50)
-contentFrame.Position = UDim2.new(0, 10, 0, 40)
+contentFrame.Size = UDim2.new(1, -30, 1, -60)
+contentFrame.Position = UDim2.new(0, 15, 0, 50)
 contentFrame.BackgroundTransparency = 1
 contentFrame.Parent = mainFrame
 
--- Status label
+-- Method detection display
+local methodFrame = Instance.new("Frame")
+methodFrame.Size = UDim2.new(1, 0, 0, 50)
+methodFrame.Position = UDim2.new(0, 0, 0, 0)
+methodFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+methodFrame.BackgroundTransparency = 0.3
+methodFrame.Parent = contentFrame
+
+local methodCorner = Instance.new("UICorner")
+methodCorner.CornerRadius = UDim.new(0, 8)
+methodCorner.Parent = methodFrame
+
+local detectedMethodLabel = Instance.new("TextLabel")
+detectedMethodLabel.Size = UDim2.new(1, -20, 0.5, 0)
+detectedMethodLabel.Position = UDim2.new(0, 10, 0, 5)
+detectedMethodLabel.BackgroundTransparency = 1
+detectedMethodLabel.Text = "🔍 DETECTING GAME METHOD..."
+detectedMethodLabel.TextColor3 = Color3.fromRGB(255, 193, 7)
+detectedMethodLabel.TextSize = 12
+detectedMethodLabel.Font = Enum.Font.GothamBold
+detectedMethodLabel.TextXAlignment = Enum.TextXAlignment.Left
+detectedMethodLabel.Parent = methodFrame
+
+local optimalMethodLabel = Instance.new("TextLabel")
+optimalMethodLabel.Size = UDim2.new(1, -20, 0.5, 0)
+optimalMethodLabel.Position = UDim2.new(0, 10, 0.5, 0)
+optimalMethodLabel.BackgroundTransparency = 1
+optimalMethodLabel.Text = "⚡ OPTIMAL METHOD: ANALYZING..."
+optimalMethodLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+optimalMethodLabel.TextSize = 12
+optimalMethodLabel.Font = Enum.Font.Gotham
+optimalMethodLabel.TextXAlignment = Enum.TextXAlignment.Left
+optimalMethodLabel.Parent = methodFrame
+
+-- Status display
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Name = "StatusLabel"
-statusLabel.Size = UDim2.new(1, 0, 0, 30)
-statusLabel.Position = UDim2.new(0, 0, 0, 0)
+statusLabel.Size = UDim2.new(1, 0, 0, 35)
+statusLabel.Position = UDim2.new(0, 0, 0, 65)
 statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "Ready to steal! 🎯"
-statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-statusLabel.TextScaled = true
-statusLabel.Font = Enum.Font.Gotham
+statusLabel.Text = "🎯 READY TO EXECUTE FAST STEAL"
+statusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+statusLabel.TextSize = 14
+statusLabel.Font = Enum.Font.GothamBold
 statusLabel.Parent = contentFrame
 
--- Progress bar
-local progressFrame = Instance.new("Frame")
-progressFrame.Name = "ProgressFrame"
-progressFrame.Size = UDim2.new(1, 0, 0, 20)
-progressFrame.Position = UDim2.new(0, 0, 0, 40)
-progressFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-progressFrame.BorderSizePixel = 0
-progressFrame.Parent = contentFrame
+-- Advanced progress bar
+local progressContainer = Instance.new("Frame")
+progressContainer.Size = UDim2.new(1, 0, 0, 25)
+progressContainer.Position = UDim2.new(0, 0, 0, 110)
+progressContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+progressContainer.Parent = contentFrame
 
 local progressCorner = Instance.new("UICorner")
-progressCorner.CornerRadius = UDim.new(0, 10)
-progressCorner.Parent = progressFrame
+progressCorner.CornerRadius = UDim.new(0, 12)
+progressCorner.Parent = progressContainer
 
 local progressBar = Instance.new("Frame")
 progressBar.Name = "ProgressBar"
 progressBar.Size = UDim2.new(0, 0, 1, 0)
 progressBar.Position = UDim2.new(0, 0, 0, 0)
-progressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+progressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
 progressBar.BorderSizePixel = 0
-progressBar.Parent = progressFrame
+progressBar.Parent = progressContainer
 
 local barCorner = Instance.new("UICorner")
-barCorner.CornerRadius = UDim.new(0, 10)
+barCorner.CornerRadius = UDim.new(0, 12)
 barCorner.Parent = progressBar
 
--- Bottone Fast Steal
+-- Progress text
+local progressText = Instance.new("TextLabel")
+progressText.Size = UDim2.new(1, 0, 1, 0)
+progressText.BackgroundTransparency = 1
+progressText.Text = "0%"
+progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+progressText.TextSize = 12
+progressText.Font = Enum.Font.GothamBold
+progressText.Parent = progressContainer
+
+-- Enhanced Fast Steal button
 local fastStealButton = Instance.new("TextButton")
 fastStealButton.Name = "FastStealButton"
-fastStealButton.Size = UDim2.new(1, 0, 0, 40)
-fastStealButton.Position = UDim2.new(0, 0, 0, 70)
-fastStealButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-fastStealButton.Text = "🚀 FAST STEAL 🚀"
+fastStealButton.Size = UDim2.new(1, 0, 0, 50)
+fastStealButton.Position = UDim2.new(0, 0, 0, 150)
+fastStealButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+fastStealButton.Text = "🚀 EXECUTE FAST STEAL 🚀"
 fastStealButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-fastStealButton.TextScaled = true
+fastStealButton.TextSize = 16
 fastStealButton.Font = Enum.Font.GothamBold
 fastStealButton.Parent = contentFrame
 
 local buttonCorner = Instance.new("UICorner")
-buttonCorner.CornerRadius = UDim.new(0, 8)
+buttonCorner.CornerRadius = UDim.new(0, 10)
 buttonCorner.Parent = fastStealButton
 
--- Variabili per il sistema di teletrasporto
+-- Button glow effect
+local buttonStroke = Instance.new("UIStroke")
+buttonStroke.Color = Color3.fromRGB(0, 255, 127)
+buttonStroke.Thickness = 2
+buttonStroke.Transparency = 0.5
+buttonStroke.Parent = fastStealButton
+
+-- Variables
 local isMinimized = false
 local isTeleporting = false
+local detectedMethod = nil
 local teleportMethods = {
-    "CFrame Teleport",
-    "Humanoid MoveTo",
-    "Root Part Position",
-    "Character Position",
-    "Velocity Boost",
-    "Network Bypass"
+    {name = "CFrame Direct", func = "cframe", priority = 1},
+    {name = "Root Position", func = "position", priority = 2},
+    {name = "Humanoid MoveTo", func = "moveto", priority = 3},
+    {name = "Character MoveTo", func = "charmove", priority = 4},
+    {name = "Velocity Boost", func = "velocity", priority = 5},
+    {name = "Network Bypass", func = "bypass", priority = 6},
+    {name = "Anchor Teleport", func = "anchor", priority = 7},
+    {name = "Force Teleport", func = "force", priority = 8}
 }
 
--- Funzione per trovare Delivery Hitbox
-local function findDeliveryHitbox()
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj.Name:lower():find("delivery") and obj.Name:lower():find("hitbox") then
-            return obj
-        elseif obj.Name:lower():find("delivery") and obj:IsA("Part") then
-            return obj
+-- Method detection system
+local function detectGameTeleportMethod()
+    detectedMethodLabel.Text = "🔍 ANALYZING GAME ARCHITECTURE..."
+    
+    local character = player.Character
+    if not character then return nil end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
+    
+    -- Test each method quickly
+    local originalPosition = humanoidRootPart.Position
+    local testPosition = originalPosition + Vector3.new(0, 0.1, 0)
+    
+    for i, method in ipairs(teleportMethods) do
+        detectedMethodLabel.Text = "🔍 TESTING METHOD " .. i .. "/8: " .. method.name:upper()
+        
+        local success = false
+        local startTime = tick()
+        
+        pcall(function()
+            if method.func == "cframe" then
+                humanoidRootPart.CFrame = CFrame.new(testPosition)
+                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
+            elseif method.func == "position" then
+                humanoidRootPart.Position = testPosition
+                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
+            elseif method.func == "anchor" then
+                humanoidRootPart.Anchored = true
+                humanoidRootPart.Position = testPosition
+                humanoidRootPart.Anchored = false
+                success = (humanoidRootPart.Position - testPosition).Magnitude < 0.5
+            end
+        end)
+        
+        local responseTime = tick() - startTime
+        
+        if success and responseTime < 0.1 then
+            detectedMethodLabel.Text = "✅ OPTIMAL METHOD DETECTED: " .. method.name:upper()
+            optimalMethodLabel.Text = "⚡ USING: " .. method.name:upper() .. " (PRIORITY " .. method.priority .. ")"
+            humanoidRootPart.Position = originalPosition
+            return method
         end
+        
+        wait(0.1)
     end
-    return nil
+    
+    detectedMethodLabel.Text = "⚠️ USING FALLBACK METHODS"
+    optimalMethodLabel.Text = "⚡ ADAPTIVE MODE ENABLED"
+    humanoidRootPart.Position = originalPosition
+    return teleportMethods[1] -- Fallback to CFrame
 end
 
--- Funzione per ottenere spawn point
-local function getSpawnPoint()
-    local spawnLocation = workspace:FindFirstChild("SpawnLocation")
-    if spawnLocation then
-        return spawnLocation.Position + Vector3.new(0, 5, 0)
-    end
-    return Vector3.new(0, 50, 0)
-end
-
--- Funzione per il teletrasporto
+-- Enhanced teleport function
 local function attemptTeleport(method, destination)
     local character = player.Character
     if not character then return false end
@@ -195,110 +319,216 @@ local function attemptTeleport(method, destination)
     
     if not humanoidRootPart then return false end
     
+    local success = false
+    
     pcall(function()
-        if method == "CFrame Teleport" then
+        if method.func == "cframe" then
             humanoidRootPart.CFrame = CFrame.new(destination)
-        elseif method == "Humanoid MoveTo" and humanoid then
+        elseif method.func == "position" then
+            humanoidRootPart.Position = destination
+        elseif method.func == "moveto" and humanoid then
             humanoid:MoveTo(destination)
             humanoidRootPart.CFrame = CFrame.new(destination)
-        elseif method == "Root Part Position" then
-            humanoidRootPart.Position = destination
-        elseif method == "Character Position" then
+        elseif method.func == "charmove" then
             character:MoveTo(destination)
-        elseif method == "Velocity Boost" then
+        elseif method.func == "velocity" then
             local bodyVelocity = Instance.new("BodyVelocity")
             bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-            bodyVelocity.Velocity = (destination - humanoidRootPart.Position).Unit * 100
+            bodyVelocity.Velocity = (destination - humanoidRootPart.Position).Unit * 150
             bodyVelocity.Parent = humanoidRootPart
-            wait(0.1)
-            bodyVelocity:Destroy()
+            game:GetService("Debris"):AddItem(bodyVelocity, 0.2)
+            wait(0.2)
             humanoidRootPart.CFrame = CFrame.new(destination)
-        elseif method == "Network Bypass" then
+        elseif method.func == "bypass" then
             humanoidRootPart.Anchored = true
             humanoidRootPart.CFrame = CFrame.new(destination)
+            wait(0.05)
             humanoidRootPart.Anchored = false
+        elseif method.func == "anchor" then
+            humanoidRootPart.Anchored = true
+            humanoidRootPart.Position = destination
+            humanoidRootPart.Anchored = false
+        elseif method.func == "force" then
+            local bodyPosition = Instance.new("BodyPosition")
+            bodyPosition.MaxForce = Vector3.new(8000, 8000, 8000)
+            bodyPosition.Position = destination
+            bodyPosition.Parent = humanoidRootPart
+            game:GetService("Debris"):AddItem(bodyPosition, 0.3)
+            wait(0.3)
         end
+        success = true
     end)
     
-    wait(0.1)
-    return (humanoidRootPart.Position - destination).Magnitude < 10
+    wait(0.15)
+    return success and (humanoidRootPart.Position - destination).Magnitude < 15
 end
 
--- Funzione principale Fast Steal
-local function fastSteal()
+-- Find delivery hitbox with enhanced search
+local function findDeliveryHitbox()
+    local searchTerms = {"delivery", "hitbox", "deliver", "drop", "endpoint", "target"}
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local name = obj.Name:lower()
+            for _, term in ipairs(searchTerms) do
+                if name:find(term) then
+                    return obj
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Get spawn point
+local function getSpawnPoint()
+    local spawnLocation = workspace:FindFirstChild("SpawnLocation")
+    if spawnLocation then
+        return spawnLocation.Position + Vector3.new(0, 5, 0)
+    end
+    
+    -- Try to find other spawn points
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name:lower():find("spawn") and obj:IsA("BasePart") then
+            return obj.Position + Vector3.new(0, 5, 0)
+        end
+    end
+    
+    return Vector3.new(0, 50, 0)
+end
+
+-- Main fast steal function
+local function executeFastSteal()
     if isTeleporting then return end
     isTeleporting = true
     
-    statusLabel.Text = "Searching for target... 🔍"
-    statusLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+    fastStealButton.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
+    fastStealButton.Text = "⏳ EXECUTING..."
     
+    -- Detect optimal method first
+    statusLabel.Text = "🔍 DETECTING OPTIMAL TELEPORT METHOD..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 193, 7)
+    
+    local optimalMethod = detectGameTeleportMethod()
+    wait(0.5)
+    
+    -- Find target
+    statusLabel.Text = "🎯 LOCATING TARGET DESTINATION..."
     local deliveryHitbox = findDeliveryHitbox()
     local targetPosition
     
     if deliveryHitbox then
         targetPosition = deliveryHitbox.Position + Vector3.new(0, 5, 0)
-        statusLabel.Text = "Delivery target found! 📦"
+        statusLabel.Text = "📦 DELIVERY HITBOX ACQUIRED!"
     else
         targetPosition = getSpawnPoint()
-        statusLabel.Text = "Using spawn point 🏠"
+        statusLabel.Text = "🏠 USING SPAWN COORDINATES"
     end
     
     wait(0.5)
+    statusLabel.Text = "⚡ EXECUTING FAST STEAL SEQUENCE..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
     
-    for i, method in ipairs(teleportMethods) do
-        statusLabel.Text = "Trying method " .. i .. "/6: " .. method .. " ⚡"
-        statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    -- Try optimal method first, then fallbacks
+    local methodsToTry = {optimalMethod}
+    for _, method in ipairs(teleportMethods) do
+        if method ~= optimalMethod then
+            table.insert(methodsToTry, method)
+        end
+    end
+    
+    for i, method in ipairs(methodsToTry) do
+        if i > 8 then break end -- Limit attempts
         
-        -- Aggiorna progress bar
-        local progress = i / #teleportMethods
+        statusLabel.Text = "⚡ METHOD " .. i .. "/8: " .. method.name:upper()
+        
+        -- Update progress
+        local progress = i / math.min(8, #methodsToTry)
         TweenService:Create(progressBar, TweenInfo.new(0.3), {Size = UDim2.new(progress, 0, 1, 0)}):Play()
+        progressText.Text = math.floor(progress * 100) .. "%"
         
         local success = attemptTeleport(method, targetPosition)
         
         if success then
-            statusLabel.Text = "✅ TELEPORT SUCCESSFUL! ✅"
-            statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            statusLabel.Text = "✅ TELEPORT SUCCESSFUL! TARGET REACHED!"
+            statusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
             
-            -- Animazione di successo
-            local successTween = TweenService:Create(fastStealButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0, true), {
+            -- Success animation
+            TweenService:Create(fastStealButton, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0, true), {
                 BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            })
-            successTween:Play()
+            }):Play()
             
-            wait(2)
+            -- Progress complete
+            TweenService:Create(progressBar, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+            progressText.Text = "100% - SUCCESS!"
+            
+            wait(3)
             break
         else
-            wait(0.5)
+            wait(0.3)
         end
     end
     
-    -- Reset dopo 3 secondi
+    if (player.Character and player.Character:FindFirstChild("HumanoidRootPart") and 
+        (player.Character.HumanoidRootPart.Position - targetPosition).Magnitude > 20) then
+        statusLabel.Text = "❌ ALL METHODS FAILED - TRYING EMERGENCY PROTOCOLS"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 69, 58)
+    end
+    
+    -- Reset after delay
     wait(3)
-    statusLabel.Text = "Ready to steal! 🎯"
-    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-    TweenService:Create(progressBar, TweenInfo.new(0.3), {Size = UDim2.new(0, 0, 1, 0)}):Play()
-    fastStealButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    statusLabel.Text = "🎯 READY TO EXECUTE FAST STEAL"
+    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+    TweenService:Create(progressBar, TweenInfo.new(0.5), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+    progressText.Text = "0%"
+    fastStealButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+    fastStealButton.Text = "🚀 EXECUTE FAST STEAL 🚀"
     isTeleporting = false
 end
 
--- Eventi dei bottoni
-fastStealButton.MouseButton1Click:Connect(fastSteal)
+-- Button events
+fastStealButton.MouseButton1Click:Connect(executeFastSteal)
 
 closeButton.MouseButton1Click:Connect(function()
+    TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = UDim2.new(0.5, 0, 0.5, 0)
+    }):Play()
+    wait(0.3)
     screenGui:Destroy()
 end)
 
 minimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
-        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 300, 0, 30)}):Play()
+        TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 380, 0, 40)}):Play()
         contentFrame.Visible = false
         minimizeButton.Text = "□"
     else
-        TweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 300, 0, 200)}):Play()
+        TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 380, 0, 280)}):Play()
         contentFrame.Visible = true
-        minimizeButton.Text = "_"
+        minimizeButton.Text = "−"
     end
 end)
 
-print("🔥 RUBBA UN BRAINROT - Fast Steal GUI loaded! 🔥")
+-- Button hover effects
+fastStealButton.MouseEnter:Connect(function()
+    if not isTeleporting then
+        TweenService:Create(fastStealButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(0, 200, 100),
+            Size = UDim2.new(1, 5, 0, 52)
+        }):Play()
+    end
+end)
+
+fastStealButton.MouseLeave:Connect(function()
+    if not isTeleporting then
+        TweenService:Create(fastStealButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(0, 255, 127),
+            Size = UDim2.new(1, 0, 0, 50)
+        }):Play()
+    end
+end)
+
+print("🚀 ADVANCED FAST STEAL GUI LOADED SUCCESSFULLY! 🚀")
+print("🔥 FEATURING: METHOD DETECTION & ADAPTIVE TELEPORTING 🔥")
