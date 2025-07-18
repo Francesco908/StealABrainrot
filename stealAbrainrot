@@ -1,333 +1,154 @@
--- Advanced Fast Steal GUI with Method Detection and Fixed Teleportation
--- Author: SKIBIDI (Student)
-
-local Players = game:GetService("Players")
+--// SERVICES
+local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
+local RunService   = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local char   = player.Character or player.CharacterAdded:Wait()
+local hrp    = char:WaitForChild("HumanoidRootPart")
 
--- Create main GUI
+-- Flag per bloccare ogni ulteriore teleport after success
+local hasTeleportedOnce = false
+
+--// CREATING GUI (uguale a prima)
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AdvancedFastStealGUI"
-screenGui.Parent = playerGui
-screenGui.ResetOnSpawn = false
+screenGui.Name = "FastStealGUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Main frame with glassmorphism effect
 local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 380, 0, 280)
-mainFrame.Position = UDim2.new(0.5, -190, 0.5, -140)
-mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-mainFrame.BackgroundTransparency = 0.1
+mainFrame.Name = "Main"
+mainFrame.Size = UDim2.new(0, 250, 0, 100)
+mainFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 mainFrame.BorderSizePixel = 0
-mainFrame.Parent = screenGui
 mainFrame.Active = true
 mainFrame.Draggable = true
+mainFrame.Parent = screenGui
 
--- Glassmorphism overlay
-theBlur = Instance.new("Frame")
-theBlur.Size = UDim2.new(1, 0, 1, 0)
-theBlur.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-theBlur.BackgroundTransparency = 0.3
-theBlur.Parent = mainFrame
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = mainFrame
-
-local blurCorner = Instance.new("UICorner")
-blurCorner.CornerRadius = UDim.new(0, 12)
-blurCorner.Parent = theBlur
-
--- Animated gradient border
-dlocal stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(100, 255, 150)
-stroke.Thickness = 3
-stroke.Transparency = 0.3
-stroke.Parent = mainFrame
-spawn(function()
-    local colors = {
-        Color3.fromRGB(255, 100, 255),
-        Color3.fromRGB(100, 255, 255),
-        Color3.fromRGB(255, 255, 100),
-        Color3.fromRGB(100, 255, 100),
-        Color3.fromRGB(255, 100, 100)
-    }
-    while screenGui.Parent do
-        for _, c in ipairs(colors) do
-            TweenService:Create(stroke, TweenInfo.new(1, Enum.EasingStyle.Sine), {Color = c}):Play()
-            wait(1)
-        end
-    end
-end)
-
--- Title bar
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 40)
-titleBar.Position = UDim2.new(0, 0, 0, 0)
-titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-titleBar.BackgroundTransparency = 0.2
-titleBar.BorderSizePixel = 0
+titleBar.Size = UDim2.new(1, 0, 0, 24)
+titleBar.BackgroundColor3 = Color3.fromRGB(20,20,20)
 titleBar.Parent = mainFrame
-local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 12)
-titleCorner.Parent = titleBar
 
--- Title label
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "Title"
-titleLabel.Size = UDim2.new(1, -80, 1, 0)
-titleLabel.Position = UDim2.new(0, 15, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "⚡ ADVANCED FAST STEAL ⚡"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextSize = 16
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Parent = titleBar
-local titleStroke = Instance.new("UIStroke")
-titleStroke.Color = Color3.fromRGB(100, 255, 200)
-titleStroke.Thickness = 1
-titleStroke.Transparency = 0.5
-titleStroke.Parent = titleLabel
+local btnMin = Instance.new("TextButton")
+btnMin.Name = "Minimize"
+btnMin.Size = UDim2.new(0, 24, 0, 24)
+btnMin.Position = UDim2.new(1, -48, 0, 0)
+btnMin.Text = "–"
+btnMin.BackgroundTransparency = 1
+btnMin.TextColor3 = Color3.new(1,1,1)
+btnMin.Parent = titleBar
 
--- Control buttons
-local minimizeButton = Instance.new("TextButton")
-minimizeButton.Name = "MinimizeButton"
-minimizeButton.Size = UDim2.new(0, 30, 0, 30)
-minimizeButton.Position = UDim2.new(1, -70, 0, 5)
-minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 193, 7)
-minimizeButton.Text = "−"
-minimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-minimizeButton.TextSize = 16
-minimizeButton.Font = Enum.Font.GothamBold
-minimizeButton.Parent = titleBar
-local minCorner = Instance.new("UICorner")
-minCorner.CornerRadius = UDim.new(0, 6)
-minCorner.Parent = minimizeButton
+local btnClose = Instance.new("TextButton")
+btnClose.Name = "Close"
+btnClose.Size = UDim2.new(0, 24, 0, 24)
+btnClose.Position = UDim2.new(1, -24, 0, 0)
+btnClose.Text = "✕"
+btnClose.BackgroundTransparency = 1
+btnClose.TextColor3 = Color3.new(1,1,1)
+btnClose.Parent = titleBar
 
-local closeButton = Instance.new("TextButton")
-closeButton.Name = "CloseButton"
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -35, 0, 5)
-closeButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
-closeButton.Text = "×"
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextSize = 18
-closeButton.Font = Enum.Font.GothamBold
-closeButton.Parent = titleBar
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 6)
-closeCorner.Parent = closeButton
+local content = Instance.new("Frame")
+content.Name = "Content"
+content.Size = UDim2.new(1, 0, 1, -24)
+content.Position = UDim2.new(0, 0, 0, 24)
+content.BackgroundTransparency = 1
+content.Parent = mainFrame
 
--- Content area
-local contentFrame = Instance.new("Frame")
-contentFrame.Name = "ContentFrame"
-contentFrame.Size = UDim2.new(1, -30, 1, -60)
-contentFrame.Position = UDim2.new(0, 15, 0, 50)
-contentFrame.BackgroundTransparency = 1
-contentFrame.Parent = mainFrame
+local btnTP = Instance.new("TextButton")
+btnTP.Name = "TeleportButton"
+btnTP.Size = UDim2.new(1, -20, 0, 32)
+btnTP.Position = UDim2.new(0, 10, 0, 10)
+btnTP.Text = "Fast Teleport"
+btnTP.BackgroundColor3 = Color3.fromRGB(50,50,50)
+btnTP.BorderSizePixel = 0
+btnTP.TextColor3 = Color3.new(1,1,1)
+btnTP.Parent = content
 
--- Status label\local statusLabel = Instance.new("TextLabel")
-statusLabel.Name = "StatusLabel"
-statusLabel.Size = UDim2.new(1, 0, 0, 35)
-statusLabel.Position = UDim2.new(0, 0, 0, 0)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "🎯 READY TO EXECUTE FAST STEAL"
-statusLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-statusLabel.TextSize = 14
-statusLabel.Font = Enum.Font.GothamBold
-statusLabel.Parent = contentFrame
+local lblStatus = Instance.new("TextLabel")
+lblStatus.Name = "StatusLabel"
+lblStatus.Size = UDim2.new(1, -20, 0, 24)
+lblStatus.Position = UDim2.new(0, 10, 0, 52)
+lblStatus.Text = ""
+lblStatus.BackgroundTransparency = 1
+lblStatus.TextColor3 = Color3.new(1,1,1)
+lblStatus.TextXAlignment = Enum.TextXAlignment.Left
+lblStatus.Parent = content
 
--- Progress bar
-local progressContainer = Instance.new("Frame")
-progressContainer.Size = UDim2.new(1, 0, 0, 25)
-progressContainer.Position = UDim2.new(0, 0, 0, 45)
-progressContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-progressContainer.Parent = contentFrame
-local progressCorner = Instance.new("UICorner")
-progressCorner.CornerRadius = UDim.new(0, 12)
-progressCorner.Parent = progressContainer
-local progressBar = Instance.new("Frame")
-progressBar.Name = "ProgressBar"
-progressBar.Size = UDim2.new(0, 0, 1, 0)
-progressBar.Position = UDim2.new(0, 0, 0, 0)
-progressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
-progressBar.BorderSizePixel = 0
-progressBar.Parent = progressContainer
-local barCorner = Instance.new("UICorner")
-barCorner.CornerRadius = UDim.new(0, 12)
-barCorner.Parent = progressBar
-local progressText = Instance.new("TextLabel")
-progressText.Size = UDim2.new(1, 0, 1, 0)
-progressText.BackgroundTransparency = 1
-progressText.Text = "0%"
-progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
-progressText.TextSize = 12
-progressText.Font = Enum.Font.GothamBold
-progressText.Parent = progressContainer
+-- Minimize/Close logic (uguale)
+local minimized = false
+btnMin.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    content.Visible = not minimized
+    mainFrame.Size = minimized and UDim2.new(0,250,0,24) or UDim2.new(0,250,0,100)
+end)
+btnClose.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
 
--- Execute button
-local fastStealButton = Instance.new("TextButton")
-fastStealButton.Name = "FastStealButton"
-fastStealButton.Size = UDim2.new(1, 0, 0, 50)
-fastStealButton.Position = UDim2.new(0, 0, 0, 80)
-fastStealButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
-fastStealButton.Text = "🚀 EXECUTE FAST STEAL 🚀"
-fastStealButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-fastStealButton.TextSize = 16
-fastStealButton.Font = Enum.Font.GothamBold
-fastStealButton.Parent = contentFrame
-local buttonCorner = Instance.new("UICorner")
-buttonCorner.CornerRadius = UDim.new(0, 10)
-buttonCorner.Parent = fastStealButton
-local buttonStroke = Instance.new("UIStroke")
-buttonStroke.Color = Color3.fromRGB(0, 255, 127)
-buttonStroke.Thickness = 2
-buttonStroke.Transparency = 0.5
-buttonStroke.Parent = fastStealButton
-
--- Teleportation Methods\local teleportMethods = {
-    {name = "CFrame Direct", func = "cframe"},
-    {name = "Root Position", func = "position"},
-    {name = "Humanoid MoveTo", func = "moveto"},
-    {name = "Character MoveTo", func = "charmove"},
-    {name = "Velocity Boost", func = "velocity"},
-    {name = "Network Bypass", func = "bypass"},
-    {name = "Anchor Teleport", func = "anchor"},
-    {name = "Force Teleport", func = "force"}
+-- Teleport methods
+local methods = {
+    CFrame.new(0, 50, 0),
+    CFrame.new(100, 50, 100),
+    CFrame.new(-100, 50, -100),
+    CFrame.new(200, 50, -200),
+    CFrame.new(-200, 50, 200),
+    CFrame.new(0, 100, 100)
 }
 
--- Detect anti-teleport presence
-local function detectAntiTeleport()
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    for _, child in ipairs(root:GetChildren()) do
-        if child:IsA("BodyPosition") or child:IsA("BodyVelocity") or child:IsA("BodyAngularVelocity") then
+-- Tentativo singolo di teleport
+local function tryTeleport()
+    for _, cf in ipairs(methods) do
+        local success = pcall(function()
+            hrp.CFrame = cf
+        end)
+        if success then
             return true
         end
+        RunService.Heartbeat:Wait()
     end
     return false
 end
 
--- Test each method and return optimal
-local function detectTeleportMethod()
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return teleportMethods[1] end
-    local orig = root.Position
-    local testPos = orig + Vector3.new(0, 5, 0)
-    for _, method in ipairs(teleportMethods) do
-        local success = pcall(function()
-            if method.func == "cframe" then
-                root.CFrame = CFrame.new(testPos)
-            elseif method.func == "position" then
-                root.Position = testPos
-            elseif method.func == "anchor" then
-                root.Anchored = true; root.Position = testPos; wait(0.1); root.Anchored = false
-            end
-        end)
-        wait(0.3)
-        if (root.Position - testPos).Magnitude < 1 then
-            root.CFrame = CFrame.new(orig)
-            return method
+-- Handler del pulsante Teleport
+btnTP.MouseButton1Click:Connect(function()
+    -- Se già teletrasportato, non fare nulla
+    if hasTeleportedOnce then
+        lblStatus.Text = "⛔ Teleport già effettuato!"
+        return
+    end
+
+    btnTP.Active = false
+    lblStatus.Text = "Trying teleport..."
+    local teleported = false
+
+    -- Loop finché non va a buon fine (una volta)
+    while not teleported do
+        teleported = tryTeleport()
+    end
+
+    -- Segna che il teleport è avvenuto
+    hasTeleportedOnce = true
+
+    -- Trova DeliveryHitbox e teletrasporta
+    local hitbox = workspace:FindFirstChild("DeliveryHitbox", true)
+    if hitbox and hitbox:IsA("BasePart") then
+        hrp.CFrame = hitbox.CFrame + Vector3.new(0, 5, 0)
+        lblStatus.Text = "✅ Teleport successful → DeliveryHitbox"
+    else
+        local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+        if spawn then
+            hrp.CFrame = spawn.CFrame + Vector3.new(0, 5, 0)
+            lblStatus.Text = "✅ Teleport → SpawnPoint (Hitbox non trovata)"
         else
-            root.CFrame = CFrame.new(orig)
+            lblStatus.Text = "✅ Teleport avvenuto, ma nessun spawn trovato!"
         end
     end
-    return teleportMethods[1]
-end
 
--- Attempt teleport with bypass
-local function attemptTeleport(method, dest)
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    -- Disable body movers
-    for _, child in ipairs(root:GetChildren()) do
-        if child:IsA("BodyMover") then child:Destroy() end
-    end
-    -- Teleport
-    if method.func == "cframe" then
-        root.CFrame = CFrame.new(dest)
-    elseif method.func == "position" then
-        root.Position = dest
-    elseif method.func == "moveto" then
-        char:FindFirstChildOfClass("Humanoid"):MoveTo(dest)
-        wait(0.2)
-        root.CFrame = CFrame.new(dest)
-    elseif method.func == "charmove" then
-        char:MoveTo(dest)
-        wait(0.2)
-        root.CFrame = CFrame.new(dest)
-    elseif method.func == "velocity" then
-        local bv = Instance.new("BodyVelocity", root)
-        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-        bv.Velocity = (dest - root.Position).Unit * 200
-        wait(0.2)
-        bv:Destroy()
-        root.CFrame = CFrame.new(dest)
-    elseif method.func == "anchor" then
-        root.Anchored = true; root.Position = dest; wait(0.1); root.Anchored = false
-    elseif method.func == "force" then
-        local bp = Instance.new("BodyPosition", root)
-        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bp.Position = dest
-        wait(0.3)
-        bp:Destroy()
-        root.CFrame = CFrame.new(dest)
-    end
-    wait(0.2)
-    return (root.Position - dest).Magnitude < 3
-end
-
--- Find delivery hitbox or spawn
-local function findTargetPosition()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find("deliver") then
-            return obj.Position + Vector3.new(0,5,0)
-        end
-    end
-    local spawn = workspace:FindFirstChild("SpawnLocation")
-    return spawn and (spawn.Position + Vector3.new(0,5,0)) or Vector3.new(0,50,0)
-end
-
--- Main execution
-local function executeFastSteal()
-    fastStealButton.Active = false
-    statusLabel.Text = "🔍 Detecting method..."
-    local method = detectTeleportMethod()
-    statusLabel.Text = "🎯 Locating target..."
-    local target = findTargetPosition()
-    statusLabel.Text = "⚡ Teleporting via " .. method.name
-    for i, m in ipairs(teleportMethods) do
-        TweenService:Create(progressBar, TweenInfo.new(0.3), {Size = UDim2.new(i/#teleportMethods,0,1,0)}):Play()
-        progressText.Text = math.floor((i/#teleportMethods)*100) .. "%"
-        if attemptTeleport(m, target) then
-            statusLabel.Text = "✅ Teleport Successful!"
-            break
-        else
-            statusLabel.Text = "❌ "..m.name.." failed, retrying..."
-            wait(0.2)
-        end
-    end
-    wait(2)
-    -- Reset UI
-    TweenService:Create(progressBar, TweenInfo.new(0.5), {Size = UDim2.new(0,0,1,0)}):Play()
-    progressText.Text = "0%"
-    statusLabel.Text = "🎯 READY TO EXECUTE FAST STEAL"
-    fastStealButton.Active = true
-end
-
-fastStealButton.MouseButton1Click:Connect(executeFastSteal)
-closeButton.MouseButton1Click:Connect(function() screenGui:Destroy() end)
-minimizeButton.MouseButton1Click:Connect(function()
-    contentFrame.Visible = not contentFrame.Visible
-    minimizeButton.Text = contentFrame.Visible and "−" or "□"
+    -- Disabilita definitivamente il pulsante
+    btnTP.Text = "Teleport effettuato"
+    btnTP.AutoButtonColor = false
+    btnTP.BackgroundTransparency = 0.5
+    btnTP.Active = false
 end)
-
-print("Advanced Fast Steal GUI Loaded and Teleport Fixes Applied")
